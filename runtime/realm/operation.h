@@ -19,7 +19,7 @@
 #include "realm/profiling.h"
 #include "realm/event_impl.h"
 
-#include "activemsg.h"
+#include "fabric.h"
 
 #include <set>
 #include <iostream>
@@ -127,8 +127,10 @@ namespace Realm {
     void add_remote_operation(Event finish_event, int remote_note);
 
     void request_cancellation(Event finish_event, const void *reason_data, size_t reason_size);
-    
+
+#if 0    
     static int register_handlers(gasnet_handlerentry_t *handlers);
+#endif
 
   protected:
     void event_triggered(Event e);
@@ -158,7 +160,7 @@ namespace Realm {
     // try to avoid a serial bottleneck by splitting events over 4 different tables
     static const int NUM_TABLES = 4;
     
-    GASNetHSL mutexes[NUM_TABLES];
+    Mutex *mutexes[NUM_TABLES];
     Table tables[NUM_TABLES];
     TableCleaner cleaner;
   };

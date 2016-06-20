@@ -480,11 +480,13 @@ namespace Realm {
       local_op->remove_reference();
     }
   }
-    
+
+#if 0    
   /*static*/ int OperationTable::register_handlers(gasnet_handlerentry_t *handlers)
   {
     return 0;
   }
+#endif
 
 
 }; // namespace Realm

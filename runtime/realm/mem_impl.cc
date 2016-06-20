@@ -657,7 +657,7 @@ namespace Realm {
       if(gasnet_mynode() == 0) {
 	return create_instance_local(r, linearization_bits, bytes_needed,
 				     block_size, element_size, field_sizes, redopid,
-				     list_size, reqs, parent_inst);
+ 				     list_size, reqs, parent_inst);
       } else {
 	return create_instance_remote(r, linearization_bits, bytes_needed,
 				      block_size, element_size, field_sizes, redopid,

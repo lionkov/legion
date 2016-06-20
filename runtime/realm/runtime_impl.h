@@ -21,7 +21,8 @@
 #include "runtime.h"
 #include "id.h"
 
-#include "activemsg.h"
+#include "fabric.h"
+#include "msg.h"
 #include "operation.h"
 #include "profiling.h"
 
@@ -69,7 +70,7 @@ namespace Realm {
       static const size_t INNER_BITS = _INNER_BITS;
       static const size_t LEAF_BITS = _LEAF_BITS;
 
-      typedef GASNetHSL LT;
+      typedef Mutex *LT;
       typedef int IT;
       typedef DynamicTableNode<DynamicTableNodeBase<LT, IT> *, 1 << INNER_BITS, LT, IT> INNER_TYPE;
       typedef DynamicTableNode<ET, 1 << LEAF_BITS, LT, IT> LEAF_TYPE;
@@ -232,8 +233,8 @@ namespace Realm {
       unsigned thread_counts[MAX_NUM_THREADS];
 #endif
       volatile bool shutdown_requested;
-      GASNetHSL shutdown_mutex;
-      GASNetCondVar shutdown_condvar;
+      Mutex *shutdown_mutex;
+      CondVar *shutdown_condvar;
 
       CoreMap *core_map;
       CoreReservationSet *core_reservations;
@@ -280,19 +281,20 @@ namespace Realm {
 
     // active messages
 
-    struct RuntimeShutdownMessage {
+    class RuntimeShutdownMessage : public MessageType {
+  protected:
+	static RuntimeShutdownMessage *m;
+	RuntimeShutdownMessage():MessageType(MACHINE_SHUTDOWN_MSGID, sizeof(RequestArgs), false, true) { }
+
+  public:
       struct RequestArgs {
 	int initiating_node;
 	int dummy; // needed to get sizeof() >= 8
       };
 
-      static void handle_request(RequestArgs args);
-
-      typedef ActiveMessageShortNoReply<MACHINE_SHUTDOWN_MSGID,
-				        RequestArgs,
-				        handle_request> Message;
-
-      static void send_request(gasnet_node_t target);
+      virtual void request(Message *m);
+      static void init();
+      static void send(NodeId target);
     };
       
 }; // namespace Realm

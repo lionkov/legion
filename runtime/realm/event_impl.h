@@ -23,7 +23,8 @@
 #include "nodeset.h"
 #include "faults.h"
 
-#include "activemsg.h"
+#include "fabric.h"
+#include "msg.h"
 
 #include <vector>
 #include <map>
@@ -131,7 +132,7 @@ namespace Realm {
       GenEventImpl *next_free;
 
       // everything below here protected by this mutex
-      GASNetHSL mutex;
+      Mutex *mutex;
 
       // local waiters are tracked by generation - an easily-accessed list is used
       //  for the "current" generation, whereas a map-by-generation-id is used for
@@ -194,7 +195,7 @@ namespace Realm {
       // if delta < 0, timestamp says which positive adjustment this arrival must wait for
       void adjust_arrival(Event::gen_t barrier_gen, int delta, 
 			  Barrier::timestamp_t timestamp, Event wait_on,
-			  gasnet_node_t sender, bool forwarded,
+			  NodeId sender, bool forwarded,
 			  const void *reduce_value, size_t reduce_value_size);
 
       bool get_result(Event::gen_t result_gen, void *value, size_t value_size);
@@ -206,7 +207,7 @@ namespace Realm {
       Event::gen_t first_generation;
       BarrierImpl *next_free;
 
-      GASNetHSL mutex; // controls which local thread has access to internal data (not runtime-visible event)
+      Mutex *mutex; // controls which local thread has access to internal data (not runtime-visible event)
 
       // class to track per-generation status
       class Generation {
@@ -245,63 +246,76 @@ namespace Realm {
 
   // active messages
 
-  struct EventSubscribeMessage {
+  class EventSubscribeMessage : public MessageType {
+  protected:
+	static EventSubscribeMessage *m;
+
+	EventSubscribeMessage():MessageType(EVENT_SUBSCRIBE_MSGID, sizeof(RequestArgs), false, true) { }
+
+  public:
     struct RequestArgs {
-      gasnet_node_t node;
+      NodeId node;
       Event event;
       Event::gen_t previous_subscribe_gen;
     };
 
-    static void handle_request(RequestArgs args);
+	virtual void request(Message *m);
 
-    typedef ActiveMessageShortNoReply<EVENT_SUBSCRIBE_MSGID,
-				      RequestArgs,
-				      handle_request> Message;
-
-    static void send_request(gasnet_node_t target, Event event, Event::gen_t previous_gen);
+	static void init();
+	static void send(NodeId target, Event event, Event::gen_t previous_gen);
   };
 
   // EventTriggerMessage is used by non-owner nodes to trigger an event
   // EventUpdateMessage is used by the owner node to tell non-owner nodes about one or
   //   more triggerings of an event
 
-  struct EventTriggerMessage {
+  class EventTriggerMessage : public MessageType {
+  protected:
+	static EventTriggerMessage *m;
+
+	EventTriggerMessage() : MessageType(EVENT_TRIGGER_MSGID, sizeof(RequestArgs), false, true) { }
+
+  public:
     struct RequestArgs {
-      gasnet_node_t node;
+      NodeId node;
       Event event;
       bool poisoned;
     };
 
-    static void handle_request(RequestArgs args);
+	virtual void request(Message *m);
 
-    typedef ActiveMessageShortNoReply<EVENT_TRIGGER_MSGID,
-				       RequestArgs,
-				       handle_request> Message;
-
-    static void send_request(gasnet_node_t target, Event event, bool poisoned);
+	static void init();
+	static void send(NodeId target, Event event, Event::gen_t previous_gen);
   };
 
-  struct EventUpdateMessage {
-    struct RequestArgs : public BaseMedium {
+  class EventUpdateMessage : public MessageType {
+protected:
+	static EventUpdateMessage *m;
+
+	EventUpdateMessage() : MessageType(EVENT_UPDATE_MSGID, sizeof(RequestArgs), true, true) { }
+
+public:
+    struct RequestArgs {
       Event event;
 
-      void apply(gasnet_node_t target);
+      void apply(NodeId target);
     };
 
-    static void handle_request(RequestArgs args, const void *data, size_t datalen);
+	virtual void request(Message *m);
 
-    typedef ActiveMessageMediumNoReply<EVENT_UPDATE_MSGID,
-				       RequestArgs,
-				       handle_request> Message;
-
-    static void send_request(gasnet_node_t target, Event event,
-			     int num_poisoned, const Event::gen_t *poisoned_generations);
-    static void broadcast_request(const NodeSet& targets, Event event,
-				  int num_poisoned, const Event::gen_t *poisoned_generations);
+	static void init();
+	static void send(NodeId target, Event event, int num_poisoned, Event::gen_t *poisoned_generations);
+	static void broadcast(const NodeSet& targets, int num_poisoned, Event::gen_t *poisoned_generations);
   };
 
-    struct BarrierAdjustMessage {
-      struct RequestArgs : public BaseMedium {
+    struct BarrierAdjustMessage : public MessageType {
+    protected:
+	static BarrierAdjustMessage *m;
+
+	BarrierAdjustMessage() : MessageType(BARRIER_ADJUST_MSGID, sizeof(RequestArgs), true, true) { }
+
+    public:
+      struct RequestArgs {
 	int sender;
 	//bool forwarded;  no room to store this, so encoded as: sender < 0
 	int delta;
@@ -309,74 +323,75 @@ namespace Realm {
         Event wait_on;
       };
 
-      static void handle_request(RequestArgs args, const void *data, size_t datalen);
+	virtual void request(Message *m);
 
-      typedef ActiveMessageMediumNoReply<BARRIER_ADJUST_MSGID,
-					 RequestArgs,
-					 handle_request> Message;
-
-      static void send_request(gasnet_node_t target, Barrier barrier, int delta, Event wait_on,
-			       gasnet_node_t sender, bool forwarded,
-			       const void *data, size_t datalen);
+	static void init();
+	static void send(NodeId target, Barrier barrier, int delta, Event wait_on, NodeId sender,
+		bool forwarded, const void *data, size_t datalen);
     };
 
-    struct BarrierSubscribeMessage {
+    class BarrierSubscribeMessage : public MessageType {
+    protected:
+	static BarrierSubscribeMessage *m;
+
+	BarrierSubscribeMessage() : MessageType(BARRIER_SUBSCRIBE_MSGID, sizeof(RequestArgs), false, true) { }
+
+    public:
       struct RequestArgs {
-	gasnet_node_t subscriber;
+	NodeId subscriber;
 	ID::IDType barrier_id;
 	Event::gen_t subscribe_gen;
 	bool forwarded;
       };
 
-      static void handle_request(RequestArgs args);
+	virtual void request(Message *m);
 
-      typedef ActiveMessageShortNoReply<BARRIER_SUBSCRIBE_MSGID,
-					RequestArgs,
-					handle_request> Message;
-
-      static void send_request(gasnet_node_t target, ID::IDType barrier_id,
-			       Event::gen_t subscribe_gen,
-			       gasnet_node_t subscriber, bool forwarded);
+	static void init();
+	static void send(NodeId target, ID::IDType barrier_id, Event::gen_t subscribe_gen, NodeId subscriber, bool forwarded);
     };
 
-    struct BarrierTriggerMessage {
-      struct RequestArgs : public BaseMedium {
-	gasnet_node_t node;
+    class BarrierTriggerMessage : public MessageType {
+    protected:
+	static BarrierTriggerMessage *m;
+	BarrierTriggerMessage():MessageType(BARRIER_TRIGGER_MSGID, sizeof(RequestArgs), true, true) { }
+
+    public:
+      struct RequestArgs {
+	NodeId node;
 	ID::IDType barrier_id;
 	Event::gen_t trigger_gen;
 	Event::gen_t previous_gen;
 	Event::gen_t first_generation;
 	ReductionOpID redop_id;
-	gasnet_node_t migration_target;
+	NodeId migration_target;
 	unsigned base_arrival_count;
       };
 
-      static void handle_request(RequestArgs args, const void *data, size_t datalen);
+	virtual void request(Message *m);
 
-      typedef ActiveMessageMediumNoReply<BARRIER_TRIGGER_MSGID,
-					 RequestArgs,
-					 handle_request> Message;
-
-      static void send_request(gasnet_node_t target, ID::IDType barrier_id,
+	static void init();
+	static void send(NodeId target, ID::IDType barrier_id,
 			       Event::gen_t trigger_gen, Event::gen_t previous_gen,
 			       Event::gen_t first_generation, ReductionOpID redop_id,
-			       gasnet_node_t migration_target, unsigned base_arrival_count,
+			       NodeId migration_target, unsigned base_arrival_count,
 			       const void *data, size_t datalen);
     };
 
-    struct BarrierMigrationMessage {
+    class BarrierMigrationMessage : public MessageType {
+    protected:
+	static BarrierMigrationMessage *m;
+	BarrierMigrationMessage() : MessageType(BARRIER_MIGRATE_MSGID, sizeof(RequestArgs), false, true) { }
+
+    public:
       struct RequestArgs {
 	Barrier barrier;
-	gasnet_node_t current_owner;
+	NodeId current_owner;
       };
 
-      static void handle_request(RequestArgs args);
+	virtual void request(Message *m);
 
-      typedef ActiveMessageShortNoReply<BARRIER_MIGRATE_MSGID,
-					RequestArgs,
-					handle_request> Message;
-
-      static void send_request(gasnet_node_t target, Barrier barrier, gasnet_node_t owner);
+	static void init();
+	static void send(NodeId target, Barrier barrier, NodeId owner);
     };
 	
 }; // namespace Realm

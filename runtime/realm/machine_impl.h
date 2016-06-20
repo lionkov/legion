@@ -22,7 +22,7 @@
 
 #include "legion_types.h"
 #include "legion_utilities.h"
-#include "activemsg.h"
+#include "fabric.h"
 
 #include <vector>
 #include <set>
@@ -72,7 +72,7 @@ namespace Realm {
       void add_subscription(Machine::MachineUpdateSubscriber *subscriber);
       void remove_subscription(Machine::MachineUpdateSubscriber *subscriber);
 
-      mutable GASNetHSL mutex;
+      mutable Mutex *mutex;
       std::vector<Machine::ProcessorMemoryAffinity> proc_mem_affinities;
       std::vector<Machine::MemoryMemoryAffinity> mem_mem_affinities;
       std::set<Machine::MachineUpdateSubscriber *> subscribers;
@@ -271,20 +271,21 @@ namespace Realm {
     NODE_ANNOUNCE_MMA,  // MMA mem1_id mem2_id bw latency
   };
 
-  struct NodeAnnounceMessage {
-    struct RequestArgs : public BaseMedium {
-      gasnet_node_t node_id;
+  struct NodeAnnounceMessage : public MessageType {
+  protected:
+	static NodeAnnounceMessage *m;
+	NodeAnnounceMessage():MessageType(NODE_ANNOUNCE_MSGID, sizeof(RequestArgs), true, true) { }
+
+  public:
+    struct RequestArgs {
+      NodeId node_id;
       unsigned num_procs;
       unsigned num_memories;
     };
 
-    static void handle_request(RequestArgs args, const void *data, size_t datalen);
-
-    typedef ActiveMessageMediumNoReply<NODE_ANNOUNCE_MSGID,
-				       RequestArgs,
-				       handle_request> Message;
-
-    static void send_request(gasnet_node_t target,
+    virtual void request(Message *m);
+    static void init();
+    static void send(NodeId target,
 			     unsigned num_procs, unsigned num_memories,
 			     const void *data, size_t datalen, int payload_mode);
 

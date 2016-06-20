@@ -19,7 +19,7 @@
 #define REALM_THREADS_H
 
 #include "realm_config.h"
-#include "activemsg.h"
+#include "fabric.h"
 
 #ifdef REALM_USE_USER_THREADS
 #ifdef __MACH__
@@ -184,7 +184,7 @@ namespace Realm {
     Operation *current_op;
     int exception_handler_count;
     int signal_count;
-    GASNetHSL signal_mutex;
+    Mutex *signal_mutex;
     std::deque<Signal> signal_queue;
   };
 

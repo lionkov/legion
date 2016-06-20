@@ -21,7 +21,7 @@
 #include "processor.h"
 #include "id.h"
 
-#include "activemsg.h"
+#include "fabric.h"
 #include "operation.h"
 #include "profiling.h"
 #include "sampling.h"
@@ -99,7 +99,7 @@ namespace Realm {
       void set_scheduler(ThreadedTaskScheduler *_sched);
 
       ThreadedTaskScheduler *sched;
-      PriorityQueue<Task *, GASNetHSL> task_queue;
+      PriorityQueue<Task *, Mutex *> task_queue;
       ProfilingGauges::AbsoluteRangeGauge<int> ready_task_count;
 
       struct TaskTableEntry {
@@ -198,7 +198,7 @@ namespace Realm {
 
       void request_group_members(void);
 
-      PriorityQueue<Task *, GASNetHSL> task_queue;
+      PriorityQueue<Task *, Mutex *> task_queue;
       ProfilingGauges::AbsoluteRangeGauge<int> *ready_task_count;
     };
     
@@ -255,9 +255,14 @@ namespace Realm {
 
     // active messages
 
-    struct SpawnTaskMessage {
+    class SpawnTaskMessage : public MessageType {
+    protected:
+	static SpawnTaskMessage *m;
+	SpawnTaskMessage() : MessageType(SPAWN_TASK_MSGID, sizeof(RequestArgs), true, true) { }
+
+    public:
       // Employ some fancy struct packing here to fit in 64 bytes
-      struct RequestArgs : public BaseMedium {
+      struct RequestArgs {
 	Processor proc;
 	Event::id_t start_id;
 	Event::id_t finish_id;
@@ -268,13 +273,9 @@ namespace Realm {
 	Event::gen_t finish_gen;
       };
 
-      static void handle_request(RequestArgs args, const void *data, size_t datalen);
-
-      typedef ActiveMessageMediumNoReply<SPAWN_TASK_MSGID,
- 	                                 RequestArgs,
- 	                                 handle_request> Message;
-
-      static void send_request(gasnet_node_t target, Processor proc,
+      virtual void request(Message *m);
+      static void init();
+      static void send(NodeId target, Processor proc,
 			       Processor::TaskFuncID func_id,
 			       const void *args, size_t arglen,
 			       const ProfilingRequestSet *prs,
@@ -282,21 +283,22 @@ namespace Realm {
 			       int priority);
     };
     
-    struct RegisterTaskMessage {
-      struct RequestArgs : public BaseMedium {
-	gasnet_node_t sender;
+    class RegisterTaskMessage : public MessageType {
+    protected:
+	static RegisterTaskMessage *m;
+	RegisterTaskMessage() : MessageType(REGISTER_TASK_MSGID, sizeof(RequestArgs), true, true) { }
+
+    public:
+      struct RequestArgs {
+	NodeId sender;
 	Processor::TaskFuncID func_id;
 	Processor::Kind kind;
 	RemoteTaskRegistration *reg_op;
       };
 
-      static void handle_request(RequestArgs args, const void *data, size_t datalen);
-
-      typedef ActiveMessageMediumNoReply<REGISTER_TASK_MSGID,
- 	                                 RequestArgs,
- 	                                 handle_request> Message;
-
-      static void send_request(gasnet_node_t target,
+      virtual void request(Message *m);
+      static void init();
+      static void send(NodeId target,
 			       Processor::TaskFuncID func_id,
 			       Processor::Kind kind,
 			       const std::vector<Processor>& procs,
@@ -305,20 +307,21 @@ namespace Realm {
 			       RemoteTaskRegistration *reg_op);
     };
     
-    struct RegisterTaskCompleteMessage {
+    struct RegisterTaskCompleteMessage : public MessageType {
+    protected:
+	static SpawnTaskMessage *m;
+	RegisterTaskCompleteMessage() : MessageType(REGISTER_TASK_COMPLETE_MSGID, sizeof(RequestArgs), false, true) { }
+
+    public:
       struct RequestArgs {
-	gasnet_node_t sender;
+	NodeId sender;
 	RemoteTaskRegistration *reg_op;
 	bool successful;
       };
 
-      static void handle_request(RequestArgs args);
-
-      typedef ActiveMessageShortNoReply<REGISTER_TASK_COMPLETE_MSGID,
-					RequestArgs,
-					handle_request> Message;
-
-      static void send_request(gasnet_node_t target,
+      virtual void request(Message *m);
+      static void init();
+      static void send(NodeId target,
 			       RemoteTaskRegistration *reg_op,
 			       bool successful);
     };

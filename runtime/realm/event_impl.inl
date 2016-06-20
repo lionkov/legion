@@ -59,7 +59,7 @@ namespace Realm {
   inline /*static*/ void GenEventImpl::trigger(Event e, bool poisoned)
   {
     GenEventImpl *impl = get_genevent_impl(e);
-    impl->trigger(e.gen, gasnet_mynode(), poisoned);
+    impl->trigger(e.gen, fabric->get_id(), poisoned);
   }
 
 
