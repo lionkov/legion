@@ -120,7 +120,8 @@ namespace Realm {
       static const char* get_kind_name(Kind kind);
     };
 
-    inline std::ostream& operator<<(std::ostream& os, Processor p) { return os << std::hex << p.id << std::dec; }
+    inline std::ostream& operator<<(std::ostream& os, Processor p)
+    { return os << std::hex << p.id << std::dec; }
 	
 }; // namespace Realm
 

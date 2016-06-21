@@ -74,7 +74,7 @@ namespace Realm {
 	
 }; // namespace Realm
 
-//include "memory.inl"
+//#include "memory.inl"
 
 #endif // ifndef REALM_MEMORY_H
 

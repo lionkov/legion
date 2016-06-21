@@ -15,13 +15,12 @@
 
 // Runtime implementation for Realm
 
+#include "activemsg.h"
 #include "runtime_impl.h"
 
 #include "proc_impl.h"
 #include "mem_impl.h"
 #include "inst_impl.h"
-
-#include "activemsg.h"
 
 #include "cmdline.h"
 
@@ -689,7 +688,7 @@ namespace Realm {
 #ifdef DETAILED_TIMING
       fabric->add_message_type(new TimerDataRequestMessage());
       fabric->add_message_type(new TimerDataResponseMessage());
-      fabric->add_message_type(new ClearTimerMessage());
+      fabric->add_message_type(new ClearTimerMessage());b
 #endif
       fabric->add_message_type(new DestroyInstanceMessage());
       fabric->add_message_type(new RemoteWriteMessage());

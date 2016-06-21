@@ -20,8 +20,8 @@
 
 #include "lowlevel_config.h"
 
-#include "processor.h"
 #include "memory.h"
+#include "processor.h"
 
 #include <iterator>
 

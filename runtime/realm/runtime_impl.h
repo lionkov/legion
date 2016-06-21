@@ -21,9 +21,8 @@
 #include "runtime.h"
 #include "id.h"
 
-#include "libfabric/fabric_libfabric.h"
-
 #include "fabric.h"
+#include "libfabric/fabric_libfabric.h"
 #include "msg.h"
 #include "operation.h"
 #include "profiling.h"
@@ -235,8 +234,8 @@ namespace Realm {
       unsigned thread_counts[MAX_NUM_THREADS];
 #endif
       volatile bool shutdown_requested;
-      Mutex *shutdown_mutex;
-      CondVar *shutdown_condvar;
+      FabMutex shutdown_mutex;
+      FabCondVar shutdown_condvar;
 
       CoreMap *core_map;
       CoreReservationSet *core_reservations;

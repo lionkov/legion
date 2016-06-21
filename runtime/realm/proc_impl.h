@@ -257,11 +257,13 @@ namespace Realm {
 
     class SpawnTaskMessage : public MessageType {
     protected:
-	static SpawnTaskMessage *m;
-	SpawnTaskMessage() : MessageType(SPAWN_TASK_MSGID, sizeof(RequestArgs), true, true) { }
+        static SpawnTaskMessage *m;
+        SpawnTaskMessage() : MessageType(SPAWN_TASK_MSGID, sizeof(RequestArgs), true, true) { }
 
     public:
-      // Employ some fancy struct packing here to fit in 64 bytes
+	// Employ some fancy struct packing here to fit in 64 bytes
+
+	
       struct RequestArgs {
 	Processor proc;
 	Event::id_t start_id;

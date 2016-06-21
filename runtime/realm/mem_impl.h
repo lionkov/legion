@@ -18,8 +18,8 @@
 #ifndef REALM_MEMORY_IMPL_H
 #define REALM_MEMORY_IMPL_H
 
-#include "memory.h"
 #include "id.h"
+#include "memory.h"
 
 #include "fabric.h"
 #include "operation.h"
