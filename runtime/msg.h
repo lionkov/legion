@@ -1,7 +1,7 @@
 #ifndef MSG_H
 #define MSG_H
 
-    enum ActiveMessageIDs {
+     enum ActiveMessageIDs {
       FIRST_AVAILABLE = 140,
       NODE_ANNOUNCE_MSGID,
       SPAWN_TASK_MSGID,

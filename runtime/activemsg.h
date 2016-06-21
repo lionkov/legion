@@ -24,11 +24,13 @@
 #include <stdlib.h>
 #include <vector>
 
+//(setq compilation-environment '("LG_RT_DIR=/home/henry/code/legion/lionkov/legion/runtime"))
+//compilation-environment
 #include <sys/types.h>
 
     enum ActiveMessageIDs {
       FIRST_AVAILABLE = 140,
-      NODE_ANNOUNCE_MSGID,
+      NODE_ANNOUNCE_MSGID, 
       SPAWN_TASK_MSGID,
       LOCK_REQUEST_MSGID,
       LOCK_RELEASE_MSGID,
@@ -76,7 +78,7 @@ enum { PAYLOAD_NONE, // no payload in packet
        PAYLOAD_SRCPTR, // payload has been copied to the src data pool
        PAYLOAD_PENDING, // payload needs to be copied, but hasn't yet
        PAYLOAD_KEEPREG, // use payload pointer, AND it's registered!
-       PAYLOAD_EMPTY, // message can have payload, but this one is 0 bytes
+       PAYLOAD_EMPTY, // message can have payload, but this one is 0 byte
 };
 
 typedef std::pair<const void *, size_t> SpanListEntry;

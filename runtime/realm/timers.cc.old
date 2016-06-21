@@ -40,8 +40,8 @@ namespace Realm {
     void handle_data(const void *data, size_t datalen);
 
   protected:
-    GASNetHSL mutex;
-    GASNetCondVar condvar;
+    Mutex mutex;
+    CondVar condvar;
     std::map<int,double> *timerp;
     volatile int count_left;
   };
@@ -62,19 +62,17 @@ namespace Realm {
 
       // take the lock so that we can safely sleep until all the responses
       //  arrive
-      {
-	AutoHSLLock al(mutex);
-
+      mutex.Lock();
 	if(count_left > 0)
 	  condvar.wait();
-      }
+      mutex.Unlock();
       assert(count_left == 0);
     }
 
     void MultiNodeRollUp::handle_data(const void *data, size_t datalen)
     {
       // have to take mutex here since we're updating shared data
-      AutoHSLLock a(mutex);
+      mutex.Lock();
 
       const double *p = (const double *)data;
       int count = datalen / (2 * sizeof(double));
@@ -92,6 +90,7 @@ namespace Realm {
       count_left--;
       if(count_left == 0)
 	condvar.signal();
+      mutex.Unlock();
     }
 
 
@@ -116,10 +115,10 @@ namespace Realm {
       pthread_t thread;
       std::list<TimerStackEntry> timer_stack;
       std::map<int, double> timer_accum;
-      GASNetHSL mutex;
+      Mutex mutex;
     };
 
-    GASNetHSL timer_data_mutex;
+    Mutex timer_data_mutex;
     std::vector<PerThreadTimerData *> timer_data;
 
     static void thread_timer_free(void *arg)
@@ -143,9 +142,8 @@ namespace Realm {
     /*static*/ void DetailedTimer::clear_timers(bool all_nodes /*= true*/)
     {
       // take global mutex because we need to walk the list
-      {
 	log_timer.warning("clearing timers");
-	AutoHSLLock l1(timer_data_mutex);
+	timer_data_mutex.Lock();
 	for(std::vector<PerThreadTimerData *>::iterator it = timer_data.begin();
 	    it != timer_data.end();
 	    it++) {
@@ -153,16 +151,13 @@ namespace Realm {
 	  AutoHSLLock l2((*it)->mutex);
 	  (*it)->timer_accum.clear();
 	}
-      }
+	timer_data_mutex.Unlock();
 
       // if we've been asked to clear other nodes too, send a message
       if(all_nodes) {
-	ClearTimerRequestArgs args;
-	args.sender = gasnet_mynode();
-
 	for(int i = 0; i < gasnet_nodes(); i++)
 	  if(i != gasnet_mynode())
-	    ClearTimerRequestMessage::request(i, args);
+	    ClearTimerRequestMessage.send();
       }
     }
 
@@ -280,19 +275,15 @@ namespace Realm {
   // class ClearTimersMessage
   //
 
-  /*static*/ void ClearTimersMessage::handle_request(RequestArgs args)
-  {
-    DetailedTimer::clear_timers(false);
-  }
+void ClearTimerMessage::request(Message *m)
+{
+	DetailedTimer::clear_timers(false);
+}
 
-  /*static*/ void ClearTimersMessage::send_request(gasnet_node_t target)
-  {
-    RequestArgs args;
-
-    args.sender = gasnet_mynode();
-    args.dummy = 0;
-    Message::request(target, args);
-  }
+/*static*/ void ClearTimersMessage::send(NodeId target)
+{
+	send(target);
+}
 
   
   ////////////////////////////////////////////////////////////////////////
