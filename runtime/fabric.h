@@ -1,13 +1,18 @@
 #ifndef RUNTIME_FABRIC_H
 #define RUNTIME_FABRIC_H
 
+// For now, fabric will depend on ActiveMessagIDs and
+// Payload definitions from activemsg.h. When GASNET has
+// been fully removed, this will be moved back in to fabric.h / msg.h
+#include "activemsg.h"
+
 #define NELEM(x) (sizeof(x) / sizeof(x[0]))
 
-enum { PAYLOAD_NONE, // no payload in packet
-       PAYLOAD_KEEP, // use payload pointer, guaranteed to be stable
-       PAYLOAD_FREE, // take ownership of payload, free when done
-       PAYLOAD_COPY, // make a copy of the payload
-};
+/* enum { PAYLOAD_NONE, // no payload in packet */
+/*        PAYLOAD_KEEP, // use payload pointer, guaranteed to be stable */
+/*        PAYLOAD_FREE, // take ownership of payload, free when done */
+/*        PAYLOAD_COPY, // make a copy of the payload */
+/* }; */
 
 typedef uint8_t MessageId;
 typedef uint32_t NodeId;
@@ -142,7 +147,8 @@ public:
 
 	virtual NodeId get_id() = 0;
 	virtual NodeId get_max_id() = 0;
-	virtual int send(NodeId dest, MessageId id, void *args, Payload *payload, bool inOrder) = 0;
+	virtual int send(NodeId dest, MessageId id, void *args,
+			 Payload *payload, bool inOrder) = 0;
 	virtual bool progress(int maxToSend, bool wait) = 0;
 	virtual bool incoming(Message *) = 0;
 	virtual void *memalloc(size_t size) = 0;
