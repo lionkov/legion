@@ -1,6 +1,9 @@
-#ifndef RUNTIME_FABRIC_GASNET_H
-#define RUNTIME_FABRIC_GASNET_H
+#ifndef FABRIC_LIBFABRIC_H
+#define FABRIC_LIBFABRIC_H
 
+#include "fabric.h"
+#include "cmdline.h"
+#include <vector>
 #include <rdma/fabric.h>
 #include <rdma/fi_domain.h>
 #include <rdma/fi_errno.h>
@@ -9,20 +12,17 @@
 #include <rdma/fi_rma.h>
 #include <rdma/fi_tagged.h>
 
-typedef FabMutex Mutex;
-typedef FabCondVar CondVar;
-
 class FabMutex {
 public:
-	FabMutex(void) { pthread_mutex_init(&lock, NULL); }
-	~FabMutex(void) { pthread_mutex_destroy(&lock); }
+	FabMutex(void) { pthread_mutex_init(&_lock, NULL); }
+	~FabMutex(void) { pthread_mutex_destroy(&_lock); }
 
-	void lock(void) { pthread_mutex_lock(&lock); }
-	void unlock(void) { pthread_mutex_unlock(&lock); }
+	void lock(void) { pthread_mutex_lock(&_lock); }
+	void unlock(void) { pthread_mutex_unlock(&_lock); }
 
 protected:
 	friend class FabCondVar;
-	pthread_mutex_t lock;
+	pthread_mutex_t _lock;
 
 private:
 	// Should never be copied
@@ -59,9 +59,9 @@ protected:
 
 class FabFabric : public Fabric {
 public:
-	virtual void register_options(CommandLineParser &cp);
+        virtual void register_options(Realm::CommandLineParser &cp);
 	virtual bool add_message_type(MessageType *mt);
-	virtual bool init();
+ 	virtual bool init();
 	virtual void shutdown();
 
 	virtual NodeId get_id();
@@ -76,7 +76,7 @@ protected:
 	NodeId	id;
 	NodeId	max_id;
 
-	vector<MessageType*>	mts;
+	std::vector<MessageType*>	mts;
 	struct fid_fabric fab;
 	struct fid_domain dom;
 	struct fid_eq eq;
@@ -92,4 +92,7 @@ protected:
 	friend class FabMessage;
 };
 
-#endif
+typedef FabMutex Mutex;
+typedef FabCondVar CondVar;
+ 
+#endif // ifndef FABRIC_LIBFABRIC_H

@@ -125,7 +125,7 @@ namespace Realm {
       CodeDescriptor codedesc(taskptr);
       ProfilingRequestSet prs;
       std::set<Event> events;
-      std::vector<ProcessorImpl *>& procs = ((RuntimeImpl *)impl)->nodes[fabric->id()].processors;
+      std::vector<ProcessorImpl *>& procs = ((RuntimeImpl *)impl)->nodes[fabric->get_id()].processors;
       for(std::vector<ProcessorImpl *>::iterator it = procs.begin();
 	  it != procs.end();
 	  it++) {
@@ -399,7 +399,7 @@ namespace Realm {
     Memory RuntimeImpl::next_local_memory_id(void)
     {
       Memory m = ID(ID::ID_MEMORY, 
-		    fabric->id(),
+		    fabric->get_id(),
 		    num_local_memories++, 0).convert<Memory>();
       return m;
     }
@@ -407,14 +407,14 @@ namespace Realm {
     Processor RuntimeImpl::next_local_processor_id(void)
     {
       Processor p = ID(ID::ID_PROCESSOR, 
-		       fabric->id(), 
+		       fabric->get_id(), 
 		       num_local_processors++).convert<Processor>();
       return p;
     }
 
     void RuntimeImpl::add_memory(MemoryImpl *m)
     {
-      NodeId id = fabric->id();
+      NodeId id = fabric->get_id();
 
       // right now expect this to always be for the current node and the next memory ID
       assert((ID(m->me).node() == id) &&
@@ -425,7 +425,7 @@ namespace Realm {
 
     void RuntimeImpl::add_processor(ProcessorImpl *p)
     {
-      NodeId id = fabric->id();
+      NodeId id = fabric->get_id();
 
       // right now expect this to always be for the current node and the next processor ID
       assert((ID(p->me).node() == id) &&

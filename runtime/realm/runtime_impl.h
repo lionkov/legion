@@ -21,6 +21,8 @@
 #include "runtime.h"
 #include "id.h"
 
+#include "libfabric/fabric_libfabric.h"
+
 #include "fabric.h"
 #include "msg.h"
 #include "operation.h"

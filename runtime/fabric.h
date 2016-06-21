@@ -5,6 +5,7 @@
 // Payload definitions from activemsg.h. When GASNET has
 // been fully removed, this will be moved back in to fabric.h / msg.h
 #include "activemsg.h"
+#include "libfabric/fabric_libfabric.h"
 
 #define NELEM(x) (sizeof(x) / sizeof(x[0]))
 
