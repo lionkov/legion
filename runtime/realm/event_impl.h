@@ -250,9 +250,12 @@ namespace Realm {
   protected:
 	static EventSubscribeMessage *m;
 
-	EventSubscribeMessage():MessageType(EVENT_SUBSCRIBE_MSGID, sizeof(RequestArgs), false, true) { }
+	
 
   public:
+	
+  EventSubscribeMessage():MessageType(EVENT_SUBSCRIBE_MSGID, sizeof(RequestArgs), false, true) { }
+	
     struct RequestArgs {
       NodeId node;
       Event event;
@@ -273,9 +276,9 @@ namespace Realm {
   protected:
 	static EventTriggerMessage *m;
 
-	EventTriggerMessage() : MessageType(EVENT_TRIGGER_MSGID, sizeof(RequestArgs), false, true) { }
-
   public:
+    EventTriggerMessage() : MessageType(EVENT_TRIGGER_MSGID, sizeof(RequestArgs), false, true) { }
+	
     struct RequestArgs {
       NodeId node;
       Event event;
@@ -292,9 +295,10 @@ namespace Realm {
 protected:
 	static EventUpdateMessage *m;
 
-	EventUpdateMessage() : MessageType(EVENT_UPDATE_MSGID, sizeof(RequestArgs), true, true) { }
-
 public:
+
+    EventUpdateMessage() : MessageType(EVENT_UPDATE_MSGID, sizeof(RequestArgs), true, true) { }
+	
     struct RequestArgs {
       Event event;
 

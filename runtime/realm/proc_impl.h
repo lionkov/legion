@@ -258,11 +258,10 @@ namespace Realm {
     class SpawnTaskMessage : public MessageType {
     protected:
         static SpawnTaskMessage *m;
-        SpawnTaskMessage() : MessageType(SPAWN_TASK_MSGID, sizeof(RequestArgs), true, true) { }
 
     public:
-	// Employ some fancy struct packing here to fit in 64 bytes
-
+      // Employ some fancy struct packing here to fit in 64 bytes	
+      SpawnTaskMessage() : MessageType(SPAWN_TASK_MSGID, sizeof(RequestArgs), true, true) { }
 	
       struct RequestArgs {
 	Processor proc;

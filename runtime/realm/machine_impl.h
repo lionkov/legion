@@ -273,10 +273,10 @@ namespace Realm {
 
   struct NodeAnnounceMessage : public MessageType {
   protected:
-	static NodeAnnounceMessage *m;
-        NodeAnnounceMessage():MessageType(NODE_ANNOUNCE_MSGID, sizeof(RequestArgs), true, true) { }
+    static NodeAnnounceMessage *m;
 	
   public:
+    NodeAnnounceMessage():MessageType(NODE_ANNOUNCE_MSGID, sizeof(RequestArgs), true, true) { }
 	
     struct RequestArgs {
       NodeId node_id;

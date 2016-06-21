@@ -194,9 +194,12 @@ namespace Realm {
   class LockRequestMessage : public MessageType {
 protected:
 	static LockRequestMessage *m;
-	LockRequestMessage():MessageType(LOCK_REQUEST_MSGID, sizeof(RequestArgs), false, true) { }
+	
 
 public:
+
+    LockRequestMessage():MessageType(LOCK_REQUEST_MSGID, sizeof(RequestArgs), false, true) { }
+	
     struct RequestArgs {
       NodeId node;
       Reservation lock;
@@ -210,11 +213,15 @@ public:
   };
 
   struct LockReleaseMessage : public MessageType {
+    
 protected:
 	static LockReleaseMessage *m;
-	LockReleaseMessage():MessageType(LOCK_RELEASE_MSGID, sizeof(RequestArgs), false, true) { }
+
 
 public:
+	
+    LockReleaseMessage():MessageType(LOCK_RELEASE_MSGID, sizeof(RequestArgs), false, true) { }
+	
     struct RequestArgs : public MessageType {
       NodeId node;
       Reservation lock;
@@ -228,9 +235,11 @@ public:
   struct LockGrantMessage : public MessageType {
 protected:
 	static LockGrantMessage *m;
-	LockGrantMessage():MessageType(LOCK_GRANT_MSGID, sizeof(RequestArgs), true, true) { }
+	
 
 public:
+    LockGrantMessage():MessageType(LOCK_GRANT_MSGID, sizeof(RequestArgs), true, true) { }
+	
     struct RequestArgs {
       Reservation lock;
       unsigned mode;
