@@ -71,7 +71,7 @@ namespace Realm {
       static const size_t INNER_BITS = _INNER_BITS;
       static const size_t LEAF_BITS = _LEAF_BITS;
 
-      typedef Mutex *LT;
+      typedef FabMutex LT;
       typedef int IT;
       typedef DynamicTableNode<DynamicTableNodeBase<LT, IT> *, 1 << INNER_BITS, LT, IT> INNER_TYPE;
       typedef DynamicTableNode<ET, 1 << LEAF_BITS, LT, IT> LEAF_TYPE;
@@ -292,10 +292,23 @@ namespace Realm {
 	int initiating_node;
 	int dummy; // needed to get sizeof() >= 8
       };
-
+      
+      /* Not implemented yet? 
       virtual void request(Message *m);
       static void init();
       static void send(NodeId target);
+      */
+
+      static void handle_request(RequestArgs args);
+
+      typedef ActiveMessageShortNoReply<MACHINE_SHUTDOWN_MSGID,
+				        RequestArgs,
+				        handle_request> Message;
+
+      static void send_request(gasnet_node_t target);
+
+
+      
     };
       
 }; // namespace Realm

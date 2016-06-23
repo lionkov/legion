@@ -23,6 +23,7 @@
 #include "legion_types.h"
 #include "legion_utilities.h"
 #include "fabric.h"
+#include "libfabric/fabric_libfabric.h"
 
 #include <vector>
 #include <set>
@@ -72,7 +73,7 @@ namespace Realm {
       void add_subscription(Machine::MachineUpdateSubscriber *subscriber);
       void remove_subscription(Machine::MachineUpdateSubscriber *subscriber);
 
-      mutable Mutex *mutex;
+      mutable FabMutex mutex;
       std::vector<Machine::ProcessorMemoryAffinity> proc_mem_affinities;
       std::vector<Machine::MemoryMemoryAffinity> mem_mem_affinities;
       std::set<Machine::MachineUpdateSubscriber *> subscribers;
@@ -283,14 +284,33 @@ namespace Realm {
       unsigned num_procs;
       unsigned num_memories;
     };
-
+    
+    /* Not implemented yet
     virtual void request(Message *m);
     static void init();
     static void send(NodeId target,
+		     unsigned num_procs,
+		     unsigned num_memories,
+		     const void *data,
+		     size_t datalen,
+		     int payload_mode);
+
+    static void await_all_announcements(void);
+    */
+
+    static void handle_request(RequestArgs args, const void *data, size_t datalen);
+
+    typedef ActiveMessageMediumNoReply<NODE_ANNOUNCE_MSGID,
+				       RequestArgs,
+				       handle_request> ActiveMessage;
+
+    static void send_request(gasnet_node_t target,
 			     unsigned num_procs, unsigned num_memories,
 			     const void *data, size_t datalen, int payload_mode);
 
     static void await_all_announcements(void);
+
+    
   };
 
 	

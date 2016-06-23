@@ -20,6 +20,7 @@
 #include "realm/event_impl.h"
 
 #include "fabric.h"
+#include "libfabric/fabric_libfabric.h"
 
 #include <set>
 #include <iostream>
@@ -160,7 +161,7 @@ namespace Realm {
     // try to avoid a serial bottleneck by splitting events over 4 different tables
     static const int NUM_TABLES = 4;
     
-    Mutex *mutexes[NUM_TABLES];
+    FabMutex mutexes[NUM_TABLES];
     Table tables[NUM_TABLES];
     TableCleaner cleaner;
   };

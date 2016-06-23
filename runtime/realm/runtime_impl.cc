@@ -32,6 +32,9 @@
 #include <execinfo.h> // symbols
 #include <cxxabi.h>   // demangling
 
+// Extern declared in fabric.h
+Fabric* fabric = NULL;
+
 #ifndef USE_GASNET
 /*extern*/ void *fake_gasnet_mem_base = 0;
 /*extern*/ size_t fake_gasnet_mem_size = 0;
@@ -57,6 +60,7 @@ namespace Realm {
 
 namespace Realm {
 
+  
   Logger log_runtime("realm");
   Logger log_collective("collective");
   extern Logger log_task; // defined in proc_impl.cc
@@ -533,7 +537,9 @@ namespace Realm {
         fflush(stdout);
       }
 #endif
-	fabric = new FabFabric();
+
+      // Create the fabric instance -- this is defined in fabric.h
+      fabric = new FabFabric();
 
 #ifdef DEBUG_REALM_STARTUP
       { // once we're convinced there isn't skew here, reduce this to rank 0
@@ -671,46 +677,58 @@ namespace Realm {
       // initialize barrier timestamp
       BarrierImpl::barrier_adjustment_timestamp = (((Barrier::timestamp_t)(fabric->get_id())) << BarrierImpl::BARRIER_TIMESTAMP_NODEID_SHIFT) + 1;
 
-      fabric->add_message_type(new NodeAnnounceMessage());
-      fabric->add_message_type(new SpawnTaskMessage());
-      fabric->add_message_type(new LockRequestMessage());
-      fabric->add_message_type(new LockReleaseMessage());
-      fabric->add_message_type(new LockGrantMessage());
-      fabric->add_message_type(new EventSubscribeMessage());
-      fabric->add_message_type(new EventTriggerMessage());
-      fabric->add_message_type(new EventUpdateMessage());
-      fabric->add_message_type(new RemoteMemAllocMessage());
-      fabric->add_message_type(new CreateInstanceMessage());
-      fabric->add_message_type(new RemoteCopyMessage());
-      fabric->add_message_type(new RemoteFillMessage());
-      fabric->add_message_type(new ValidMaskRequestMessage());
-      fabric->add_message_type(new ValidMaskDataMessage());
+      //fabric->add_message_type(new NodeAnnounceMessage());
+      //fabric->add_message_type(new SpawnTaskMessage());
+      //fabric->add_message_type(new LockRequestMessage());
+      //fabric->add_message_type(new LockReleaseMessage());
+      //fabric->add_message_type(new LockGrantMessage());
+      //fabric->add_message_type(new EventSubscribeMessage());
+      //fabric->add_message_type(new EventTriggerMessage());
+      //fabric->add_message_type(new EventUpdateMessage());
+
+      // These two message types don't seem to be defined anywhere?
+      //fabric->add_message_type(new RemoteMemAllocMessage());
+      //fabric->add_message_type(new CreateInstanceMessage());
+
+      // I can't find a definition anywhere of these messages -- it seems to
+      // maybe be a namespace, not a message type? Ask Lucho
+      //fabric->add_message_type(new RemoteCopyMessage());
+      //fabric->add_message_type(new RemoteFillMessage());
+
+      // These two seem to use a different interface than other MessageTypes,
+      // but will probably need to be rewritten into fabric land anyway?
+      //fabric->add_message_type(new ValidMaskRequestMessage());
+      //fabric->add_message_type(new ValidMaskDataMessage());
+      
 #ifdef DETAILED_TIMING
       fabric->add_message_type(new TimerDataRequestMessage());
       fabric->add_message_type(new TimerDataResponseMessage());
-      fabric->add_message_type(new ClearTimerMessage());b
+      fabric->add_message_type(new ClearTimerMessage());
 #endif
-      fabric->add_message_type(new DestroyInstanceMessage());
-      fabric->add_message_type(new RemoteWriteMessage());
-      fabric->add_message_type(new RemoteReduceMessage());
-      fabric->add_message_type(new RemoteSerdezMessage());
-      fabric->add_message_type(new RemoteWriteFenceMessage());
-      fabric->add_message_type(new RemoteWriteFenceAckMessage());
-      fabric->add_message_type(new DestroyLockMessage());
-      fabric->add_message_type(new RemoteReduceListMessage());
-      fabric->add_message_type(new RuntimeShutdownMessage());
-      fabric->add_message_type(new BarrierAdjustMessage());
-      fabric->add_message_type(new BarrierSubscribeMessage());
-      fabric->add_message_type(new BarrierTriggerMessage());
-      fabric->add_message_type(new BarrierMigrationMessage());
-      fabric->add_message_type(new MetadataRequestMessage());
-      fabric->add_message_type(new MetadataResponseMessage());
-      fabric->add_message_type(new MetadataInvalidateMessage());
-      fabric->add_message_type(new MetadataInvalidateAckMessage());
-      fabric->add_message_type(new RegisterTaskMessage());
-      fabric->add_message_type(new RegisterTaskCompleteMessage());
 
-      if !fabric->init() {
+      // See the old Legion code -- looks like we should probably be registering
+      // the handler, not creating a new class type
+      // fabric->add_message_type(new DestroyInstanceMessage());
+      // fabric->add_message_type(new RemoteWriteMessage());
+      // fabric->add_message_type(new RemoteReduceMessage());
+      // fabric->add_message_type(new RemoteSerdezMessage());c
+      // fabric->add_message_type(**new RemoteWriteFenceMessage());
+      // fabric->add_message_type(new RemoteWriteFenceAckMessage());
+      // fabric->add_message_type(new DestroyLockMessage());
+      // fabric->add_message_type(new RemoteReduceListMessage());
+      // fabric->add_message_type(new RuntimeShutdownMessage());
+      // fabric->add_message_type(new BarrierAdjustMessage());
+      // fabric->add_message_type(new BarrierSubscribeMessage());
+      // fabric->add_message_type(new BarrierTriggerMessage());
+      // fabric->add_message_type(new BarrierMigrationMessage());
+      // fabric->add_message_type(new MetadataRequestMessage());
+      // fabric->add_message_type(new MetadataResponseMessage());
+      // fabric->add_message_type(new MetadataInvalidateMessage());
+      // fabric->add_message_type(new MetadataInvalidateAckMessage());
+      // fabric->add_message_type(new RegisterTaskMessage());
+      // fabric->add_message_type(new RegisterTaskCompleteMessage());
+
+      if (!fabric->init()) {
 	fprintf(stderr, "ERROR: Fabric initialization failed\n");
 	exit(1);
       }
@@ -779,10 +797,15 @@ namespace Realm {
 	  it++)
 	(*it)->initialize(this);
 
+      /* 
+	 The FabricMemory class has not been defined yet, nor does it seem to be used. 
+	 Commenting out for now -- Henry 22 June 2016
+       
       if(fabric_mem_size_in_mb > 0)
 	fabric_memory = new FabricMemory(ID(ID::ID_MEMORY, 0, ID::ID_GLOBAL_MEM, 0).convert<Memory>(), fabric_mem_size_in_mb << 20);
       else
 	fabric_memory = 0;
+      */ 
 
       Node *n = &nodes[gasnet_mynode()];
 
@@ -1061,10 +1084,11 @@ namespace Realm {
 	for(unsigned i = 0; i < fabric->get_max_id(); i++)
 	  if(i != fabric->get_id())
 	    NodeAnnounceMessage::send_request(i,
-						     num_procs,
-						     num_memories,
-						     adata, apos*sizeof(adata[0]),
-						     PAYLOAD_COPY);
+					      num_procs,
+					      num_memories,
+					      adata,
+					      apos*sizeof(adata[0]),
+					      PAYLOAD_COPY);
 
 	NodeAnnounceMessage::await_all_announcements();
 
@@ -1154,7 +1178,7 @@ namespace Realm {
 
 	// step 3: run the task
 	Event finish_event = target_proc.spawn(task_id, args, arglen, merged_event, priority);
-
+	
 	// step 4: broadcast the finish event to everyone
 	gasnet_coll_broadcast(GASNET_TEAM_ALL, &finish_event, root, &finish_event, sizeof(Event), GASNET_COLL_FLAGS);
 
@@ -1163,7 +1187,7 @@ namespace Realm {
 	return finish_event;
       } else {
 	// NON-ROOT NODE
-
+	  
 	// step 1: send our wait_on to the root for merging
 	gasnet_coll_gather(GASNET_TEAM_ALL, root, 0, &wait_on, sizeof(Event), GASNET_COLL_FLAGS);
 
@@ -1396,7 +1420,7 @@ namespace Realm {
 
       // otherwise, sleep until shutdown has been requested by somebody
       {
-	AutoHSLLock al(shutdown_mutex);
+	FabAutoLock al(shutdown_mutex);
 	while(!shutdown_requested)
 	  shutdown_condvar.wait();
 	log_runtime.info("shutdown request received - terminating\n");
@@ -1437,7 +1461,7 @@ namespace Realm {
       }
 
       {
-	AutoHSLLock al(shutdown_mutex);
+	FabAutoLock al(shutdown_mutex);
 	shutdown_requested = true;
 	shutdown_condvar.broadcast();
       }
@@ -1461,7 +1485,7 @@ namespace Realm {
 
       // sleep until shutdown has been requested by somebody
       {
-	AutoHSLLock al(shutdown_mutex);
+	FabAutoLock al(shutdown_mutex);
 	while(!shutdown_requested)
 	  shutdown_condvar.wait();
 	log_runtime.info("shutdown request received - terminating");
@@ -1684,7 +1708,7 @@ namespace Realm {
       assert(id.type() == ID::ID_INSTANCE);
       MemoryImpl *mem = get_memory_impl(id);
       
-      AutoHSLLock al(mem->mutex);
+      FabAutoLock al(mem->mutex);
 
       if(id.index_l() >= mem->instances.size()) {
 	assert(id.node() != gasnet_mynode());

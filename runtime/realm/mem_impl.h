@@ -131,7 +131,7 @@ namespace Realm {
       MemoryKind kind;
       size_t alignment;
       Memory::Kind lowlevel_kind;
-      Mutex *mutex; // protection for resizing vectors
+      FabMutex mutex; // protection for resizing vectors
       std::vector<RegionInstanceImpl *> instances;
       std::map<off_t, off_t> free_blocks;
       ProfilingGauges::AbsoluteGauge<size_t> usage, peak_usage, peak_footprint;

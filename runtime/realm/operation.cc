@@ -318,14 +318,14 @@ namespace Realm {
 
     // "hash" the id to figure out which subtable to use
     int subtable = finish_event.id % NUM_TABLES;
-    GASNetHSL& mutex = mutexes[subtable];
+    FabMutex& mutex = mutexes[subtable];
     Table& table = tables[subtable];
 
     bool cancel_immediately = false;
     void *reason_data = 0;
     size_t reason_size = 0;
     {
-      AutoHSLLock al(mutex);
+      FabAutoLock al(mutex);
 
       // see if we have any info for this event?
       Table::iterator it = table.find(finish_event);
@@ -375,11 +375,11 @@ namespace Realm {
 
     // "hash" the id to figure out which subtable to use
     int subtable = finish_event.id % NUM_TABLES;
-    GASNetHSL& mutex = mutexes[subtable];
+    FabMutex& mutex = mutexes[subtable];
     Table& table = tables[subtable];
 
     {
-      AutoHSLLock al(mutex);
+      FabAutoLock al(mutex);
 
       // no duplicates allowed here - a local cancellation request cannot occur until we
       //  return
@@ -401,12 +401,12 @@ namespace Realm {
   {
     // "hash" the id to figure out which subtable to use
     int subtable = finish_event.id % NUM_TABLES;
-    GASNetHSL& mutex = mutexes[subtable];
+    FabMutex& mutex = mutexes[subtable];
     Table& table = tables[subtable];
 
     Operation *local_op = 0;
     {
-      AutoHSLLock al(mutex);
+      FabAutoLock al(mutex);
 
       // get the entry - it must exist
       Table::iterator it = table.find(finish_event);
@@ -429,14 +429,14 @@ namespace Realm {
   {
     // "hash" the id to figure out which subtable to use
     int subtable = finish_event.id % NUM_TABLES;
-    GASNetHSL& mutex = mutexes[subtable];
+    FabMutex& mutex = mutexes[subtable];
     Table& table = tables[subtable];
 
     bool found = false;
     Operation *local_op = 0;
     int remote_node = -1;
     {
-      AutoHSLLock al(mutex);
+      FabAutoLock al(mutex);
 
       Table::iterator it = table.find(finish_event);
 

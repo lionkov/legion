@@ -18,6 +18,8 @@
 #ifndef REALM_ID_H
 #define REALM_ID_H
 
+#include <iostream>
+
 namespace Realm {
 
     class ID {

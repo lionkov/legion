@@ -20,6 +20,7 @@
 
 #include "realm_config.h"
 #include "fabric.h"
+#include "libfabric/fabric_libfabric.h"
 
 #ifdef REALM_USE_USER_THREADS
 #ifdef __MACH__
@@ -184,7 +185,7 @@ namespace Realm {
     Operation *current_op;
     int exception_handler_count;
     int signal_count;
-    Mutex *signal_mutex;
+    FabMutex signal_mutex;
     std::deque<Signal> signal_queue;
   };
 
@@ -431,7 +432,7 @@ namespace Realm {
   class ThreadReservationParameters {
 
     ThreadReservationParameters(void)
-      : num_cores(1)
+      : num_cores    (1)
       , numa_domain(NUMA_DOMAIN_DONTCARE)
       , core_usage(CORE_USAGE_SHARED)
       , fpu_usage(CORE_USAGE_MINIMAL)

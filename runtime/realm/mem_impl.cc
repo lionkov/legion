@@ -95,7 +95,7 @@ namespace Realm {
 
     off_t MemoryImpl::alloc_bytes_local(size_t size)
     {
-      AutoHSLLock al(mutex);
+      FabAutoLock al(mutex);
 
       // for zero-length allocations, return a special "offset"
       if(size == 0) {
@@ -155,7 +155,7 @@ namespace Realm {
     void MemoryImpl::free_bytes_local(off_t offset, size_t size)
     {
       log_malloc.info() << "free block: mem=" << me << " size=" << size << " ofs=" << offset;
-      AutoHSLLock al(mutex);
+      FabAutoLock al(mutex);
 
       // frees of zero bytes should have the special offset
       if(size == 0) {
@@ -296,7 +296,7 @@ namespace Realm {
       // find/make an available index to store this in
       ID::IDType index;
       {
-	AutoHSLLock al(mutex);
+	FabAutoLock al(mutex);
 
 	size_t size = instances.size();
 	for(index = 0; index < size; index++)
@@ -357,7 +357,7 @@ namespace Realm {
         unsigned index = ID(resp.i).index_l();
         // resize array if needed
         if(index >= instances.size()) {
-          AutoHSLLock a(mutex);
+          FabAutoLock a(mutex);
           if(index >= instances.size()) {
             log_inst.debug("resizing instance array: mem=" IDFMT " old=%zd new=%d",
                      me.id, instances.size(), index+1);
@@ -377,7 +377,7 @@ namespace Realm {
       // have we heard of this one before?  if not, add it
       unsigned index = id.index_l();
       if(index >= instances.size()) { // lock not held - just for early out
-	AutoHSLLock a(mutex);
+	FabAutoLock a(mutex);
 	if(index >= instances.size()) // real check
 	  instances.resize(index + 1);
       }

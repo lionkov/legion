@@ -99,7 +99,7 @@ namespace Realm {
       void set_scheduler(ThreadedTaskScheduler *_sched);
 
       ThreadedTaskScheduler *sched;
-      PriorityQueue<Task *, Mutex *> task_queue;
+      PriorityQueue<Task *, FabMutex> task_queue;
       ProfilingGauges::AbsoluteRangeGauge<int> ready_task_count;
 
       struct TaskTableEntry {
@@ -198,7 +198,7 @@ namespace Realm {
 
       void request_group_members(void);
 
-      PriorityQueue<Task *, Mutex *> task_queue;
+      PriorityQueue<Task *, FabMutex> task_queue;
       ProfilingGauges::AbsoluteRangeGauge<int> *ready_task_count;
     };
     
@@ -273,7 +273,7 @@ namespace Realm {
 	Event::gen_t start_gen;
 	Event::gen_t finish_gen;
       };
-
+      /* Not implemented yet 
       virtual void request(Message *m);
       static void init();
       static void send(NodeId target, Processor proc,
@@ -282,6 +282,21 @@ namespace Realm {
 			       const ProfilingRequestSet *prs,
 			       Event start_event, Event finish_event,
 			       int priority);
+      */
+
+      static void handle_request(RequestArgs args, const void *data, size_t datalen);
+
+      typedef ActiveMessageMediumNoReply<SPAWN_TASK_MSGID,
+ 	                                 RequestArgs,
+ 	                                 handle_request> ActiveMessage;
+
+      static void send_request(gasnet_node_t target, Processor proc,
+			       Processor::TaskFuncID func_id,
+			       const void *args, size_t arglen,
+			       const ProfilingRequestSet *prs,
+			       Event start_event, Event finish_event,
+			       int priority);
+      
     };
     
     class RegisterTaskMessage : public MessageType {
@@ -296,10 +311,25 @@ namespace Realm {
 	Processor::Kind kind;
 	RemoteTaskRegistration *reg_op;
       };
-
+      /* Not implemented yet
       virtual void request(Message *m);
       static void init();
       static void send(NodeId target,
+			       Processor::TaskFuncID func_id,
+			       Processor::Kind kind,
+			       const std::vector<Processor>& procs,
+			       const CodeDescriptor& codedesc,
+			       const void *userdata, size_t userlen,
+			       RemoteTaskRegistration *reg_op);
+      */
+
+      static void handle_request(RequestArgs args, const void *data, size_t datalen);
+
+      typedef ActiveMessageMediumNoReply<REGISTER_TASK_MSGID,
+ 	                                 RequestArgs,
+ 	                                 handle_request> ActiveMessage;
+
+      static void send_request(gasnet_node_t target,
 			       Processor::TaskFuncID func_id,
 			       Processor::Kind kind,
 			       const std::vector<Processor>& procs,
@@ -319,10 +349,21 @@ namespace Realm {
 	RemoteTaskRegistration *reg_op;
 	bool successful;
       };
-
+      /* Not implemented yet
       virtual void request(Message *m);
       static void init();
       static void send(NodeId target,
+			       RemoteTaskRegistration *reg_op,
+			       bool successful);
+      */
+
+      static void handle_request(RequestArgs args);
+
+      typedef ActiveMessageShortNoReply<REGISTER_TASK_COMPLETE_MSGID,
+					RequestArgs,
+					handle_request> ActiveMessage;
+
+      static void send_request(gasnet_node_t target,
 			       RemoteTaskRegistration *reg_op,
 			       bool successful);
     };

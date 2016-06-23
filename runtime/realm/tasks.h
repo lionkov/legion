@@ -28,6 +28,9 @@
 #include "pri_queue.h"
 #include "bytearray.h"
 
+#include "fabric.h"
+#include "libfabric/fabric_libfabric.h"
+
 namespace Realm {
 
     // information for a task launch
@@ -78,7 +81,7 @@ namespace Realm {
 
       virtual ~ThreadedTaskScheduler(void);
 
-      typedef PriorityQueue<Task *, Mutex*> TaskQueue;
+      typedef PriorityQueue<Task *, FabMutex> TaskQueue;
 
       virtual void add_task_queue(TaskQueue *queue);
 
@@ -105,7 +108,7 @@ namespace Realm {
       virtual void worker_wake(Thread *to_wake) = 0;
       virtual void worker_terminate(Thread *switch_to) = 0;
 
-      Mutex *lock;
+      FabMutex lock;
       std::vector<TaskQueue *> task_queues;
       std::vector<Thread *> idle_workers;
       std::set<Thread *> blocked_workers;
@@ -150,8 +153,8 @@ namespace Realm {
 	// 64-bit counters are used to avoid dealing with wrap-around cases
 	volatile long long counter;
 	volatile long long wait_value;
-	Mutex *mutex;
-	CondVar *condvar;
+	FabMutex mutex;
+	FabCondVar condvar;
       };
 	
       WorkCounter work_counter;
@@ -217,8 +220,8 @@ namespace Realm {
       std::set<Thread *> all_workers;
       std::set<Thread *> active_workers;
       std::set<Thread *> terminating_workers;
-      std::map<Thread *, CondVar *> sleeping_threads;
-      CondVar *shutdown_condvar;
+      std::map<Thread *, FabCondVar *> sleeping_threads;
+      FabCondVar shutdown_condvar;
     };
 
 #ifdef REALM_USE_USER_THREADS
@@ -263,7 +266,7 @@ namespace Realm {
       std::set<Thread *> all_workers;
 
       int host_startups_remaining;
-      GASNetCondVar host_startup_condvar;
+      FabCondVar host_startup_condvar;
 
     public:
       int cfg_num_host_threads;

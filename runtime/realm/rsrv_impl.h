@@ -22,6 +22,7 @@
 
 #include "id.h"
 #include "fabric.h"
+#include "libfabric/fabric_libfabric.h"
 #include "nodeset.h"
 
 //define REALM_RSRV_USE_CIRCQUEUE
@@ -73,7 +74,7 @@ namespace Realm {
 
       enum { MODE_EXCL = 0, ZERO_COUNT = 0x11223344 };
 
-      Mutex *mutex; // controls which local thread has access to internal data (not runtime-visible lock)
+      FabMutex mutex; // controls which local thread has access to internal data (not runtime-visible lock)
 
       // bitmasks of which remote nodes are waiting on a lock (or sharing it)
       NodeSet remote_waiter_mask, remote_sharer_mask;
@@ -95,7 +96,7 @@ namespace Realm {
       size_t local_data_size;
       bool own_local;
 
-      static Mutex *freelist_mutex;
+      static FabMutex freelist_mutex;
       static ReservationImpl *first_free;
       ReservationImpl *next_free;
 
@@ -205,10 +206,20 @@ public:
       Reservation lock;
       unsigned mode;
     };
-
+    /* Not implemented yet
     virtual void request(Message *m);
     static void init();
     static void send(NodeId target, NodeId req_node,
+			     Reservation lock, unsigned mode);
+    */
+
+    static void handle_request(RequestArgs args);
+
+    typedef ActiveMessageShortNoReply<LOCK_REQUEST_MSGID, 
+				      RequestArgs, 
+				      handle_request> ActiveMessage;
+
+    static void send_request(gasnet_node_t target, gasnet_node_t req_node,
 			     Reservation lock, unsigned mode);
   };
 
@@ -222,14 +233,24 @@ public:
 	
     LockReleaseMessage():MessageType(LOCK_RELEASE_MSGID, sizeof(RequestArgs), false, true) { }
 	
-    struct RequestArgs : public MessageType {
+	struct RequestArgs {
       NodeId node;
       Reservation lock;
     };
-    
+    /* Not implemented yet
     virtual void request(Message *m);
     static void init();
     static void send(NodeId target, Reservation lock);
+    */
+
+    static void handle_request(RequestArgs args);
+
+    typedef ActiveMessageShortNoReply<LOCK_RELEASE_MSGID,
+				      RequestArgs,
+				      handle_request> ActiveMessage;
+
+    static void send_request(gasnet_node_t target, Reservation lock);
+   
   };
 
   struct LockGrantMessage : public MessageType {
@@ -244,12 +265,25 @@ public:
       Reservation lock;
       unsigned mode;
     };
-
+    
+    /* Not implemented yet
     virtual void request(Message *m);
     static void init();
     static void send(NodeId target, Reservation lock,
 			     unsigned mode, const void *data, size_t datalen,
 			     int payload_mode);
+    */
+
+    static void handle_request(RequestArgs args, const void *data, size_t datalen);
+
+    typedef ActiveMessageMediumNoReply<LOCK_GRANT_MSGID,
+				       RequestArgs,
+				       handle_request> ActiveMessage;
+
+    static void send_request(gasnet_node_t target, Reservation lock,
+			     unsigned mode, const void *data, size_t datalen,
+			     int payload_mode);
+    
   };
 
   struct DestroyLockMessage : public MessageType {
@@ -262,10 +296,21 @@ public:
       Reservation actual;
       Reservation dummy;
     };
-
+    /* Not implemented yet
     virtual void request(Message *m);
     static void init();
     static void send(NodeId target, Reservation lock);
+    */
+
+    static void handle_request(RequestArgs args);
+	
+    typedef ActiveMessageShortNoReply<DESTROY_LOCK_MSGID,
+				      RequestArgs,
+				      handle_request> ActiveMessage;
+
+    static void send_request(gasnet_node_t target, Reservation lock);
+
+    
   };
 
 }; // namespace Realm

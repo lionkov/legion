@@ -53,7 +53,7 @@ GASNETT_THREADKEY_DECLARE(cur_thread);
 namespace Realm {
   class Module;
   class Operation;
-  class ProfilingRequestSet;
+   class ProfilingRequestSet;
 };
 
 #include "realm/event_impl.h"
