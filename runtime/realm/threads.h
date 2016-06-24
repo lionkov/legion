@@ -381,6 +381,7 @@ namespace Realm {
   class CoreReservationSet {
   public:
     // if constructed without a CoreMap, it'll attempt to discover one itself
+    CoreReservationSet();
     CoreReservationSet(bool hyperthread_sharing);
     CoreReservationSet(const CoreMap* _cm);
 

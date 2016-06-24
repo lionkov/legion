@@ -23,9 +23,7 @@ int FabMessage::reply(MessageId id, void *args, Payload *payload, bool inOrder)
 
 FabFabric::FabFabric():max_send(1024*1024), pend_num(16)
 {
-  // ASK -- the old version seems to depend on SLURM, but
-  // we shouldn't depend on that. Instead, use fabric to
-  // count nodes
+  // ASK -- need to sort out setting up PMI
   // PMI_Get_size(&max_id);
   // PMI_Get_rank(&id);
 

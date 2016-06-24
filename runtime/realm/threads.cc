@@ -131,6 +131,14 @@ namespace Realm {
   //
   // class CoreReservationSet
 
+  CoreReservationSet::CoreReservationSet()
+      : owns_coremap(true), cm(0)
+  {
+    // By default, don't discover hyperthread cores
+    cm = CoreMap::discover_core_map(false);
+  }
+
+
   CoreReservationSet::CoreReservationSet(bool hyperthread_sharing)
     : owns_coremap(true), cm(0)
   {

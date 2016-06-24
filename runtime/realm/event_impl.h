@@ -380,7 +380,7 @@ namespace Realm {
     
     typedef ActiveMessageMediumNoReply<BARRIER_ADJUST_MSGID,
       RequestArgs,
-      handle_request> Message;
+      handle_request> ActiveMessage;
     
     static void send_request(gasnet_node_t target, Barrier barrier, int delta, Event wait_on,
 			     gasnet_node_t sender, bool forwarded,
@@ -484,7 +484,7 @@ namespace Realm {
     
     typedef ActiveMessageShortNoReply<BARRIER_MIGRATE_MSGID,
       RequestArgs,
-      handle_request> Message;
+      handle_request> ActiveMessage;
     
     static void send_request(gasnet_node_t target, Barrier barrier, gasnet_node_t owner);
   };

@@ -111,7 +111,7 @@ endif
 
 INC_FLAGS	+= -I$(LG_RT_DIR) -I$(LG_RT_DIR)/realm -I$(LG_RT_DIR)/legion -I$(LG_RT_DIR)/mappers
 ifneq ($(shell uname -s),Darwin)
-LEGION_LD_FLAGS	+= -lrt -lpthread
+LEGION_LD_FLAGS	+= -lrt -lpthread -lfabric
 else
 LEGION_LD_FLAGS	+= -lpthread
 endif
@@ -336,6 +336,12 @@ endif
 ifeq ($(strip $(USE_GASNET)),1)
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/activemsg.cc
 endif
+
+# Libfabric
+LOW_RUNTIME_SRC += $(LG_RT_DIR)/fabric.cc
+LOW_RUNTIME_SRC += $(LG_RT_DIR)/payload.cc	
+LOW_RUNTIME_SRC += $(LG_RT_DIR)/libfabric/fabric_libfabric.cc	
+
 GPU_RUNTIME_SRC +=
 else
 CC_FLAGS	+= -DSHARED_LOWLEVEL
@@ -395,6 +401,8 @@ SCP	:= scp
 
 GEN_OBJS	:= $(GEN_SRC:.cc=.o)
 LOW_RUNTIME_OBJS:= $(LOW_RUNTIME_SRC:.cc=.o)
+#$(info $$var is [${LOW_RUNTIME_SRC}])
+#$(info $$var is [${LOW_RUNTIME_OBJS}])
 HIGH_RUNTIME_OBJS:=$(HIGH_RUNTIME_SRC:.cc=.o)
 MAPPER_OBJS	:= $(MAPPER_SRC:.cc=.o)
 ASM_OBJS	:= $(ASM_SRC:.S=.o)
@@ -413,7 +421,7 @@ all: $(OUTFILE)
 
 # If we're using the general low-level runtime we have to link with nvcc
 $(OUTFILE) : $(GEN_OBJS) $(GEN_GPU_OBJS) $(SLIB_LEGION) $(SLIB_REALM) $(SLIB_SHAREDLLR)
-	@echo "---> Linking objects into one binary: $(OUTFILE)"
+		@echo "---> Linking objects into one binary: $(OUTFILE)"
 	$(CXX) -o $(OUTFILE) $(GEN_OBJS) $(GEN_GPU_OBJS) $(LD_FLAGS) $(LEGION_LIBS) $(LEGION_LD_FLAGS) $(GASNET_FLAGS)
 
 $(SLIB_LEGION) : $(HIGH_RUNTIME_OBJS) $(MAPPER_OBJS)

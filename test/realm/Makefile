@@ -35,9 +35,9 @@ INC_FLAGS	:=
 CC_FLAGS	?=
 NVCC_FLAGS	:=
 GASNET_FLAGS	:=
-LD_FLAGS	:=
+LD_FLAGS	:= r
 
-CXX ?= g++
+CXX := clang++
 
 # we're going to include runtime.mk to get variable settings, but then
 #  do our own build steps
@@ -70,7 +70,7 @@ else
   TESTS += $(TESTS_SINGLENODE)
 endif
 
-# can set arguments to be passed to a test when running
+# Can Se arguments to be passed to a test when running
 TESTARGS_ctxswitch := -ll:io 1 -t 20 -i 10000
 TESTARGS_proc_group := -ll:cpu 4
 
