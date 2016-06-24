@@ -48,6 +48,10 @@ namespace Realm {
 #include <unistd.h>
 #include <signal.h>
 
+// global fabric object, from fabric.h
+Fabric* fabric = NULL;
+
+
 #define CHECK_PTHREAD(cmd) do { \
   int ret = (cmd); \
   if(ret != 0) { \
@@ -521,6 +525,7 @@ namespace Realm {
       //  spawners (e.g. the ssh spawner for gasnetrun_ibv) start with bogus args and
       //  fetch the real ones from somewhere during gasnet_init()
 
+      
 #ifdef USE_GASNET
       // SJT: WAR for issue on Titan with duplicate cookies on Gemini
       //  communication domains
@@ -583,6 +588,12 @@ namespace Realm {
         fflush(stdout);
       }
 #endif
+
+      // Initialize global fabric manager
+      std::cout << "INITIALIZING FABRIC" << std::endl;
+      fabric = new Fabric();
+
+      
       CHECK_GASNET( gasnet_init(argc, argv) );
 #ifdef DEBUG_REALM_STARTUP
       { // once we're convinced there isn't skew here, reduce this to rank 0

@@ -25,6 +25,9 @@
 #include "operation.h"
 #include "profiling.h"
 
+#include "fabric.h"
+#include "libfabric/fabric_libfabric.h"
+
 #include "dynamic_table.h"
 #include "proc_impl.h"
 
