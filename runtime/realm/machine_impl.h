@@ -282,7 +282,7 @@ namespace Realm {
 
     typedef ActiveMessageMediumNoReply<NODE_ANNOUNCE_MSGID,
 				       RequestArgs,
-				       handle_request> Message;
+				       handle_request> ActiveMessage;
 
     static void send_request(gasnet_node_t target,
 			     unsigned num_procs, unsigned num_memories,

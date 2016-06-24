@@ -292,7 +292,7 @@ namespace Realm {
 
       typedef ActiveMessageShortNoReply<MACHINE_SHUTDOWN_MSGID,
 				        RequestArgs,
-				        handle_request> Message;
+				        handle_request> ActiveMessage;
 
       static void send_request(gasnet_node_t target);
     };

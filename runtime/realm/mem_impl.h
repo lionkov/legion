@@ -514,7 +514,7 @@ namespace Realm {
 
       typedef ActiveMessageShortNoReply<DESTROY_INST_MSGID,
  	                                RequestArgs,
-	                                handle_request> Message;
+	                                handle_request> ActiveMessage;
 
       static void send_request(gasnet_node_t target, Memory memory,
 			       RegionInstance inst);
@@ -532,7 +532,7 @@ namespace Realm {
 
       typedef ActiveMessageMediumNoReply<REMOTE_WRITE_MSGID,
 				         RequestArgs,
-				         handle_request> Message;
+				         handle_request> ActiveMessage;
 
       // no simple send_request method here - see below
     };
@@ -551,7 +551,7 @@ namespace Realm {
 
       typedef ActiveMessageMediumNoReply<REMOTE_SERDEZ_MSGID,
                                          RequestArgs,
-                                         handle_request> Message;
+                                         handle_request> ActiveMessage;
 
       // no simple send_request method here - see below
     };
@@ -571,7 +571,7 @@ namespace Realm {
 
       typedef ActiveMessageMediumNoReply<REMOTE_REDUCE_MSGID,
 				         RequestArgs,
-				         handle_request> Message;
+				         handle_request> ActiveMessage;
 
       // no simple send_request method here - see below
     };
@@ -587,7 +587,7 @@ namespace Realm {
       
       typedef ActiveMessageMediumNoReply<REMOTE_REDLIST_MSGID,
 				         RequestArgs,
-				         handle_request> Message;
+				         handle_request> ActiveMessage;
 
       static void send_request(gasnet_node_t target, Memory mem, off_t offset,
 			       ReductionOpID redopid,
@@ -616,7 +616,7 @@ namespace Realm {
 
       typedef ActiveMessageShortNoReply<REMOTE_WRITE_FENCE_MSGID,
 				        RequestArgs,
-				        handle_request> Message;
+				        handle_request> ActiveMessage;
 
       static void send_request(gasnet_node_t target, Memory memory,
 			       unsigned sequence_id, unsigned num_writes,
@@ -633,7 +633,7 @@ namespace Realm {
 
       typedef ActiveMessageShortNoReply<REMOTE_WRITE_FENCE_ACK_MSGID,
 				        RequestArgs,
-				        handle_request> Message;
+				        handle_request> ActiveMessage;
 
       static void send_request(gasnet_node_t target,
 			       RemoteWriteFence *fence);

@@ -272,7 +272,7 @@ namespace Realm {
 
       typedef ActiveMessageMediumNoReply<SPAWN_TASK_MSGID,
  	                                 RequestArgs,
- 	                                 handle_request> Message;
+ 	                                 handle_request> ActiveMessage;
 
       static void send_request(gasnet_node_t target, Processor proc,
 			       Processor::TaskFuncID func_id,
@@ -294,7 +294,7 @@ namespace Realm {
 
       typedef ActiveMessageMediumNoReply<REGISTER_TASK_MSGID,
  	                                 RequestArgs,
- 	                                 handle_request> Message;
+ 	                                 handle_request> ActiveMessage;
 
       static void send_request(gasnet_node_t target,
 			       Processor::TaskFuncID func_id,
@@ -316,7 +316,7 @@ namespace Realm {
 
       typedef ActiveMessageShortNoReply<REGISTER_TASK_COMPLETE_MSGID,
 					RequestArgs,
-					handle_request> Message;
+					handle_request> ActiveMessage;
 
       static void send_request(gasnet_node_t target,
 			       RemoteTaskRegistration *reg_op,

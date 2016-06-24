@@ -255,7 +255,7 @@ namespace Realm {
 
     typedef ActiveMessageShortNoReply<EVENT_SUBSCRIBE_MSGID,
 				      RequestArgs,
-				      handle_request> Message;
+				      handle_request> ActiveMessage;
 
     static void send_request(gasnet_node_t target, Event event, Event::gen_t previous_gen);
   };
@@ -275,7 +275,7 @@ namespace Realm {
 
     typedef ActiveMessageShortNoReply<EVENT_TRIGGER_MSGID,
 				       RequestArgs,
-				       handle_request> Message;
+				       handle_request> ActiveMessage;
 
     static void send_request(gasnet_node_t target, Event event, bool poisoned);
   };
@@ -291,7 +291,7 @@ namespace Realm {
 
     typedef ActiveMessageMediumNoReply<EVENT_UPDATE_MSGID,
 				       RequestArgs,
-				       handle_request> Message;
+				       handle_request> ActiveMessage;
 
     static void send_request(gasnet_node_t target, Event event,
 			     int num_poisoned, const Event::gen_t *poisoned_generations);
@@ -312,7 +312,7 @@ namespace Realm {
 
       typedef ActiveMessageMediumNoReply<BARRIER_ADJUST_MSGID,
 					 RequestArgs,
-					 handle_request> Message;
+					 handle_request> ActiveMessage;
 
       static void send_request(gasnet_node_t target, Barrier barrier, int delta, Event wait_on,
 			       gasnet_node_t sender, bool forwarded,
@@ -331,7 +331,7 @@ namespace Realm {
 
       typedef ActiveMessageShortNoReply<BARRIER_SUBSCRIBE_MSGID,
 					RequestArgs,
-					handle_request> Message;
+					handle_request> ActiveMessage;
 
       static void send_request(gasnet_node_t target, ID::IDType barrier_id,
 			       Event::gen_t subscribe_gen,
@@ -354,7 +354,7 @@ namespace Realm {
 
       typedef ActiveMessageMediumNoReply<BARRIER_TRIGGER_MSGID,
 					 RequestArgs,
-					 handle_request> Message;
+					 handle_request> ActiveMessage;
 
       static void send_request(gasnet_node_t target, ID::IDType barrier_id,
 			       Event::gen_t trigger_gen, Event::gen_t previous_gen,
@@ -373,7 +373,7 @@ namespace Realm {
 
       typedef ActiveMessageShortNoReply<BARRIER_MIGRATE_MSGID,
 					RequestArgs,
-					handle_request> Message;
+					handle_request> ActiveMessage;
 
       static void send_request(gasnet_node_t target, Barrier barrier, gasnet_node_t owner);
     };

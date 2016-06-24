@@ -39,8 +39,7 @@ namespace Realm {
 
     void handle_data(const void *data, size_t datalen);
 
-  protected:
-    GASNetHSL mutex;
+  protected:    GASNetHSL mutex;
     GASNetCondVar condvar;
     std::map<int,double> *timerp;
     volatile int count_left;

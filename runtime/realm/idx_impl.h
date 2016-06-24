@@ -118,7 +118,7 @@ namespace Realm {
       
       typedef ActiveMessageShortNoReply<VALID_MASK_REQ_MSGID,
  				        RequestArgs,
-				        handle_request> Message;
+				        handle_request> ActiveMessage;
 
       static void send_request(gasnet_node_t target, IndexSpace is);
     };
@@ -137,7 +137,7 @@ namespace Realm {
 
       typedef ActiveMessageMediumNoReply<VALID_MASK_DATA_MSGID,
 				         RequestArgs,
-				         handle_request> Message;
+				         handle_request> ActiveMessage;
       
       static void send_request(gasnet_node_t target, IndexSpace is, unsigned block_id,
 			       coord_t first_element, size_t num_elements,

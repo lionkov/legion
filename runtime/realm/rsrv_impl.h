@@ -202,7 +202,7 @@ namespace Realm {
 
     typedef ActiveMessageShortNoReply<LOCK_REQUEST_MSGID, 
 				      RequestArgs, 
-				      handle_request> Message;
+				      handle_request> ActiveMessage;
 
     static void send_request(gasnet_node_t target, gasnet_node_t req_node,
 			     Reservation lock, unsigned mode);
@@ -218,7 +218,7 @@ namespace Realm {
 
     typedef ActiveMessageShortNoReply<LOCK_RELEASE_MSGID,
 				      RequestArgs,
-				      handle_request> Message;
+				      handle_request> ActiveMessage;
 
     static void send_request(gasnet_node_t target, Reservation lock);
   };
@@ -233,7 +233,7 @@ namespace Realm {
 
     typedef ActiveMessageMediumNoReply<LOCK_GRANT_MSGID,
 				       RequestArgs,
-				       handle_request> Message;
+				       handle_request> ActiveMessage;
 
     static void send_request(gasnet_node_t target, Reservation lock,
 			     unsigned mode, const void *data, size_t datalen,
@@ -250,7 +250,7 @@ namespace Realm {
 
     typedef ActiveMessageShortNoReply<DESTROY_LOCK_MSGID,
 				      RequestArgs,
-				      handle_request> Message;
+				      handle_request> ActiveMessage;
 
     static void send_request(gasnet_node_t target, Reservation lock);
   };

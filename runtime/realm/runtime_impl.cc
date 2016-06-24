@@ -591,7 +591,7 @@ namespace Realm {
 
       // Initialize global fabric manager
       std::cout << "INITIALIZING FABRIC" << std::endl;
-      fabric = new Fabric();
+      fabric = new FabFabric();
 
       
       CHECK_GASNET( gasnet_init(argc, argv) );
@@ -737,46 +737,46 @@ namespace Realm {
 
       gasnet_handlerentry_t handlers[128];
       int hcount = 0;
-      hcount += NodeAnnounceMessage::Message::add_handler_entries(&handlers[hcount], "Node Announce AM");
-      hcount += SpawnTaskMessage::Message::add_handler_entries(&handlers[hcount], "Spawn Task AM");
-      hcount += LockRequestMessage::Message::add_handler_entries(&handlers[hcount], "Lock Request AM");
-      hcount += LockReleaseMessage::Message::add_handler_entries(&handlers[hcount], "Lock Release AM");
-      hcount += LockGrantMessage::Message::add_handler_entries(&handlers[hcount], "Lock Grant AM");
-      hcount += EventSubscribeMessage::Message::add_handler_entries(&handlers[hcount], "Event Subscribe AM");
-      hcount += EventTriggerMessage::Message::add_handler_entries(&handlers[hcount], "Event Trigger AM");
-      hcount += EventUpdateMessage::Message::add_handler_entries(&handlers[hcount], "Event Update AM");
+      hcount += NodeAnnounceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Node Announce AM");
+      hcount += SpawnTaskMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Spawn Task AM");
+      hcount += LockRequestMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Request AM");
+      hcount += LockReleaseMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Release AM");
+      hcount += LockGrantMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Grant AM");
+      hcount += EventSubscribeMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Event Subscribe AM");
+      hcount += EventTriggerMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Event Trigger AM");
+      hcount += EventUpdateMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Event Update AM");
       hcount += RemoteMemAllocRequest::Request::add_handler_entries(&handlers[hcount], "Remote Memory Allocation Request AM");
       hcount += RemoteMemAllocRequest::Response::add_handler_entries(&handlers[hcount], "Remote Memory Allocation Response AM");
       hcount += CreateInstanceRequest::Request::add_handler_entries(&handlers[hcount], "Create Instance Request AM");
       hcount += CreateInstanceRequest::Response::add_handler_entries(&handlers[hcount], "Create Instance Response AM");
       hcount += RemoteCopyMessage::add_handler_entries(&handlers[hcount], "Remote Copy AM");
       hcount += RemoteFillMessage::add_handler_entries(&handlers[hcount], "Remote Fill AM");
-      hcount += ValidMaskRequestMessage::Message::add_handler_entries(&handlers[hcount], "Valid Mask Request AM");
-      hcount += ValidMaskDataMessage::Message::add_handler_entries(&handlers[hcount], "Valid Mask Data AM");
+      hcount += ValidMaskRequestMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Valid Mask Request AM");
+      hcount += ValidMaskDataMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Valid Mask Data AM");
 #ifdef DETAILED_TIMING
-      hcount += TimerDataRequestMessage::Message::add_handler_entries(&handlers[hcount], "Roll-up Request AM");
-      hcount += TimerDataResponseMessage::Message::add_handler_entries(&handlers[hcount], "Roll-up Data AM");
-      hcount += ClearTimersMessage::Message::add_handler_entries(&handlers[hcount], "Clear Timer Request AM");
+      hcount += TimerDataRequestMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Roll-up Request AM");
+      hcount += TimerDataResponseMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Roll-up Data AM");
+      hcount += ClearTimersMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Clear Timer Request AM");
 #endif
-      hcount += DestroyInstanceMessage::Message::add_handler_entries(&handlers[hcount], "Destroy Instance AM");
-      hcount += RemoteWriteMessage::Message::add_handler_entries(&handlers[hcount], "Remote Write AM");
-      hcount += RemoteReduceMessage::Message::add_handler_entries(&handlers[hcount], "Remote Reduce AM");
-      hcount += RemoteSerdezMessage::Message::add_handler_entries(&handlers[hcount], "Remote Serdez AM");
-      hcount += RemoteWriteFenceMessage::Message::add_handler_entries(&handlers[hcount], "Remote Write Fence AM");
-      hcount += RemoteWriteFenceAckMessage::Message::add_handler_entries(&handlers[hcount], "Remote Write Fence Ack AM");
-      hcount += DestroyLockMessage::Message::add_handler_entries(&handlers[hcount], "Destroy Lock AM");
-      hcount += RemoteReduceListMessage::Message::add_handler_entries(&handlers[hcount], "Remote Reduction List AM");
-      hcount += RuntimeShutdownMessage::Message::add_handler_entries(&handlers[hcount], "Machine Shutdown AM");
-      hcount += BarrierAdjustMessage::Message::add_handler_entries(&handlers[hcount], "Barrier Adjust AM");
-      hcount += BarrierSubscribeMessage::Message::add_handler_entries(&handlers[hcount], "Barrier Subscribe AM");
-      hcount += BarrierTriggerMessage::Message::add_handler_entries(&handlers[hcount], "Barrier Trigger AM");
-      hcount += BarrierMigrationMessage::Message::add_handler_entries(&handlers[hcount], "Barrier Migration AM");
-      hcount += MetadataRequestMessage::Message::add_handler_entries(&handlers[hcount], "Metadata Request AM");
-      hcount += MetadataResponseMessage::Message::add_handler_entries(&handlers[hcount], "Metadata Response AM");
-      hcount += MetadataInvalidateMessage::Message::add_handler_entries(&handlers[hcount], "Metadata Invalidate AM");
-      hcount += MetadataInvalidateAckMessage::Message::add_handler_entries(&handlers[hcount], "Metadata Inval Ack AM");
-      hcount += RegisterTaskMessage::Message::add_handler_entries(&handlers[hcount], "Register Task AM");
-      hcount += RegisterTaskCompleteMessage::Message::add_handler_entries(&handlers[hcount], "Register Task Complete AM");
+      hcount += DestroyInstanceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Destroy Instance AM");
+      hcount += RemoteWriteMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Write AM");
+      hcount += RemoteReduceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Reduce AM");
+      hcount += RemoteSerdezMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Serdez AM");
+      hcount += RemoteWriteFenceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Write Fence AM");
+      hcount += RemoteWriteFenceAckMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Write Fence Ack AM");
+      hcount += DestroyLockMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Destroy Lock AM");
+      hcount += RemoteReduceListMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Reduction List AM");
+      hcount += RuntimeShutdownMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Machine Shutdown AM");
+      hcount += BarrierAdjustMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Adjust AM");
+      hcount += BarrierSubscribeMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Subscribe AM");
+      hcount += BarrierTriggerMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Trigger AM");
+      hcount += BarrierMigrationMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Migration AM");
+      hcount += MetadataRequestMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Request AM");
+      hcount += MetadataResponseMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Response AM");
+      hcount += MetadataInvalidateMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Invalidate AM");
+      hcount += MetadataInvalidateAckMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Inval Ack AM");
+      hcount += RegisterTaskMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Register Task AM");
+      hcount += RegisterTaskCompleteMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Register Task Complete AM");
       //hcount += TestMessage::add_handler_entries(&handlers[hcount], "Test AM");
       //hcount += TestMessage2::add_handler_entries(&handlers[hcount], "Test 2 AM");
 
@@ -1898,7 +1898,7 @@ namespace Realm {
 
     args.initiating_node = gasnet_mynode();
     args.dummy = 0;
-    Message::request(target, args);
+    ActiveMessage::request(target, args);
   }
 
   

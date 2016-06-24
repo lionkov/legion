@@ -73,7 +73,7 @@ namespace Realm {
 
       typedef ActiveMessageShortNoReply<METADATA_REQUEST_MSGID,
 					RequestArgs,
-					handle_request> Message;
+					handle_request> ActiveMessage;
 
       static void send_request(gasnet_node_t target, ID::IDType id);
     };
@@ -87,7 +87,7 @@ namespace Realm {
 
       typedef ActiveMessageMediumNoReply<METADATA_RESPONSE_MSGID,
 					 RequestArgs,
-					 handle_request> Message;
+					 handle_request> ActiveMessage;
 
       static void send_request(gasnet_node_t target, ID::IDType id, 
 			       const void *data, size_t datalen, int payload_mode);
@@ -103,7 +103,7 @@ namespace Realm {
 
       typedef ActiveMessageShortNoReply<METADATA_INVALIDATE_MSGID,
 					RequestArgs,
-					handle_request> Message;
+					handle_request> ActiveMessage;
 
       static void send_request(gasnet_node_t target, ID::IDType id);
       static void broadcast_request(const NodeSet& targets, ID::IDType id);
@@ -119,7 +119,7 @@ namespace Realm {
     
       typedef ActiveMessageShortNoReply<METADATA_INVALIDATE_ACK_MSGID,
 					RequestArgs,
-					handle_request> Message;
+					handle_request> ActiveMessage;
 
       static void send_request(gasnet_node_t target, ID::IDType id);
     };
