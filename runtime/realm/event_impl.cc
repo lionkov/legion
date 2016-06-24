@@ -1016,7 +1016,7 @@ namespace Realm {
   struct MediumBroadcastHelper : public T::RequestArgs {
     inline void apply(gasnet_node_t target)
     {
-      T::Message::request(target, *this, payload, payload_size, payload_mode);
+      T::ActiveMessage::request(target, *this, payload, payload_size, payload_mode);
     }
 
     void broadcast(const NodeSet& targets,
@@ -1045,7 +1045,7 @@ namespace Realm {
     args.event = event;
     args.poisoned = poisoned;
 
-    Message::request(target, args);
+    ActiveMessage::request(target, args);
   }
 
   /*static*/ void EventUpdateMessage::send_request(gasnet_node_t target, Event event,
@@ -1056,7 +1056,7 @@ namespace Realm {
 
     args.event = event;
 
-    Message::request(target, args,
+    ActiveMessage::request(target, args,
 		     poisoned_generations, num_poisoned * sizeof(Event::gen_t),
 		     PAYLOAD_KEEP);
   }
@@ -1081,7 +1081,7 @@ namespace Realm {
     args.node = gasnet_mynode();
     args.event = event;
     args.previous_subscribe_gen = previous_gen;
-    Message::request(target, args);
+    ActiveMessage::request(target, args);
   }
 
     // only called for generational events
@@ -1656,7 +1656,7 @@ namespace Realm {
       args.wait_on = wait_on;
       args.sender = forwarded ? (-1 - sender) : sender;
       
-      Message::request(target, args, data, datalen, PAYLOAD_COPY);
+      ActiveMessage::request(target, args, data, datalen, PAYLOAD_COPY);
     }
 
     /*static*/ void BarrierSubscribeMessage::send_request(gasnet_node_t target, ID::IDType barrier_id, Event::gen_t subscribe_gen,
@@ -1669,7 +1669,7 @@ namespace Realm {
       args.barrier_id = barrier_id;
       args.subscribe_gen = subscribe_gen;
       
-      Message::request(target, args);
+      ActiveMessage::request(target, args);
     }
 
     /*static*/ void BarrierTriggerMessage::send_request(gasnet_node_t target, ID::IDType barrier_id,
@@ -1689,7 +1689,7 @@ namespace Realm {
       args.migration_target = migration_target;
       args.base_arrival_count = base_arrival_count;
 
-      Message::request(target, args, data, datalen, PAYLOAD_COPY);
+      ActiveMessage::request(target, args, data, datalen, PAYLOAD_COPY);
     }
 
 // like strdup, but works on arbitrary byte arrays
@@ -2351,7 +2351,7 @@ static void *bytedup(const void *data, size_t datalen)
       args.barrier = barrier;
       args.current_owner = owner;
 
-      Message::request(target, args);
+      ActiveMessage::request(target, args);
     }
 
 }; // namespace Realm

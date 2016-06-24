@@ -349,7 +349,7 @@ namespace Realm {
       args.node = req_node; // NOT gasnet_mynode() - may be forwarding a request
       args.lock = lock;
       args.mode = mode;
-      Message::request(target, args);
+      ActiveMessage::request(target, args);
     }
 
     /*static*/ void LockRequestMessage::handle_request(LockRequestMessage::RequestArgs args)
@@ -458,7 +458,7 @@ namespace Realm {
 
       args.node = gasnet_mynode();
       args.lock = lock;
-      Message::request(target, args);
+      ActiveMessage::request(target, args);
     }
 
     /*static*/ void LockReleaseMessage::handle_request(RequestArgs args)
@@ -476,7 +476,7 @@ namespace Realm {
 
       args.lock = lock;
       args.mode = mode;
-      Message::request(target, args, data, datalen, payload_mode);
+      ActiveMessage::request(target, args, data, datalen, payload_mode);
     }
 
     /*static*/ void LockGrantMessage::handle_request(RequestArgs args,
@@ -973,7 +973,7 @@ namespace Realm {
 
       args.actual = lock;
       args.dummy = lock;
-      Message::request(target, args);
+      ActiveMessage::request(target, args);
     }
 
     /*static*/ void DestroyLockMessage::handle_request(RequestArgs args)

@@ -253,7 +253,7 @@ namespace Realm {
 
     args.node = gasnet_mynode();
     args.id = id;
-    Message::request(target, args);
+    ActiveMessage::request(target, args);
   }
 
   
@@ -293,7 +293,7 @@ namespace Realm {
     RequestArgs args;
 
     args.id = id;
-    Message::request(target, args, data, datalen, payload_mode);
+    ActiveMessage::request(target, args, data, datalen, payload_mode);
   }
   
   
@@ -331,14 +331,14 @@ namespace Realm {
 
     args.owner = gasnet_mynode();
     args.id = id;
-    Message::request(target, args);
+    ActiveMessage::request(target, args);
   }
 
   template <typename T>
   struct BroadcastHelper : public T::RequestArgs {
     inline void apply(gasnet_node_t target)
     {
-      T::Message::request(target, *this);
+      T::ActiveMessage::request(target, *this);
     }
 
     void broadcast(const NodeSet& targets)
@@ -392,7 +392,7 @@ namespace Realm {
 
     args.node = gasnet_mynode();
     args.id = id;
-    Message::request(target, args);
+    ActiveMessage::request(target, args);
   }
   
 

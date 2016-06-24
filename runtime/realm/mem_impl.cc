@@ -1039,7 +1039,7 @@ namespace Realm {
 
     args.m = memory;
     args.i = inst;
-    Message::request(target, args);
+    ActiveMessage::request(target, args);
   }
   
 
@@ -1358,7 +1358,7 @@ namespace Realm {
     args.mem = mem;
     args.offset = offset;
     args.redopid = redopid;
-    Message::request(target, args, data, datalen, payload_mode);
+    ActiveMessage::request(target, args, data, datalen, payload_mode);
   }
   
 
@@ -1451,7 +1451,7 @@ namespace Realm {
     args.sequence_id = sequence_id;
     args.num_writes = num_writes;
     args.fence = fence;
-    Message::request(target, args);
+    ActiveMessage::request(target, args);
   }
   
 
@@ -1474,7 +1474,7 @@ namespace Realm {
     RequestArgs args;
 
     args.fence = fence;
-    Message::request(target, args);
+    ActiveMessage::request(target, args);
   }
   
 
@@ -1516,7 +1516,7 @@ namespace Realm {
 
 	  int count = 1;
 	  while(datalen > max_xfer_size) {
-	    RemoteWriteMessage::Message::request(ID(mem).node(), args,
+	    RemoteWriteMessage::ActiveMessage::request(ID(mem).node(), args,
 						 pos, max_xfer_size,
 						 make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP);
 	    args.offset += max_xfer_size;
@@ -1526,7 +1526,7 @@ namespace Realm {
 	  }
 
 	  // last send includes whatever's left
-	  RemoteWriteMessage::Message::request(ID(mem).node(), args,
+	  RemoteWriteMessage::ActiveMessage::request(ID(mem).node(), args,
 					       pos, datalen, 
 					       make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP);
 	  return count;
@@ -1541,7 +1541,7 @@ namespace Realm {
 	args.offset = offset;
         args.sender = gasnet_mynode();
 	args.sequence_id = sequence_id;
-	RemoteWriteMessage::Message::request(ID(mem).node(), args,
+	RemoteWriteMessage::ActiveMessage::request(ID(mem).node(), args,
 					     data, datalen,
 					     (make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP),
 					     dstptr);
@@ -1584,7 +1584,7 @@ namespace Realm {
 
 	  int count = 1;
 	  while(lines > max_lines_per_xfer) {
-	    RemoteWriteMessage::Message::request(ID(mem).node(), args,
+	    RemoteWriteMessage::ActiveMessage::request(ID(mem).node(), args,
 						 pos, datalen,
 						 stride, max_lines_per_xfer,
 						 make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP);
@@ -1595,7 +1595,7 @@ namespace Realm {
 	  }
 
 	  // last send includes whatever's left
-	  RemoteWriteMessage::Message::request(ID(mem).node(), args,
+	  RemoteWriteMessage::ActiveMessage::request(ID(mem).node(), args,
 					       pos, datalen, stride, lines,
 					       make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP);
 	  return count;
@@ -1611,7 +1611,7 @@ namespace Realm {
         args.sender = gasnet_mynode();
 	args.sequence_id = sequence_id;
 
-	RemoteWriteMessage::Message::request(ID(mem).node(), args,
+	RemoteWriteMessage::ActiveMessage::request(ID(mem).node(), args,
 					     data, datalen, stride, lines,
 					     make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP,
 					     dstptr);
@@ -1661,7 +1661,7 @@ namespace Realm {
               const char *pos = (const char *)(it->first);
               size_t left = it->second;
               while(left > max_xfer_size) {
-		RemoteWriteMessage::Message::request(ID(mem).node(), args,
+		RemoteWriteMessage::ActiveMessage::request(ID(mem).node(), args,
 						     pos, max_xfer_size,
 						     make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP);
 		args.offset += max_xfer_size;
@@ -1669,7 +1669,7 @@ namespace Realm {
 		left -= max_xfer_size;
 		count++;
 	      }
-	      RemoteWriteMessage::Message::request(ID(mem).node(), args,
+	      RemoteWriteMessage::ActiveMessage::request(ID(mem).node(), args,
 						   pos, left,
 						   make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP);
 	      args.offset += left;
@@ -1693,7 +1693,7 @@ namespace Realm {
 	    // if we didn't get at least one span, we won't make forward progress
 	    assert(!subspans.empty());
 
-	    RemoteWriteMessage::Message::request(ID(mem).node(), args,
+	    RemoteWriteMessage::ActiveMessage::request(ID(mem).node(), args,
 						 subspans, xfer_size,
 						 make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP);
 	    args.offset += xfer_size;
@@ -1714,7 +1714,7 @@ namespace Realm {
         args.sender = gasnet_mynode();
 	args.sequence_id = sequence_id;
 
-	RemoteWriteMessage::Message::request(ID(mem).node(), args,
+	RemoteWriteMessage::ActiveMessage::request(ID(mem).node(), args,
 					     spans, datalen,
 					     make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP,
 					     dstptr);
@@ -1764,7 +1764,7 @@ namespace Realm {
         args.serdez_id = serdez_id;
         args.sender = gasnet_mynode();
         args.sequence_id = sequence_id;
-        RemoteSerdezMessage::Message::request(ID(mem).node(), args,
+        RemoteSerdezMessage::ActiveMessage::request(ID(mem).node(), args,
                                               buffer_start, cur_size, PAYLOAD_COPY);
         xfers ++;
       }
@@ -1809,7 +1809,7 @@ namespace Realm {
 
 	  int xfers = 1;
 	  while(count > max_elmts_per_xfer) {
-	    RemoteReduceMessage::Message::request(ID(mem).node(), args,
+	    RemoteReduceMessage::ActiveMessage::request(ID(mem).node(), args,
 						  pos, rhs_size,
 						  src_stride, max_elmts_per_xfer,
 						  make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP);
@@ -1820,7 +1820,7 @@ namespace Realm {
 	  }
 
 	  // last send includes whatever's left
-	  RemoteReduceMessage::Message::request(ID(mem).node(), args,
+	  RemoteReduceMessage::ActiveMessage::request(ID(mem).node(), args,
 						pos, rhs_size, src_stride, count,
 						make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP);
 	  return xfers;
@@ -1840,9 +1840,9 @@ namespace Realm {
 	args.sender = gasnet_mynode();
 	args.sequence_id = sequence_id;
 
-	RemoteReduceMessage::Message::request(ID(mem).node(), args,
-					      data, rhs_size, src_stride, count,
-					      make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP);
+	RemoteReduceMessage::ActiveMessage::request(ID(mem).node(), args,
+						    data, rhs_size, src_stride, count,
+						    make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP);
 
 	return 1;
       }

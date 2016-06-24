@@ -1827,7 +1827,7 @@ namespace Realm {
 
     args.sender = gasnet_mynode();
     args.is = is;
-    Message::request(target, args);
+    ActiveMessage::request(target, args);
   }
   
 
@@ -1907,7 +1907,7 @@ namespace Realm {
     args.num_elements = num_elements;
     args.first_enabled_elmt = first_enabled_elmt;
     args.last_enabled_elmt = last_enabled_elmt;
-    Message::request(target, args, data, datalen, payload_mode);
+    ActiveMessage::request(target, args, data, datalen, payload_mode);
   }
   
 }; // namespace Realm

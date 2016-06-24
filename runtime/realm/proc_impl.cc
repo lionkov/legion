@@ -576,7 +576,7 @@ namespace Realm {
     
     if(!prs || prs->empty()) {
       // no profiling, so task args are the only payload
-      Message::request(target, r_args, args, arglen, PAYLOAD_COPY);
+      ActiveMessage::request(target, r_args, args, arglen, PAYLOAD_COPY);
     } else {
       // need to serialize both the task args and the profiling request
       //  into a single payload
@@ -591,7 +591,7 @@ namespace Realm {
 
       size_t datalen = dbs.bytes_used();
       void *data = dbs.detach_buffer(-1);  // don't trim - this buffer has a short life
-      Message::request(target, r_args, data, datalen, PAYLOAD_FREE);
+      ActiveMessage::request(target, r_args, data, datalen, PAYLOAD_FREE);
     }
   }
 
@@ -661,7 +661,7 @@ namespace Realm {
 
     size_t datalen = dbs.bytes_used();
     void *data = dbs.detach_buffer(-1 /*no trim*/);
-    Message::request(target, args, data, datalen, PAYLOAD_FREE);
+    ActiveMessage::request(target, args, data, datalen, PAYLOAD_FREE);
   }
 
 
@@ -685,7 +685,7 @@ namespace Realm {
     args.reg_op = reg_op;
     args.successful = successful;
 
-    Message::request(target, args);
+    ActiveMessage::request(target, args);
   }
 
 

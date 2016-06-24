@@ -1281,7 +1281,7 @@ namespace Realm {
     args.node_id = gasnet_mynode();
     args.num_procs = num_procs;
     args.num_memories = num_memories;
-    Message::request(target, args, data, datalen, payload_mode);
+    ActiveMessage::request(target, args, data, datalen, payload_mode);
   }
 
   /*static*/ void NodeAnnounceMessage::await_all_announcements(void)

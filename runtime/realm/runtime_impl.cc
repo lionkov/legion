@@ -590,8 +590,8 @@ namespace Realm {
 #endif
 
       // Initialize global fabric manager
-      std::cout << "INITIALIZING FABRIC" << std::endl;
-      fabric = new FabFabric();
+      //std::cout << "INITIALIZING FABRIC" << std::endl;
+      //fabric = new FabFabric();
 
       
       CHECK_GASNET( gasnet_init(argc, argv) );
