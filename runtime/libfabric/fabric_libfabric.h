@@ -1,0 +1,130 @@
+#ifndef FABRIC_LIBFABRIC_H
+#define FABRIC_LIBFABRIC_H
+
+#include "fabric.h"
+#include "cmdline.h"
+#include <iostream>
+#include <cstdio>
+//#include "pmi.h"
+#include <cstring>
+#include <vector>
+#include <rdma/fabric.h>
+#include <rdma/fi_domain.h>
+#include <rdma/fi_errno.h>
+#include <rdma/fi_endpoint.h>
+#include <rdma/fi_cm.h>
+#include <rdma/fi_rma.h>
+#include <rdma/fi_tagged.h>
+
+class FabMutex {
+ public:
+  FabMutex(void) { pthread_mutex_init(&_lock, NULL); } 
+    ~FabMutex(void) { pthread_mutex_destroy(&_lock); }
+    
+    void lock(void) { pthread_mutex_lock(&_lock); }
+    void unlock(void) { pthread_mutex_unlock(&_lock); }
+
+  protected:
+    friend class FabCondVar;
+    pthread_mutex_t _lock;
+
+  private:
+    // Should never be copied
+    FabMutex(const FabMutex& m) { assert(false); }
+    FabMutex& operator=(const FabMutex &m) { assert(false); return *this; }
+  };
+
+  class FabCondVar {
+  public:
+    FabCondVar(FabMutex &m) : mutex(m) { pthread_cond_init(&cond, NULL); }
+    ~FabCondVar(void) { pthread_cond_destroy(&cond); }
+    void signal(void) { pthread_cond_signal(&cond); }
+    void broadcast(void) { pthread_cond_broadcast(&cond); }
+    void wait(void) { pthread_cond_wait(&cond, &mutex._lock); }
+    FabMutex& get_mutex() { return mutex; };
+    
+
+  protected:
+    FabMutex &mutex;
+    pthread_cond_t cond;
+    
+  };
+
+
+  // AutoLocks wrap a mutex. On creation, the mutex is automatically acquired,
+  // when the AutoLock is destroyed, the mutex is released.
+  class FabAutoLock {
+  public:
+  FabAutoLock(FabMutex& _mutex) : mutex(_mutex), held(true) {}
+    ~FabAutoLock();
+    void release();
+    void reacquire();
+
+  protected:
+    FabMutex& mutex;
+    bool held;
+  };
+
+
+  class FabMessage : public Message {
+  protected:
+    FabMessage(NodeId dest, MessageId id, void *args, Payload *payload, bool inOrder);
+
+  public:
+    virtual ~FabMessage();
+    virtual int reply(MessageId id, void *args, Payload *payload, bool inOrder);
+
+  protected:
+    friend class FabFabric;
+  };
+
+
+  class FabFabric : public Fabric {
+  public:
+    FabFabric();
+    ~FabFabric();
+    
+    void register_options(Realm::CommandLineParser &cp);
+    bool add_message_type(MessageType *mt);
+    bool init();
+    void shutdown();
+
+    NodeId get_id();
+    NodeId get_max_id();
+    int send(Message* m);
+    int send(NodeId dest, MessageId id, void* args, Payload* payload, bool inOrder);
+    bool progress(int maxToSend, bool wait);
+    bool incoming(FabMessage *);
+    void *memalloc(size_t size);
+    void memfree(void *);
+
+  protected:
+    NodeId	id;
+    NodeId	max_id;
+
+    struct fid_fabric* fab;
+    struct fid_domain* dom;
+    struct fid_eq* eq;
+    struct fid_cq* cq;
+    struct fid_ep* ep;
+    struct fid_av* av;
+    struct fi_context* avctx;
+
+    fi_addr_t* fi_addrs;
+
+    // parameters
+    int	max_send;
+    int	pend_num;
+
+    int post_tagged(MessageType* mt);
+    int post_untagged();
+    
+    bool init_fail(fi_info* hints, fi_info* fi);
+    
+    friend class FabMessage;
+  };
+
+  //typedef FabMutex Mutex;
+  //typedef FabCondVar CondVar;
+ 
+#endif // ifndef FABRIC_LIBFABRIC_H
