@@ -5,9 +5,10 @@
 #include "cmdline.h"
 #include <iostream>
 #include <cstdio>
-//#include "pmi.h"
+#include "pmi.h"
 #include <cstring>
 #include <vector>
+#include <cerrno>
 #include <rdma/fabric.h>
 #include <rdma/fi_domain.h>
 #include <rdma/fi_errno.h>
@@ -97,6 +98,7 @@ class FabMutex {
     bool incoming(FabMessage *);
     void *memalloc(size_t size);
     void memfree(void *);
+    void print_fi_info(fi_info* fi);
 
   protected:
     NodeId	id;
@@ -119,7 +121,7 @@ class FabMutex {
     int post_tagged(MessageType* mt);
     int post_untagged();
     
-    bool init_fail(fi_info* hints, fi_info* fi);
+    bool init_fail(fi_info* hints, fi_info* fi, int ret);
     
     friend class FabMessage;
   };

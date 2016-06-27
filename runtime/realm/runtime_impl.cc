@@ -530,6 +530,8 @@ namespace Realm {
       // SJT: WAR for issue on Titan with duplicate cookies on Gemini
       //  communication domains
       char *orig_pmi_gni_cookie = getenv("PMI_GNI_COOKIE");
+      std::cout << "PMI_GNI_COOKIE" << std::endl;
+      std::cout << orign_pmi_gni_cookie << std::endl;
       if(orig_pmi_gni_cookie) {
 	char new_pmi_gni_cookie[32];
 	snprintf(new_pmi_gni_cookie, 32, "%d", 1+atoi(orig_pmi_gni_cookie));
@@ -590,8 +592,8 @@ namespace Realm {
 #endif
 
       // Initialize global fabric manager
-      //std::cout << "INITIALIZING FABRIC" << std::endl;
-      //fabric = new FabFabric();
+      std::cout << "CREATING FABRIC" << std::endl;
+      fabric = new FabFabric();
 
       
       CHECK_GASNET( gasnet_init(argc, argv) );
@@ -871,6 +873,8 @@ namespace Realm {
       else
 	global_memory = 0;
 
+      fabric->init();
+      
       Node *n = &nodes[gasnet_mynode()];
 
       // create memories and processors for all loaded modules

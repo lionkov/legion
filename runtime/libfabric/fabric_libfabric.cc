@@ -24,11 +24,11 @@ int FabMessage::reply(MessageId id, void *args, Payload *payload, bool inOrder)
 FabFabric::FabFabric():max_send(1024*1024), pend_num(16)
 {
   // ASK -- need to sort out setting up PMI
-  // PMI_Get_size(&max_id);
-  // PMI_Get_rank(&id);
+  PMI_Get_size((int*) &max_id);
+  PMI_Get_rank((int*) &id);
 
-  
-  
+  std::cout << "Max ID: " << max_id << std::endl;
+  std::cout << "id: " << id << std::endl;
 }
 
 void FabFabric::register_options(Realm::CommandLineParser &cp)
@@ -39,6 +39,7 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
 
 bool FabFabric::init()
 {
+  std::cout << "INITIALIZING FABRIC" << std::endl;
   struct fi_info *hints, *fi;
   struct fi_cq_attr cqattr;
   struct fi_eq_attr eqattr;
@@ -54,30 +55,38 @@ bool FabFabric::init()
   fi = NULL;
   int ret = fi_getinfo(FI_VERSION(1, 0), NULL, NULL, 0, hints, &fi);
   if (ret != 0)
-    init_fail(hints, fi);
+    return init_fail(hints, fi, ret);
+
+  std::cout << "FI_INFO: " << std::endl;
+  print_fi_info(fi);
+
+
+  // This will set the address length to the src length of the first service
+  // -- is this correct? 
+  addrlen = fi->src_addrlen;
   
   ret = fi_fabric(fi->fabric_attr, (struct fid_fabric**) &fab, NULL);
   if (ret != 0)
-    init_fail(hints, fi);
+    return init_fail(hints, fi, ret);
 
   std::memset(&eqattr, 0, sizeof(eqattr));
   eqattr.size = FI_WAIT_UNSPEC;
   ret = fi_eq_open(fab, &eqattr, (struct fid_eq**) &eq, NULL);
   if (ret != 0)
-    init_fail(hints, fi);
+    return init_fail(hints, fi, ret);
 
   ret = fi_domain(fab, fi, (struct fid_domain**) &dom, NULL);
   if (ret != 0)
-    init_fail(hints, fi);
+    return init_fail(hints, fi, ret);
 
 
   ret = fi_endpoint(dom, fi, (struct fid_ep**) &ep, NULL);
   if (ret != 0)
-    init_fail(hints, fi);
+    return init_fail(hints, fi, ret);
 
   ret = fi_ep_bind(ep, &(eq->fid), 0);
   if (ret != 0)
-    init_fail(hints, fi);
+    return init_fail(hints, fi, ret);
 
   std::memset(&cqattr, 0, sizeof(cqattr));
   cqattr.format = FI_CQ_FORMAT_TAGGED;
@@ -85,47 +94,60 @@ bool FabFabric::init()
   cqattr.wait_cond = FI_CQ_COND_NONE;
   // ASK -- what should the queue size be? It's not defined
   cqattr.size = 0;
-
   
   ret = fi_cq_open(dom, &cqattr, (struct fid_cq**) &cq, NULL);
   if (ret != 0)
-    init_fail(hints, fi);
+    return init_fail(hints, fi, ret);
 
   memset(&avattr, 0, sizeof(avattr));
   avattr.type = fi->domain_attr->av_type?fi->domain_attr->av_type : FI_AV_MAP;
   avattr.count = max_id;
+  avattr.ep_per_node = 0; // 'unknown' number of endpoints, may be optimized later
   avattr.name = NULL;
+  avattr.rx_ctx_bits = 8;
+  
   ret = fi_av_open(dom, &avattr, (struct fid_av**) &av, NULL);
   if (ret != 0)
-    init_fail(hints, fi);
+    return init_fail(hints, fi, ret);
 
-  ret = fi_ep_bind(ep, &(cq->fid), FI_SEND|FI_WRITE|FI_RECV);
+  ret = fi_ep_bind(ep, &(cq->fid), FI_SEND|FI_RECV);
   if (ret != 0)
-    init_fail(hints, fi);
+    return init_fail(hints, fi, ret);
 
   ret = fi_ep_bind(ep, &(av->fid), 0);
   if (ret != 0)
-    init_fail(hints, fi);
+    return init_fail(hints, fi, ret);
 
   ret = fi_enable(ep);
   if (ret != 0)
-    init_fail(hints, fi);
+    return init_fail(hints, fi, ret);
 
   // get rank address
-  fi_getname(&(ep->fid), NULL, &addrlen);
   void* addr = malloc(addrlen);
+  //fi_getname(&(ep->fid), addr, &addrlen);
   ret = fi_getname(&(ep->fid), addr, &addrlen);
   if (ret != 0)
-    init_fail(hints, fi);
+    return init_fail(hints, fi, ret);
 
+  std::cout << "addr: " << * (int*) addr << std::endl;
   void* addrs = malloc(max_id * addrlen);
-  // ASK -- I'm not sure what PMI_Allgather is or where it came from.
+  
+  // ASK -- most pmi.h implementations do not have PMI_Allgather,
+  // do we really need this?
+  
   //PMI_Allgather(addr, addrs, addrlen);
 
   fi_addrs = (fi_addr_t*) malloc(max_id * sizeof(fi_addr_t));
+  std::cout << "max_id: " << max_id << " fi_addr_t size: " << sizeof(fi_addr_t) << std::endl;
+  
+  if (!fi_addrs)
+    return init_fail(hints, fi, 0);
+  
   ret = fi_av_insert(av, addrs, max_id, fi_addrs, 0, &avctx);
-  if (ret != max_id)
-    return init_fail(hints, fi);
+  // Original code checked for number of entries inserted; as far as I can
+  // tell fabric does not return this info
+  if (ret != 0) 
+    return init_fail(hints, fi, ret);
   free(addr);
 
   // post tagged message for message types without payloads
@@ -134,7 +156,7 @@ bool FabFabric::init()
     if (!mt->payload) {
       ret = post_tagged(mt);
       if (ret != 0)
-	return init_fail(hints, fi);
+	return init_fail(hints, fi, ret);
     }
   }
 
@@ -142,11 +164,13 @@ bool FabFabric::init()
   for(int i = 0; i < pend_num; i++) {
     ret = post_untagged();
       if (ret != 0)
-	return init_fail(hints, fi);
+	return init_fail(hints, fi, ret);
   }
 
   fi_freeinfo(hints);
   fi_freeinfo(fi);
+
+  std::cout << "DONE INITIALIZING FABRIC" << std::endl;
   return true;
 
   //error:
@@ -156,10 +180,16 @@ bool FabFabric::init()
 }
 
 
-bool FabFabric::init_fail(fi_info* hints, fi_info* fi)
+bool FabFabric::init_fail(fi_info* hints, fi_info* fi, int ret)
 {
+  std::cout << "ERROR -- Fabric Init failed with return code: " << ret <<  std::endl;
+  if (ret != 0)
+    std::cout << "The error string is: " << fi_strerror(ret) << std::endl;
+  else
+    std::cout << "This was not a fabric error. UNIX error string: " << strerror(errno) << std::endl;
   fi_freeinfo(hints);
   fi_freeinfo(fi);
+
   return false;
 }
 
@@ -397,3 +427,15 @@ void FabAutoLock::reacquire()
   held = true;
 }
 
+void FabFabric::print_fi_info(fi_info* fi) {
+  fi_info* head = fi;
+  while(head) {
+    std::cout << "caps: " << head->caps << std::endl;
+    std::cout << "mode: " << head->mode << std::endl;
+    std::cout << "addr_format: " << head->addr_format << std::endl;
+    std::cout << "src_addrlen: " << head->src_addrlen << std::endl;
+    std::cout << "dest_addrlen: " << head->dest_addrlen << std::endl;
+
+    head = head->next;
+  }
+}
