@@ -6,6 +6,7 @@
 #include <iostream>
 #include <cstdio>
 #include "pmi.h"
+//#include "pmix.h"
 #include <cstring>
 #include <vector>
 #include <cerrno>

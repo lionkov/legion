@@ -12,6 +12,7 @@
 #include <cstring>
 
 #define NELEM(x) (sizeof(x) / sizeof(x[0]))
+#define MAX_MESSAGE_TYPES 128
 
 enum {
   FAB_PAYLOAD_ERROR,
@@ -156,9 +157,10 @@ class Message {
 class Fabric {
  public:
   // all message types need to be added before init() is called
-
+  
+  Fabric() { for (int i = 0; i < MAX_MESSAGE_TYPES; ++i) mts[i] = NULL; }
   ~Fabric() { }
-  std::vector<MessageType*> mts;
+  MessageType* mts[MAX_MESSAGE_TYPES];
   virtual bool add_message_type(MessageType *mt) = 0;
   virtual bool init() = 0;
   virtual void shutdown() = 0;

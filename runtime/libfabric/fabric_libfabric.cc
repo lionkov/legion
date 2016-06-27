@@ -23,12 +23,6 @@ int FabMessage::reply(MessageId id, void *args, Payload *payload, bool inOrder)
 
 FabFabric::FabFabric():max_send(1024*1024), pend_num(16)
 {
-  // ASK -- need to sort out setting up PMI
-  PMI_Get_size((int*) &max_id);
-  PMI_Get_rank((int*) &id);
-
-  std::cout << "Max ID: " << max_id << std::endl;
-  std::cout << "id: " << id << std::endl;
 }
 
 void FabFabric::register_options(Realm::CommandLineParser &cp)
@@ -37,9 +31,56 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
   cp.add_option_int("-ll:pend_num", pend_num);
 }
 
+/*
+  FabFabric::init():
+   
+   YOU MUST REGISTER ALL MESSAGE TYPES BEFORE CALLING 
+   THIS FUNCTION.
+
+   Inputs: none
+
+   Returns: true on success, false on failure.
+
+   Initializes PMI and discovers rest of network. 
+
+   Then initialalizes fabric communication system and posts
+   buffers for all message types. 
+*/ 
+
 bool FabFabric::init()
 {
+  // Initialize PMI and discover other nodes
+  int ret;
+  int spawned;
+  
+  ret = PMI_Init(&spawned);
+  if (ret != PMI_SUCCESS) {
+    std::cout << "ERROR -- PMI_Init failed with error code " << ret << std::endl;
+    //    return false;
+  }
+
+  ret = PMI_Get_size((int*) &max_id);
+  if (ret != PMI_SUCCESS) {
+    std::cout << "ERROR -- PMI_Get_size failed with error code " << ret << std::endl;
+    //return false;
+  }
+
+  ret = PMI_Get_rank((int*) &id);
+  if (ret != PMI_SUCCESS) {
+    std::cout << "ERROR -- PMI_Get_rank failed with error code " << ret << std::endl;
+    //return false;
+  }
+
+  // Setting max_id to 1 for now, since PMI isn't setting up properly
+  max_id = 1;
+  
+  std::cout << "Max ID: " << max_id << std::endl;
+  std::cout << "id: " << id << std::endl;
+
+  
   std::cout << "INITIALIZING FABRIC" << std::endl;
+
+  // Initialize fabric
   struct fi_info *hints, *fi;
   struct fi_cq_attr cqattr;
   struct fi_eq_attr eqattr;
@@ -53,7 +94,7 @@ bool FabFabric::init()
   hints->domain_attr->mr_mode = FI_MR_BASIC;
 
   fi = NULL;
-  int ret = fi_getinfo(FI_VERSION(1, 0), NULL, NULL, 0, hints, &fi);
+  ret = fi_getinfo(FI_VERSION(1, 0), NULL, NULL, 0, hints, &fi);
   if (ret != 0)
     return init_fail(hints, fi, ret);
 
@@ -151,9 +192,9 @@ bool FabFabric::init()
   free(addr);
 
   // post tagged message for message types without payloads
-  for(std::vector<MessageType*>::iterator it = mts.begin(); it != mts.end(); ++it) {
-    MessageType* mt = *it;
-    if (!mt->payload) {
+  for(int i = 0; i < MAX_MESSAGE_TYPES; ++i) {
+    MessageType* mt = mts[i];
+    if (mt && !mt->payload) {
       ret = post_tagged(mt);
       if (ret != 0)
 	return init_fail(hints, fi, ret);
@@ -163,8 +204,8 @@ bool FabFabric::init()
   // post few untagged buffers for message types with payloads
   for(int i = 0; i < pend_num; i++) {
     ret = post_untagged();
-      if (ret != 0)
-	return init_fail(hints, fi, ret);
+    if (ret != 0)
+      return init_fail(hints, fi, ret);
   }
 
   fi_freeinfo(hints);
@@ -402,8 +443,8 @@ int FabFabric::post_untagged()
   void *buf = malloc(max_send);
 
   FabMessage* m = new FabMessage(get_id(), 0, NULL, NULL, false);
-  m->iov[0].iov_base = buf;
-  m->iov[0].iov_len = max_send;
+  m->siov[0].iov_base = buf;
+  m->siov[0].iov_len = max_send;
   return fi_recv(ep, buf, max_send, NULL, FI_ADDR_UNSPEC, m);
 }
 
