@@ -74,12 +74,6 @@ bool FabFabric::init()
   // Setting max_id to 1 for now, since PMI isn't setting up properly
   max_id = 1;
   
-  std::cout << "Max ID: " << max_id << std::endl;
-  std::cout << "id: " << id << std::endl;
-
-  
-  std::cout << "INITIALIZING FABRIC" << std::endl;
-
   // Initialize fabric
   struct fi_info *hints, *fi;
   struct fi_cq_attr cqattr;
@@ -97,10 +91,6 @@ bool FabFabric::init()
   ret = fi_getinfo(FI_VERSION(1, 0), NULL, NULL, 0, hints, &fi);
   if (ret != 0)
     return init_fail(hints, fi, ret);
-
-  std::cout << "FI_INFO: " << std::endl;
-  print_fi_info(fi);
-
 
   // This will set the address length to the src length of the first service
   // -- is this correct? 
@@ -170,7 +160,6 @@ bool FabFabric::init()
   if (ret != 0)
     return init_fail(hints, fi, ret);
 
-  std::cout << "addr: " << * (int*) addr << std::endl;
   void* addrs = malloc(max_id * addrlen);
   
   // ASK -- most pmi.h implementations do not have PMI_Allgather,
@@ -179,7 +168,6 @@ bool FabFabric::init()
   //PMI_Allgather(addr, addrs, addrlen);
 
   fi_addrs = (fi_addr_t*) malloc(max_id * sizeof(fi_addr_t));
-  std::cout << "max_id: " << max_id << " fi_addr_t size: " << sizeof(fi_addr_t) << std::endl;
   
   if (!fi_addrs)
     return init_fail(hints, fi, 0);
@@ -211,7 +199,6 @@ bool FabFabric::init()
   fi_freeinfo(hints);
   fi_freeinfo(fi);
 
-  std::cout << "DONE INITIALIZING FABRIC" << std::endl;
   return true;
 
   //error:
