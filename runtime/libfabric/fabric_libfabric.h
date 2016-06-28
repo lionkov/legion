@@ -5,6 +5,8 @@
 #include "cmdline.h"
 #include <iostream>
 #include <cstdio>
+#include <pthread.h>
+#include <stdatomic.h>
 #include "pmi.h"
 //#include "pmix.h"
 #include <cstring>
@@ -68,13 +70,13 @@ class FabMutex {
   };
 
 
-  class FabMessage : public Message {
-  protected:
-    FabMessage(NodeId dest, MessageId id, void *args, Payload *payload, bool inOrder);
+class FabMessage : public Message {
+ protected:
+  FabMessage(NodeId dest, MessageId id, void *args, Payload *payload, bool inOrder);
 
   public:
     virtual ~FabMessage();
-    virtual int reply(MessageId id, void *args, Payload *payload, bool inOrder);
+    //virtual int reply(MessageId id, void *args, Payload *payload, bool inOrder);
 
   protected:
     friend class FabFabric;
@@ -95,11 +97,12 @@ class FabMutex {
     NodeId get_max_id();
     int send(Message* m);
     int send(NodeId dest, MessageId id, void* args, Payload* payload, bool inOrder);
-    bool progress(int maxToSend, bool wait);
+    bool progress(bool wait);
     bool incoming(FabMessage *);
     void *memalloc(size_t size);
     void memfree(void *);
     void print_fi_info(fi_info* fi);
+    void wait_for_shutdown();
 
   protected:
     NodeId	id;
@@ -115,6 +118,10 @@ class FabMutex {
 
     fi_addr_t* fi_addrs;
 
+    pthread_t* progress_threads;
+    atomic_bool stop_atomic_flag;
+    int num_progress_threads;
+
     // parameters
     int	max_send;
     int	pend_num;
@@ -123,8 +130,13 @@ class FabMutex {
     int post_untagged();
     
     bool init_fail(fi_info* hints, fi_info* fi, int ret);
+
+    void start_progress_threads(int count, size_t stack_size);
+    void free_progress_threads();
+    static void* bootstrap_progress(void* context);
     
     friend class FabMessage;
+    
   };
 
   //typedef FabMutex Mutex;

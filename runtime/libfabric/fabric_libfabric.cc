@@ -15,14 +15,19 @@ FabMessage::~FabMessage()
   delete payload;
 }
 
+/*
 int FabMessage::reply(MessageId id, void *args, Payload *payload, bool inOrder)
 {
   FabMessage *r = new FabMessage(sndid, id, args, payload, inOrder);
   return fabric->send(r);
 }
+*/
 
-FabFabric::FabFabric():max_send(1024*1024), pend_num(16)
-{
+FabFabric::FabFabric() : max_send(1024*1024), pend_num(16),
+			 num_progress_threads(0), progress_threads(NULL) {
+  for (int i = 0; i < MAX_MESSAGE_TYPES; ++i)
+    mts[i] = NULL;
+  atomic_init(&stop_atomic_flag, false);
 }
 
 void FabFabric::register_options(Realm::CommandLineParser &cp)
@@ -34,7 +39,7 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
 /*
   FabFabric::init():
    
-   YOU MUST REGISTER ALL MESSAGE TYPES BEFORE CALLING 
+   YOU MUST REGISTER ALL DESIRED MESSAGE TYPES BEFORE CALLING 
    THIS FUNCTION.
 
    Inputs: none
@@ -168,6 +173,9 @@ bool FabFabric::init()
   //PMI_Allgather(addr, addrs, addrlen);
 
   fi_addrs = (fi_addr_t*) malloc(max_id * sizeof(fi_addr_t));
+
+
+  // Hard code this node as fi_addrs[0], since PMI_Allgather isn't working yet
   
   if (!fi_addrs)
     return init_fail(hints, fi, 0);
@@ -199,6 +207,8 @@ bool FabFabric::init()
   fi_freeinfo(hints);
   fi_freeinfo(fi);
 
+  start_progress_threads(1, 0);
+  
   return true;
 
   //error:
@@ -223,6 +233,7 @@ bool FabFabric::init_fail(fi_info* hints, fi_info* fi, int ret)
 
 FabFabric::~FabFabric()
 {
+  free_progress_threads();
   shutdown();
 }
 
@@ -317,15 +328,19 @@ int FabFabric::send(Message* m)
   return 0;
 }
 
-bool FabFabric::progress(int maxToSend, bool wait)
+bool FabFabric::progress(bool wait)
 {
+
+  fprintf(stderr, "made a progress thread... \n");
+  
   int ret, timeout;
   fi_addr_t src;
   fi_cq_tagged_entry ce;
   FabMessage *m;
 
+  
   timeout = wait ? 1000 : 0;
-  while (1) {
+  while (atomic_load(&stop_atomic_flag) == false) {
     ret = fi_cq_sreadfrom(cq, &ce, 1, &src, NULL /* is this correct??? */, timeout);
     if (ret == 0 && !wait)
       break;
@@ -365,9 +380,18 @@ bool FabFabric::progress(int maxToSend, bool wait)
       delete m;
     }
   }
-  
+
+  std::cout << "Progress thread shutting down. " << std::endl;
   return true;
 }
+
+// For launching progress from Pthreads
+
+void* FabFabric::bootstrap_progress(void* context) {
+  ((FabFabric*) context)->progress(true);
+  return 0;
+}
+
 
 bool FabFabric::incoming(FabMessage *m)
 {
@@ -466,4 +490,33 @@ void FabFabric::print_fi_info(fi_info* fi) {
 
     head = head->next;
   }
+}
+
+// This is a temporary solution -- final version should use Legion's
+// Create_kernel_thread methods
+
+// The stack_size parameter is currently not used (again this will wait
+// until integration with Legion runtime)
+
+void FabFabric::start_progress_threads(int count, size_t stack_size) {
+  num_progress_threads = count;
+  progress_threads = new pthread_t[count];
+  for (int i = 0; i < count; ++i) {
+    pthread_create(&progress_threads[i], NULL, &FabFabric::bootstrap_progress, this);
+  }
+}
+
+void FabFabric::free_progress_threads() {
+  atomic_store(&stop_atomic_flag, true);
+  for (int i = 0; i < num_progress_threads; ++i) 
+    pthread_join(progress_threads[i], NULL);
+  if (progress_threads)
+    delete[] progress_threads;
+}
+
+// For testing purposes -- just wait for the progress threads to complete.
+void FabFabric::wait_for_shutdown() {
+  for (int i = 0; i < num_progress_threads; ++i)
+    pthread_join(progress_threads[i], NULL);
+  std::cout << "OK, all threads done" << std::endl;
 }

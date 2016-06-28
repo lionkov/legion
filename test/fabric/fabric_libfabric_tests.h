@@ -16,15 +16,31 @@
 class FabTester {
 
 public:
-FabTester() : fabric(NULL) {};
-~FabTester() {};
+FabTester() {}
+~FabTester() {}
 
 int run();
 int init();
 
 private:
-FabFabric* fabric;
 
+};
+
+class TestMessageType : public MessageType {
+ public: 
+ TestMessageType()
+   : MessageType(1, /* msgId */
+		 512, /* arg size */
+		 false, /* has payload */
+		 false /*in order */ ){ }
+
+  void request(Message* m);
+};
+
+class TestMessage : public FabMessage {
+ public:
+ TestMessage(NodeId dest, void* args)
+   : FabMessage(dest, 1, args, NULL, false) { }
 };
 
 

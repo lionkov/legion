@@ -19,11 +19,26 @@
 
 */
 
+
+// global from fabric.h
+Fabric* fabric = NULL;
+
 int FabTester::init() {
   fabric = new FabFabric;
-  fabric->init();
 
+  std::cout << "Adding message types... " << std::endl;
+  fabric->add_message_type(new TestMessageType());
+  
+  bool ret;
+  ret = fabric->init();
+  
+  if (!ret) {
+    std::cout << "ERROR -- Fabric init failed." << std::endl;
+    assert(false);
+  }
+  
   std::cout << "Test Fabric object created." << std::endl;
+    
   return 0;
 }
 
@@ -39,9 +54,18 @@ int FabTester::init() {
    
 int FabTester::run() {
   
-  
-  
+  std::cout << "Attempting to send a message. You should see some output. " << std::endl << std::endl;
+
+  fabric->send(new TestMessage(fabric->get_id(), NULL));
+
+  std::cout << std::endl << std::endl << "Done." << std::endl;
+
+  fabric->wait_for_shutdown();
   return 0;
+}
+
+void TestMessageType::request(Message* m) {
+  std::cout << "THIS IS A TEST" << std::endl;
 }
 
 

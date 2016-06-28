@@ -143,9 +143,10 @@ class Message {
   Payload*	payload;
 
   virtual ~Message() { delete payload; free(args); }
-
+  
   // can be called by the request handler to send a reply
-  virtual int reply(MessageId id, void *args, Payload *payload, bool inOrder) = 0;
+  // Commented out for now, I'm not sure yet if legion needs replies
+  //virtual int reply(MessageId id, void *args, Payload *payload, bool inOrder) = 0;
   struct iovec* iov;
   struct iovec siov[6];
 
@@ -158,7 +159,7 @@ class Fabric {
  public:
   // all message types need to be added before init() is called
   
-  Fabric() { for (int i = 0; i < MAX_MESSAGE_TYPES; ++i) mts[i] = NULL; }
+  //Fabric() { for (int i = 0; i < MAX_MESSAGE_TYPES; ++i) mts[i] = NULL; }
   ~Fabric() { }
   MessageType* mts[MAX_MESSAGE_TYPES];
   virtual bool add_message_type(MessageType *mt) = 0;
@@ -170,11 +171,12 @@ class Fabric {
   virtual int send(NodeId dest, MessageId id, void *args,
 		   Payload *payload, bool inOrder) = 0;
   virtual int send(Message* m) = 0;
-  virtual bool progress(int maxToSend, bool wait) = 0;
+  virtual bool progress(bool wait) = 0;
   // virtual bool incoming(Message *) = 0;
   virtual void *memalloc(size_t size) = 0;
   virtual void memfree(void *) = 0;
   virtual void register_options(Realm::CommandLineParser& cp) = 0;
+  virtual void wait_for_shutdown() = 0;
 
 };
 
