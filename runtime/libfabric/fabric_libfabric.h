@@ -1,17 +1,22 @@
 #ifndef FABRIC_LIBFABRIC_H
 #define FABRIC_LIBFABRIC_H
-
 #include "fabric.h"
 #include "cmdline.h"
 #include <iostream>
 #include <cstdio>
 #include <pthread.h>
 #include <stdatomic.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+
 #include "pmi.h"
 //#include "pmix.h"
 #include <cstring>
 #include <vector>
 #include <cerrno>
+#include <string>
+#include <sstream>
 #include <rdma/fabric.h>
 #include <rdma/fi_domain.h>
 #include <rdma/fi_errno.h>
@@ -19,6 +24,11 @@
 #include <rdma/fi_cm.h>
 #include <rdma/fi_rma.h>
 #include <rdma/fi_tagged.h>
+
+#define FT_PRINTERR(call, retv) \
+	do { fprintf(stderr, call "(): %s:%d, ret=%d (%s)\n", __FILE__, __LINE__, \
+			(int) retv, fi_strerror((int) -retv)); } while (0)
+
 
 class FabMutex {
  public:
@@ -103,6 +113,8 @@ class FabMessage : public Message {
     void memfree(void *);
     void print_fi_info(fi_info* fi);
     void wait_for_shutdown();
+    static std::string fi_cq_error_str(int ret, fid_cq* cq);
+    static std::string fi_error_str(int ret, std::string call, std::string file, int line);
 
   protected:
     NodeId	id;
@@ -112,28 +124,32 @@ class FabMessage : public Message {
     struct fid_domain* dom;
     struct fid_eq* eq;
     struct fid_cq* cq;
+    struct fid_cntr* cntr;
     struct fid_ep* ep;
     struct fid_av* av;
     struct fi_context* avctx;
 
     fi_addr_t* fi_addrs;
 
-    pthread_t* progress_threads;
-    atomic_bool stop_atomic_flag;
-    int num_progress_threads;
-
     // parameters
     int	max_send;
     int	pend_num;
+    int num_progress_threads;
 
+    pthread_t* progress_threads;
+    atomic_bool stop_atomic_flag;
+	
     int post_tagged(MessageType* mt);
     int post_untagged();
     
-    bool init_fail(fi_info* hints, fi_info* fi, int ret);
+    bool init_fail(fi_info* hints, fi_info* fi, std::string message);
 
     void start_progress_threads(int count, size_t stack_size);
     void free_progress_threads();
     static void* bootstrap_progress(void* context);
+    static int av_create_address_list(char *first_address, int base, int num_addr,
+				      void *addr_array, int offset, int len, int addrlen);
+    static int add_address(char* first_address, int index, void* addr);
     
     friend class FabMessage;
     

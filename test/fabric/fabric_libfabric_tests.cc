@@ -53,19 +53,25 @@ int FabTester::init() {
 */
    
 int FabTester::run() {
-  
+  int ret;
   std::cout << "Attempting to send a message. You should see some output. " << std::endl << std::endl;
 
-  fabric->send(new TestMessage(fabric->get_id(), NULL));
-
-  std::cout << std::endl << std::endl << "Done." << std::endl;
+  while (true) {
+    std::cout << "Sending... " << std::endl;
+    ret = fabric->send(new TestMessage(fabric->get_id(), NULL));
+    std::cout << "retcode: " << ret << std::endl;
+    sleep(1);
+  }
 
   fabric->wait_for_shutdown();
+  
+  std::cout << std::endl << std::endl << "Done." << std::endl;
   return 0;
 }
 
 void TestMessageType::request(Message* m) {
-  std::cout << "THIS IS A TEST" << std::endl;
+  std::cout << "THIS IS A TEST" << std::endl;\
+  std::cout << "HI I'M A MESSAGE!!" << std::endl;
 }
 
 

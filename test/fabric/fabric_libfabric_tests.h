@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <cassert>
+#include <unistd.h>
 #include "fabric.h"
 #include "libfabric/fabric_libfabric.h"
 

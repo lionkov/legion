@@ -52,8 +52,8 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
    buffers for all message types. 
 */ 
 
-bool FabFabric::init()
-{
+bool FabFabric::init() {
+  
   // Initialize PMI and discover other nodes
   int ret;
   int spawned;
@@ -81,111 +81,147 @@ bool FabFabric::init()
   
   // Initialize fabric
   struct fi_info *hints, *fi;
-  struct fi_cq_attr cqattr;
-  struct fi_eq_attr eqattr;
-  struct fi_av_attr avattr;
-  size_t addrlen;
+  struct fi_cq_attr cqattr; memset(&cqattr, 0, sizeof(cqattr));
+  struct fi_eq_attr eqattr; memset(&eqattr, 0, sizeof(eqattr));
+  struct fi_av_attr avattr; memset(&avattr, 0, sizeof(avattr));
+  struct fi_cntr_attr cntrattr; memset(&cntrattr, 0, sizeof(avattr));
 
   hints = fi_allocinfo();
   hints->ep_attr->type = FI_EP_RDM;
   hints->caps = FI_TAGGED | FI_MSG | FI_DIRECTED_RECV | FI_RMA;
   hints->mode = FI_CONTEXT | FI_LOCAL_MR;
   hints->domain_attr->mr_mode = FI_MR_BASIC;
+  //hints->fabric_attr->prov_name = strdup("psm2");
+  // Temporary -- looping back to localhost
+  //hints->addr_format = FI_SOCKADDR_IN;
+  //char* src_addr_str = "127.0.0.1";
 
   fi = NULL;
   ret = fi_getinfo(FI_VERSION(1, 0), NULL, NULL, 0, hints, &fi);
   if (ret != 0)
-    return init_fail(hints, fi, ret);
+    return init_fail(hints, fi, fi_error_str(ret, "fi_getinfo", __FILE__, __LINE__));
 
-  // This will set the address length to the src length of the first service
-  // -- is this correct? 
-  addrlen = fi->src_addrlen;
   
   ret = fi_fabric(fi->fabric_attr, (struct fid_fabric**) &fab, NULL);
   if (ret != 0)
-    return init_fail(hints, fi, ret);
+    return init_fail(hints, fi, fi_error_str(ret, "fi_fabric", __FILE__, __LINE__));
 
   std::memset(&eqattr, 0, sizeof(eqattr));
-  eqattr.size = FI_WAIT_UNSPEC;
+  //eqattr.size = FI_WAIT_UNSPEC;
+  eqattr.size = 64;
+  eqattr.wait_obj = FI_WAIT_UNSPEC;
   ret = fi_eq_open(fab, &eqattr, (struct fid_eq**) &eq, NULL);
   if (ret != 0)
-    return init_fail(hints, fi, ret);
+    return init_fail(hints, fi, fi_error_str(ret, "fi_eq_open", __FILE__, __LINE__));
 
   ret = fi_domain(fab, fi, (struct fid_domain**) &dom, NULL);
   if (ret != 0)
-    return init_fail(hints, fi, ret);
-
+    return init_fail(hints, fi, fi_error_str(ret, "fi_domain", __FILE__, __LINE__));
 
   ret = fi_endpoint(dom, fi, (struct fid_ep**) &ep, NULL);
   if (ret != 0)
-    return init_fail(hints, fi, ret);
-
-  ret = fi_ep_bind(ep, &(eq->fid), 0);
-  if (ret != 0)
-    return init_fail(hints, fi, ret);
+    return init_fail(hints, fi, fi_error_str(ret, "fi_endpoint", __FILE__, __LINE__));
 
   std::memset(&cqattr, 0, sizeof(cqattr));
   cqattr.format = FI_CQ_FORMAT_TAGGED;
   cqattr.wait_obj = FI_WAIT_UNSPEC;
   cqattr.wait_cond = FI_CQ_COND_NONE;
   // ASK -- what should the queue size be? It's not defined
-  cqattr.size = 0;
+  cqattr.size = 100;
   
   ret = fi_cq_open(dom, &cqattr, (struct fid_cq**) &cq, NULL);
   if (ret != 0)
-    return init_fail(hints, fi, ret);
+    return init_fail(hints, fi, fi_error_str(ret, "fi_cq_open", __FILE__, __LINE__));
 
-  memset(&avattr, 0, sizeof(avattr));
-  avattr.type = fi->domain_attr->av_type?fi->domain_attr->av_type : FI_AV_MAP;
+  std::memset(&cntrattr, 0, sizeof(cntrattr));
+  cntrattr.events = FI_CNTR_EVENTS_COMP;
+  cntrattr.wait_obj = FI_WAIT_UNSPEC;
+  cntrattr.flags = 0;
+
+  ret = fi_cntr_open(dom, &cntrattr, (struct fid_cntr**) &cntr, NULL);
+  if (ret != 0)
+      return init_fail(hints, fi, fi_error_str(ret, "fi_cntr_open", __FILE__, __LINE__));
+
+  struct { char rar[16]; } addr;
+  size_t addrlen;
+  addrlen = sizeof(addr);
+  
+  ret = fi_getname((fid_t) ep, &addr, &addrlen);
+  if (ret != 0)
+    return init_fail(hints, fi, fi_error_str(ret, "fi_getname", __FILE__, __LINE__));
+
+  std::memset(&avattr, 0, sizeof(avattr));
+  //avattr.type = fi->domain_attr->av_type?fi->domain_attr->av_type : FI_AV_MAP;
+  avattr.type = FI_AV_MAP;
   avattr.count = max_id;
   avattr.ep_per_node = 0; // 'unknown' number of endpoints, may be optimized later
   avattr.name = NULL;
-  avattr.rx_ctx_bits = 8;
   
   ret = fi_av_open(dom, &avattr, (struct fid_av**) &av, NULL);
-  if (ret != 0)
-    return init_fail(hints, fi, ret);
+  if (ret != 0) 
+    return init_fail(hints, fi, fi_error_str(ret, "fi_av_open", __FILE__, __LINE__));
 
-  ret = fi_ep_bind(ep, &(cq->fid), FI_SEND|FI_RECV);
+  ret = fi_ep_bind(ep, (fid_t) eq, 0);
   if (ret != 0)
-    return init_fail(hints, fi, ret);
+    return init_fail(hints, fi, fi_error_str(ret, "fi_ep_bind", __FILE__, __LINE__));
 
-  ret = fi_ep_bind(ep, &(av->fid), 0);
+  ret = fi_ep_bind(ep, (fid_t) cq, FI_TRANSMIT|FI_RECV);
   if (ret != 0)
-    return init_fail(hints, fi, ret);
+    return init_fail(hints, fi, fi_error_str(ret, "fi_ep_bind", __FILE__, __LINE__));
 
+  ret = fi_ep_bind(ep, (fid_t) cntr, FI_READ|FI_WRITE|FI_SEND|FI_RECV);
+  if (ret != 0)
+    return init_fail(hints, fi, fi_error_str(ret, "fi_ep_bind", __FILE__, __LINE__));
+
+  ret = fi_ep_bind(ep, (fid_t) av, 0);
+  if (ret != 0) 
+    return init_fail(hints, fi, fi_error_str(ret, "fi_ep_bind", __FILE__, __LINE__));
+  
+  fi_addrs = (fi_addr_t*) malloc(max_id * sizeof(fi_addr_t));
+  memset(fi_addrs, 0, sizeof(fi_addr_t)*max_id);
+  // inserting only this address for now, since PMI_Allgather is not working
+  ret = fi_av_insert(av, &addr, 1, fi_addrs, 0, NULL);
+  if (ret <= 0) 
+    return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));
+  
   ret = fi_enable(ep);
   if (ret != 0)
-    return init_fail(hints, fi, ret);
+    return init_fail(hints, fi, fi_error_str(ret, "fi_enable", __FILE__, __LINE__));
 
-  // get rank address
-  void* addr = malloc(addrlen);
-  //fi_getname(&(ep->fid), addr, &addrlen);
-  ret = fi_getname(&(ep->fid), addr, &addrlen);
-  if (ret != 0)
-    return init_fail(hints, fi, ret);
 
-  void* addrs = malloc(max_id * addrlen);
-  
+  /*
+  // void* addrs = malloc(max_id * addrlen);
+
   // ASK -- most pmi.h implementations do not have PMI_Allgather,
   // do we really need this?
   
   //PMI_Allgather(addr, addrs, addrlen);
 
-  fi_addrs = (fi_addr_t*) malloc(max_id * sizeof(fi_addr_t));
-
-
   // Hard code this node as fi_addrs[0], since PMI_Allgather isn't working yet
+  //memcpy(&addrs, &addr, addrlen);
+  //std::cout << (unsigned long) addrs[0] << std::endl;
+  std::cout << addr << std::endl;
+  std::cout << max_id << std::endl;
+
+  // Temporyary buffer for addresses
+  uint8_t addrbuf[4096];
+  fi_addr_t fi_addr;
+  int buflen = sizeof(addrbuf);
+  //ret = av_create_address_list(src_addr_str, 0, 1, addrbuf, 0, buflen, addrlen);
+  
+  if (ret < 0)
+    return init_fail(hints, fi, "ERROR -- av_create_address_list failed");
   
   if (!fi_addrs)
-    return init_fail(hints, fi, 0);
+    return init_fail(hints, fi, "ERROR -- malloc fi_addrs failed");
   
-  ret = fi_av_insert(av, addrs, max_id, fi_addrs, 0, &avctx);
+  ret = fi_av_insert(av, addrbuf, max_id, fi_addrs, 0, &avctx);
   // Original code checked for number of entries inserted; as far as I can
   // tell fabric does not return this info
-  if (ret != 0) 
-    return init_fail(hints, fi, ret);
+  if (ret < 0) 
+    return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));
   free(addr);
+  */
 
   // post tagged message for message types without payloads
   for(int i = 0; i < MAX_MESSAGE_TYPES; ++i) {
@@ -193,7 +229,7 @@ bool FabFabric::init()
     if (mt && !mt->payload) {
       ret = post_tagged(mt);
       if (ret != 0)
-	return init_fail(hints, fi, ret);
+	return init_fail(hints, fi, fi_error_str(ret, "post_tagged", __FILE__, __LINE__));
     }
   }
 
@@ -201,13 +237,13 @@ bool FabFabric::init()
   for(int i = 0; i < pend_num; i++) {
     ret = post_untagged();
     if (ret != 0)
-      return init_fail(hints, fi, ret);
+      return init_fail(hints, fi, fi_error_str(ret, "post_untagged", __FILE__, __LINE__));
   }
 
   fi_freeinfo(hints);
   fi_freeinfo(fi);
 
-  start_progress_threads(1, 0);
+  //start_progress_threads(1, 0);
   
   return true;
 
@@ -218,13 +254,11 @@ bool FabFabric::init()
 }
 
 
-bool FabFabric::init_fail(fi_info* hints, fi_info* fi, int ret)
-{
-  std::cout << "ERROR -- Fabric Init failed with return code: " << ret <<  std::endl;
-  if (ret != 0)
-    std::cout << "The error string is: " << fi_strerror(ret) << std::endl;
-  else
-    std::cout << "This was not a fabric error. UNIX error string: " << strerror(errno) << std::endl;
+bool FabFabric::init_fail(fi_info* hints, fi_info* fi, std::string message) {
+  
+  std::cerr << message << std::endl;
+  std::cerr << "ERROR -- Fabric Init failed. " << std::endl;
+    
   fi_freeinfo(hints);
   fi_freeinfo(fi);
 
@@ -287,10 +321,15 @@ int FabFabric::send(Message* m)
   if (mt == NULL)
     return -EINVAL;
 
+
   if (!m->mtype->payload) {
-    ret = fi_tsend(ep, m->args, m->mtype->argsz, NULL, fi_addrs[m->rcvid], m->mtype->id, m);
-    if (ret != 0)
+    ret = fi_tsend(ep, m->args, m->mtype->argsz, NULL,
+		   fi_addrs[m->rcvid],
+		   m->mtype->id, m);
+    if (ret != 0) {
+      std::cerr << fi_error_str(ret, "", "", 0);
       return ret;
+    }
   } else {
     n = 0;
     m->iov = &m->siov[0];
@@ -330,7 +369,6 @@ int FabFabric::send(Message* m)
 
 bool FabFabric::progress(bool wait)
 {
-
   fprintf(stderr, "made a progress thread... \n");
   
   int ret, timeout;
@@ -386,7 +424,6 @@ bool FabFabric::progress(bool wait)
 }
 
 // For launching progress from Pthreads
-
 void* FabFabric::bootstrap_progress(void* context) {
   ((FabFabric*) context)->progress(true);
   return 0;
@@ -519,4 +556,98 @@ void FabFabric::wait_for_shutdown() {
   for (int i = 0; i < num_progress_threads; ++i)
     pthread_join(progress_threads[i], NULL);
   std::cout << "OK, all threads done" << std::endl;
+}
+
+
+/* Return error for a fabric completion queue */
+std::string FabFabric::fi_cq_error_str(int ret, fid_cq* cq) {
+  
+  std::stringstream sstream;
+  struct fi_cq_err_entry err;
+  fi_cq_readerr(cq, &err, 0);
+  
+  sstream << "FABRIC ERROR " << ret << ": "
+	  << fi_strerror(err.err) << " "
+	  << fi_cq_strerror(cq, err.prov_errno, err.err_data, NULL, 0) << "\n";
+
+  return sstream.str();
+}
+
+
+std::string FabFabric::fi_error_str(int ret, std::string call, std::string file, int line) {
+  std::stringstream sstream;
+
+  sstream << "ERROR " << -ret << " in "<< call << "() at "
+	  << file << ":" << line << " -- "
+	  << fi_strerror(-ret);
+
+  return sstream.str();
+}
+
+/*
+ * Create an address list
+ */
+
+int FabFabric::av_create_address_list(char *first_address, int base, int num_addr,
+				      void *addr_array, int offset, int len, int addrlen)
+{
+	uint8_t *cur_addr;
+	int ret;
+	int i;
+	// Assume format is FI_SOCKADDR
+	if (len < addrlen * (offset + num_addr)) {
+	  fprintf(stderr, "internal error, not enough room for %d addresses",
+		  num_addr);
+	  return -FI_ENOMEM;
+	}
+
+	cur_addr = (uint8_t*) addr_array;
+	cur_addr += offset * addrlen;
+	for (i = 0; i < num_addr; ++i) {
+		ret = add_address(first_address, base + i, cur_addr);
+		if (ret != 0) {
+			return ret;
+		}
+		cur_addr += addrlen;
+	}
+
+	return cur_addr - (uint8_t *)addr_array;
+}
+
+
+int FabFabric::add_address(char* first_address, int index, void* addr) {
+  
+  	struct addrinfo hints;
+	struct addrinfo *ai;
+	struct sockaddr_in *sin;
+	uint32_t tmp;
+	int ret;
+
+	memset(&hints, 0, sizeof(hints));
+
+	/* return all 0's for invalid address */
+	if (first_address == NULL) {
+		memset(addr, 0, sizeof(*sin));
+		return 0;
+	}
+
+	hints.ai_family = AF_INET;
+	/* port doesn't matter, set port to discard port */
+	ret = getaddrinfo(first_address, "discard", &hints, &ai);
+	if (ret != 0) {
+		fprintf(stderr, "getaddrinfo: %s", gai_strerror(ret));
+		return -1;
+	}
+
+	sin = (struct sockaddr_in *)addr;
+	*sin = *(struct sockaddr_in *)ai->ai_addr;
+
+	tmp = ntohl(sin->sin_addr.s_addr);
+	tmp += index;
+	sin->sin_addr.s_addr = htonl(tmp);
+
+	freeaddrinfo(ai);
+	return 0;
+
+  
 }
