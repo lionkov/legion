@@ -517,15 +517,18 @@ bool FabFabric::incoming(FabMessage *m)
     MessageType* mtype;
     MessageId msgid;
     char* data;
+    size_t len;
 
     // untagged message
     post_untagged();
     data = (char *) m->siov[0].iov_base;
+    len = m->siov[0].iov_len;
     
     msgid = *(MessageId *) data;
     mtype = fabric->mts[msgid];
     m->mtype = mtype;
     data += sizeof(mtype);
+    len -= sizeof(mtype);
     if (mtype == NULL) {
       fprintf(stderr, "invalid message type: %d\n", msgid);
       return false;
@@ -534,11 +537,12 @@ bool FabFabric::incoming(FabMessage *m)
     if (mtype->argsz > 0) {
       m->args = data;
       data += mtype->argsz;
+      len -= mtype->argsz;
     }
-
+    
     // Is this correct? Seems like this will copy arguments as well as payload
     // TODO -- will need to respect other payload types
-    m->payload = new ContiguousPayload(PAYLOAD_KEEP, data, m->siov[0].iov_len);
+    m->payload = new ContiguousPayload(PAYLOAD_KEEP, data, len);
   }
 
   m->mtype->request(m);

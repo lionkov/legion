@@ -86,12 +86,13 @@ class MessageType {
 
 struct ContiguousPayload : public Payload {
  protected:
-  size_t	sz;
-  void*	data;
 
  public:
   ContiguousPayload(int mode, void *data, size_t s);
   virtual ~ContiguousPayload(void);
+  
+  size_t sz;
+  void*	data;
 
   virtual ssize_t size(void);
   virtual void* ptr(void);
