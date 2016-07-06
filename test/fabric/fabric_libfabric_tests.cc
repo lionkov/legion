@@ -28,6 +28,7 @@ int FabTester::init() {
 
   std::cout << "Adding message types... " << std::endl;
   fabric->add_message_type(new TestMessageType());
+  fabric->add_message_type(new TestPayloadMessageType());
   
   bool ret;
   ret = fabric->init();
@@ -57,11 +58,19 @@ int FabTester::run() {
   std::cout << "Attempting to send a message. You should see some output. " << std::endl << std::endl;
 
   while (true) {
-    std::cout << "Sending... " << std::endl;
     char buf[64];
     strcpy(buf, "I'm an arg.");
-   
+
+    char paybuf[64];
+    strcpy(paybuf, "This is a payload.");
+    ContiguousPayload payload(FAB_PAYLOAD_KEEP, &paybuf, sizeof(paybuf));
     
+    std::cout << "Sending payload message..." << std::endl;
+    ret = fabric->send(new TestPayloadMessage(fabric->get_id(), &buf, &payload));
+    std::cout << "retcode: " << ret << std::endl;
+    sleep(1);
+    
+    std::cout << "Sending test message... " << std::endl;
     ret = fabric->send(new TestMessage(fabric->get_id(), &buf));
     std::cout << "retcode: " << ret << std::endl;
     sleep(1);
@@ -74,8 +83,14 @@ int FabTester::run() {
 }
 
 void TestMessageType::request(Message* m) {
-  std::cout << "THIS IS A TEST" << std::endl;
-  std::cout << "I was called with the following argument: " << (char*) m->args << std::endl;
+  std::cout << "THIS IS A TEST MESSAGE" << std::endl;
+  std::cout << "Test message called with the following argument: " << (char*) m->args << std::endl;
+}
+
+void TestPayloadMessageType::request(Message* m) {
+  std::cout << "THIS IS A TEST PAYLOAD MESSAGE" << std::endl;
+  std::cout << "Payload message called with the following argument: " << (char*) m->args << std::endl;
+  //std::cout << "I contain the following payload: " << (char*) m->args << std::endl;
 }
 
 

@@ -45,6 +45,24 @@ class TestMessage : public FabMessage {
 };
 
 
+class TestPayloadMessageType : public MessageType {
+ public: 
+ TestPayloadMessageType()
+   : MessageType(2, /* msgId */
+		 64, /* arg size */
+		 true, /* has payload */
+		 false /*in order */ ){ }
+
+  void request(Message* m);
+};
+
+class TestPayloadMessage : public FabMessage {
+ public:
+ TestPayloadMessage(NodeId dest, void* args, Payload* payload)
+   : FabMessage(dest, 2, args, payload, false) { }
+};
+
+
 
 
 

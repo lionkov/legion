@@ -88,7 +88,7 @@ class FabMessage : public Message {
 
   public:
     virtual ~FabMessage();
-    //virtual int reply(MessageId id, void *args, Payload *payload, bool inOrder);
+    //virtual int reply(MessageId id, void *args, Payload *Apayload, bool inOrder);
 
   protected:
     friend class FabFabric;
@@ -129,7 +129,6 @@ class FabMessage : public Message {
     struct fid_cntr* cntr;
     struct fid_ep* ep;
     struct fid_av* av;
-    struct fid_pep* pep; // should not need this with RDM?
     struct fi_context* avctx;
 
     fi_addr_t* fi_addrs;

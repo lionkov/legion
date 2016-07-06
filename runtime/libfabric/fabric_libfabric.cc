@@ -387,6 +387,7 @@ int FabFabric::send(Message* m)
   int ret, e, n;
   MessageType *mt;
   struct iovec *iov;
+  size_t sz = 0;
 
   char lookup[64];
   size_t lookuplen = sizeof(lookup);
@@ -411,7 +412,6 @@ int FabFabric::send(Message* m)
     m->iov = &m->siov[0];
     int pidx = m->mtype->argsz==0 ? 1 : 2;
     if (m->payload) {
-      size_t sz;
       void *buf;
 
       e = NELEM(m->siov) - pidx;
@@ -425,17 +425,21 @@ int FabFabric::send(Message* m)
       if (n < 0)
 	return n;
     }
-    // CHECK -- I don't think data is ever actually being copied into the iovec??
+    // CHECK -- I don't think payload data is ever actually being copied into the iovec??
     // TODO: make it network order???
     m->iov[0].iov_base = &m->mtype->id;
     m->iov[0].iov_len = sizeof(m->mtype->id);
+    sz += m->iov[0].iov_len;
+    
     n += pidx;
     if (m->mtype->argsz != 0) {
       m->iov[1].iov_base = m->args; 
       m->iov[1].iov_len = m->mtype->argsz;
+      sz += m->iov[1].iov_len;
     }
-
-    ret = fi_send(ep, m->iov, n, NULL, fi_addrs[m->rcvid], m);
+    
+    // Should this send sz, or n?
+    ret = fi_sendv(ep, m->iov, NULL, n, fi_addrs[m->rcvid], m);
     if (ret != 0)
       return ret;
   }
@@ -512,28 +516,29 @@ bool FabFabric::incoming(FabMessage *m)
   } else {
     MessageType* mtype;
     MessageId msgid;
-    char *data;
+    char* data;
 
     // untagged message
     post_untagged();
-    data = (char *) m->iov[0].iov_base;
+    data = (char *) m->siov[0].iov_base;
     
-    msgid = *(MessageId *) &data;
-    data += sizeof(mtype);
+    msgid = *(MessageId *) data;
     mtype = fabric->mts[msgid];
+    m->mtype = mtype;
+    data += sizeof(mtype);
     if (mtype == NULL) {
       fprintf(stderr, "invalid message type: %d\n", msgid);
       return false;
     }
 
-    if (m->mtype->argsz > 0) {
+    if (mtype->argsz > 0) {
       m->args = data;
       data += mtype->argsz;
     }
 
     // Is this correct? Seems like this will copy arguments as well as payload
     // TODO -- will need to respect other payload types
-    m->payload = new ContiguousPayload(PAYLOAD_KEEP, data, m->iov[0].iov_len);
+    m->payload = new ContiguousPayload(PAYLOAD_KEEP, data, m->siov[0].iov_len);
   }
 
   m->mtype->request(m);
@@ -565,6 +570,7 @@ int FabFabric::post_tagged(MessageType* mt)
 int FabFabric::post_untagged()
 {
   void *buf = malloc(max_send);
+  memset(buf, 0, sizeof(buf));
 
   FabMessage* m = new FabMessage(get_id(), 0, NULL, NULL, false);
   m->siov[0].iov_base = buf;
