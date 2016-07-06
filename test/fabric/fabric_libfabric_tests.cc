@@ -24,7 +24,7 @@
 Fabric* fabric = NULL;
 
 int FabTester::init() {
-  fabric = new FabFabric;
+  fabric = new FabFabric();
 
   std::cout << "Adding message types... " << std::endl;
   fabric->add_message_type(new TestMessageType());
@@ -58,7 +58,11 @@ int FabTester::run() {
 
   while (true) {
     std::cout << "Sending... " << std::endl;
-    ret = fabric->send(new TestMessage(fabric->get_id(), NULL));
+    char buf[64];
+    strcpy(buf, "I'm an arg.");
+   
+    
+    ret = fabric->send(new TestMessage(fabric->get_id(), &buf));
     std::cout << "retcode: " << ret << std::endl;
     sleep(1);
   }
@@ -70,8 +74,8 @@ int FabTester::run() {
 }
 
 void TestMessageType::request(Message* m) {
-  std::cout << "THIS IS A TEST" << std::endl;\
-  std::cout << "HI I'M A MESSAGE!!" << std::endl;
+  std::cout << "THIS IS A TEST" << std::endl;
+  std::cout << "I was called with the following argument: " << (char*) m->args << std::endl;
 }
 
 

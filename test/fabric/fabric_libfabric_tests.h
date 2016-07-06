@@ -31,7 +31,7 @@ class TestMessageType : public MessageType {
  public: 
  TestMessageType()
    : MessageType(1, /* msgId */
-		 512, /* arg size */
+		 64, /* arg size */
 		 false, /* has payload */
 		 false /*in order */ ){ }
 

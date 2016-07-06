@@ -8,6 +8,8 @@
 #include <stdatomic.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <netdb.h>
 
 #include "pmi.h"
@@ -102,7 +104,6 @@ class FabMessage : public Message {
     bool add_message_type(MessageType *mt);
     bool init();
     void shutdown();
-
     NodeId get_id();
     NodeId get_max_id();
     int send(Message* m);
@@ -123,10 +124,12 @@ class FabMessage : public Message {
     struct fid_fabric* fab;
     struct fid_domain* dom;
     struct fid_eq* eq;
-    struct fid_cq* cq;
+    struct fid_cq* rx_cq;
+    struct fid_cq* tx_cq;
     struct fid_cntr* cntr;
     struct fid_ep* ep;
     struct fid_av* av;
+    struct fid_pep* pep; // should not need this with RDM?
     struct fi_context* avctx;
 
     fi_addr_t* fi_addrs;
@@ -137,12 +140,13 @@ class FabMessage : public Message {
     int num_progress_threads;
 
     pthread_t* progress_threads;
-    atomic_bool stop_atomic_flag;
+    bool stop_flag;
 	
     int post_tagged(MessageType* mt);
     int post_untagged();
     
     bool init_fail(fi_info* hints, fi_info* fi, std::string message);
+    int setup_pmi();
 
     void start_progress_threads(int count, size_t stack_size);
     void free_progress_threads();

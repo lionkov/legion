@@ -145,7 +145,7 @@ class Message {
   virtual ~Message() { delete payload; free(args); }
   
   // can be called by the request handler to send a reply
-  // Commented out for now, I'm not sure yet if legion needs replies
+  // Commented out for now, I'm not sure yet if legion will actually use this
   //virtual int reply(MessageId id, void *args, Payload *payload, bool inOrder) = 0;
   struct iovec* iov;
   struct iovec siov[6];
@@ -160,6 +160,7 @@ class Fabric {
   // all message types need to be added before init() is called
   
   //Fabric() { for (int i = 0; i < MAX_MESSAGE_TYPES; ++i) mts[i] = NULL; }
+  Fabric() { };
   ~Fabric() { }
   MessageType* mts[MAX_MESSAGE_TYPES];
   virtual bool add_message_type(MessageType *mt) = 0;

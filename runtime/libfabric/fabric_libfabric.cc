@@ -5,6 +5,7 @@ FabMessage::FabMessage(NodeId dest, MessageId id, void *args, Payload *payload, 
 {
   mtype = fabric->mts[id];
   rcvid = dest;
+  iov = new iovec;
 }
 
 FabMessage::~FabMessage()
@@ -14,7 +15,7 @@ FabMessage::~FabMessage()
 
   delete payload;
 }
-
+// run
 /*
 int FabMessage::reply(MessageId id, void *args, Payload *payload, bool inOrder)
 {
@@ -24,10 +25,10 @@ int FabMessage::reply(MessageId id, void *args, Payload *payload, bool inOrder)
 */
 
 FabFabric::FabFabric() : max_send(1024*1024), pend_num(16),
-			 num_progress_threads(0), progress_threads(NULL) {
+			 num_progress_threads(0), progress_threads(NULL),
+			 stop_flag(false) {
   for (int i = 0; i < MAX_MESSAGE_TYPES; ++i)
-    mts[i] = NULL;
-  atomic_init(&stop_atomic_flag, false);
+    mts[i] = NULL;  
 }
 
 void FabFabric::register_options(Realm::CommandLineParser &cp)
@@ -35,6 +36,48 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
   cp.add_option_int("-ll:max_send", max_send);
   cp.add_option_int("-ll:pend_num", pend_num);
 }
+
+/* 
+   FabFabric::setup_pmi()
+
+   Query PMI to find other nodes othe network. Not currently working. 
+   
+   Will set id and max_id. These fields will not be valid if this function fails.
+
+   Returns 0 on success, -1 on failure.
+
+   Currently PMI isn't working, so just hard code these values.
+*/
+
+int FabFabric::setup_pmi() {
+  
+  // Initialize PMI and discover other nodes
+  int ret, spawned;
+  
+  ret = PMI_Init(&spawned);
+  
+  if (ret != PMI_SUCCESS) {
+    std::cerr << "ERROR -- PMI_Init failed with error code " << ret << std::endl;
+    return -1;
+  }
+  
+  // Discover number of nodes, record in max_id
+  ret = PMI_Get_size((int*) &max_id);
+  if (ret != PMI_SUCCESS) {
+    std::cerr << "ERROR -- PMI_Get_size failed with error code " << ret << std::endl;
+    return -1;
+  }
+
+  // Discover ID of this node, record in id
+  ret = PMI_Get_rank((int*) &id);
+  if (ret != PMI_SUCCESS) {
+    std::cerr << "ERROR -- PMI_Get_rank failed with error code " << ret << std::endl;
+    return -1;
+  }
+
+  return 1;
+}
+
 
 /*
   FabFabric::init():
@@ -53,60 +96,46 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
 */ 
 
 bool FabFabric::init() {
-  
-  // Initialize PMI and discover other nodes
+
   int ret;
-  int spawned;
+
+  // QUERY PMI
+  /*
+  ret = setup_pmi();
+  if (ret != 0) {
+    std::cerr << "ERROR -- could not query PMI to determine network properties" << std::endl;
+    return false;
+    }*/
   
-  ret = PMI_Init(&spawned);
-  if (ret != PMI_SUCCESS) {
-    std::cout << "ERROR -- PMI_Init failed with error code " << ret << std::endl;
-    //    return false;
-  }
-
-  ret = PMI_Get_size((int*) &max_id);
-  if (ret != PMI_SUCCESS) {
-    std::cout << "ERROR -- PMI_Get_size failed with error code " << ret << std::endl;
-    //return false;
-  }
-
-  ret = PMI_Get_rank((int*) &id);
-  if (ret != PMI_SUCCESS) {
-    std::cout << "ERROR -- PMI_Get_rank failed with error code " << ret << std::endl;
-    //return false;
-  }
-
   // Setting max_id to 1 for now, since PMI isn't setting up properly
   max_id = 1;
-  
-  // Initialize fabric
+  id = 0; // Again, temporary since PMI is down
+
   struct fi_info *hints, *fi;
-  struct fi_cq_attr cqattr; memset(&cqattr, 0, sizeof(cqattr));
+  struct fi_cq_attr rx_cqattr; memset(&rx_cqattr, 0, sizeof(rx_cqattr));
+  struct fi_cq_attr tx_cqattr; memset(&tx_cqattr, 0, sizeof(tx_cqattr));
   struct fi_eq_attr eqattr; memset(&eqattr, 0, sizeof(eqattr));
   struct fi_av_attr avattr; memset(&avattr, 0, sizeof(avattr));
   struct fi_cntr_attr cntrattr; memset(&cntrattr, 0, sizeof(avattr));
 
+  // SETUP HINTS
   hints = fi_allocinfo();
-  hints->ep_attr->type = FI_EP_RDM;
+  hints->ep_attr->type = FI_EP_RDM; // should be RDM, but maybe MSG will work with socks
   hints->caps = FI_TAGGED | FI_MSG | FI_DIRECTED_RECV | FI_RMA;
   hints->mode = FI_CONTEXT | FI_LOCAL_MR;
   hints->domain_attr->mr_mode = FI_MR_BASIC;
-  //hints->fabric_attr->prov_name = strdup("psm2");
-  // Temporary -- looping back to localhost
-  //hints->addr_format = FI_SOCKADDR_IN;
-  //char* src_addr_str = "127.0.0.1";
+  hints->addr_format = FI_FORMAT_UNSPEC;
 
-  fi = NULL;
+  // SETUP FABRIC
   ret = fi_getinfo(FI_VERSION(1, 0), NULL, NULL, 0, hints, &fi);
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_getinfo", __FILE__, __LINE__));
-
   
   ret = fi_fabric(fi->fabric_attr, (struct fid_fabric**) &fab, NULL);
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_fabric", __FILE__, __LINE__));
 
-  std::memset(&eqattr, 0, sizeof(eqattr));
+  // SETUP EQ
   //eqattr.size = FI_WAIT_UNSPEC;
   eqattr.size = 64;
   eqattr.wait_obj = FI_WAIT_UNSPEC;
@@ -114,6 +143,7 @@ bool FabFabric::init() {
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_eq_open", __FILE__, __LINE__));
 
+  // SETUP DOMAIN, EP
   ret = fi_domain(fab, fi, (struct fid_domain**) &dom, NULL);
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_domain", __FILE__, __LINE__));
@@ -122,18 +152,29 @@ bool FabFabric::init() {
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_endpoint", __FILE__, __LINE__));
 
-  std::memset(&cqattr, 0, sizeof(cqattr));
-  cqattr.format = FI_CQ_FORMAT_TAGGED;
-  cqattr.wait_obj = FI_WAIT_UNSPEC;
-  cqattr.wait_cond = FI_CQ_COND_NONE;
+
+  // SETUP CQS FOR TX AND RX
+  tx_cqattr.format = FI_CQ_FORMAT_TAGGED;
+  tx_cqattr.wait_obj = FI_WAIT_UNSPEC;
+  tx_cqattr.wait_cond = FI_CQ_COND_NONE;
   // ASK -- what should the queue size be? It's not defined
-  cqattr.size = 100;
+  tx_cqattr.size = fi->tx_attr->size;
   
-  ret = fi_cq_open(dom, &cqattr, (struct fid_cq**) &cq, NULL);
+  ret = fi_cq_open(dom, &tx_cqattr, (struct fid_cq**) &tx_cq, NULL);
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_cq_open", __FILE__, __LINE__));
-
-  std::memset(&cntrattr, 0, sizeof(cntrattr));
+  
+  rx_cqattr.format = FI_CQ_FORMAT_TAGGED;
+  rx_cqattr.wait_obj = FI_WAIT_UNSPEC;
+  rx_cqattr.wait_cond = FI_CQ_COND_NONE;
+  // ASK -- what should the queue size be? It's not defined
+  rx_cqattr.size = fi->rx_attr->size;
+  
+  ret = fi_cq_open(dom, &rx_cqattr, (struct fid_cq**) &rx_cq, NULL);
+  if (ret != 0)
+    return init_fail(hints, fi, fi_error_str(ret, "fi_cq_open", __FILE__, __LINE__));
+  
+  // SETUP COUNTER
   cntrattr.events = FI_CNTR_EVENTS_COMP;
   cntrattr.wait_obj = FI_WAIT_UNSPEC;
   cntrattr.flags = 0;
@@ -142,15 +183,6 @@ bool FabFabric::init() {
   if (ret != 0)
       return init_fail(hints, fi, fi_error_str(ret, "fi_cntr_open", __FILE__, __LINE__));
 
-  struct { char rar[16]; } addr;
-  size_t addrlen;
-  addrlen = sizeof(addr);
-  
-  ret = fi_getname((fid_t) ep, &addr, &addrlen);
-  if (ret != 0)
-    return init_fail(hints, fi, fi_error_str(ret, "fi_getname", __FILE__, __LINE__));
-
-  std::memset(&avattr, 0, sizeof(avattr));
   //avattr.type = fi->domain_attr->av_type?fi->domain_attr->av_type : FI_AV_MAP;
   avattr.type = FI_AV_MAP;
   avattr.count = max_id;
@@ -161,14 +193,19 @@ bool FabFabric::init() {
   if (ret != 0) 
     return init_fail(hints, fi, fi_error_str(ret, "fi_av_open", __FILE__, __LINE__));
 
+  // BIND EP TO EQ, CQs, CNTR, AV
   ret = fi_ep_bind(ep, (fid_t) eq, 0);
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_ep_bind", __FILE__, __LINE__));
-
-  ret = fi_ep_bind(ep, (fid_t) cq, FI_TRANSMIT|FI_RECV);
+  
+  ret = fi_ep_bind(ep, (fid_t) tx_cq, FI_TRANSMIT | FI_RECV);
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_ep_bind", __FILE__, __LINE__));
-
+  
+  ret = fi_ep_bind(ep, (fid_t) rx_cq, FI_RECV);
+  if (ret != 0)
+    return init_fail(hints, fi, fi_error_str(ret, "fi_ep_bind", __FILE__, __LINE__));
+  
   ret = fi_ep_bind(ep, (fid_t) cntr, FI_READ|FI_WRITE|FI_SEND|FI_RECV);
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_ep_bind", __FILE__, __LINE__));
@@ -176,19 +213,52 @@ bool FabFabric::init() {
   ret = fi_ep_bind(ep, (fid_t) av, 0);
   if (ret != 0) 
     return init_fail(hints, fi, fi_error_str(ret, "fi_ep_bind", __FILE__, __LINE__));
-  
-  fi_addrs = (fi_addr_t*) malloc(max_id * sizeof(fi_addr_t));
-  memset(fi_addrs, 0, sizeof(fi_addr_t)*max_id);
-  // inserting only this address for now, since PMI_Allgather is not working
-  ret = fi_av_insert(av, &addr, 1, fi_addrs, 0, NULL);
-  if (ret <= 0) 
-    return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));
-  
+
+  ret = fi_av_bind(av, (fid_t) eq, 0);
+  if (ret != 0) 
+    return init_fail(hints, fi, fi_error_str(ret, "fi_ep_bind", __FILE__, __LINE__));
+
   ret = fi_enable(ep);
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_enable", __FILE__, __LINE__));
 
+ 
+  // GET ADDRESS FOR THIS NODE
+  char addr[64];
+  memset(addr, 0, sizeof(addr));
+  size_t addrlen = sizeof(addr);
 
+  // getname should be called after fi_enable
+  ret = fi_getname((fid_t) ep, &addr, &addrlen);
+  if (ret != 0)
+    return init_fail(hints, fi, fi_error_str(ret, "fi_getname", __FILE__, __LINE__));
+  
+  
+  //sockaddr_in addr;
+  //  size_t addrlen = sizeof(addr);
+  /*
+  memset(&addr, 0, sizeof(addr));
+  addr.sin_family = 2;
+  addr.sin_port = htons(8080);
+  inet_aton("127.0.0.1", &addr.sin_addr);
+  
+			 
+  fi_setname((fid_t) ep, &addr, addrlen);
+  */
+  
+  // INSERT ADDRESS IN TO AV
+  fi_addrs = (fi_addr_t*) malloc(max_id * sizeof(fi_addr_t));
+  memset(fi_addrs, 0, sizeof(fi_addr_t*)*max_id);
+  // inserting only this address for now, since PMI_Allgather is not working
+  ret = fi_av_insert(av, &addr, 1, fi_addrs, 0, NULL);
+  if (ret <= 0) 
+    return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));
+
+
+  char lookup[64];
+  size_t lookuplen = sizeof(lookup);
+  fi_av_lookup(av, fi_addrs[0],(void*) &lookup, &lookuplen);
+  
   /*
   // void* addrs = malloc(max_id * addrlen);
 
@@ -243,7 +313,7 @@ bool FabFabric::init() {
   fi_freeinfo(hints);
   fi_freeinfo(fi);
 
-  //start_progress_threads(1, 0);
+  start_progress_threads(1, 0);
   
   return true;
 
@@ -255,9 +325,9 @@ bool FabFabric::init() {
 
 
 bool FabFabric::init_fail(fi_info* hints, fi_info* fi, std::string message) {
-  
   std::cerr << message << std::endl;
   std::cerr << "ERROR -- Fabric Init failed. " << std::endl;
+  
     
   fi_freeinfo(hints);
   fi_freeinfo(fi);
@@ -284,7 +354,8 @@ void FabFabric::shutdown()
 {
   fi_close(&(ep->fid));
   fi_close(&(av->fid));
-  fi_close(&(cq->fid));
+  fi_close(&(tx_cq->fid));
+  fi_close(&(rx_cq->fid));
   fi_close(&(eq->fid));
   fi_close(&(dom->fid));
   fi_close(&(fab->fid)); 
@@ -317,18 +388,23 @@ int FabFabric::send(Message* m)
   MessageType *mt;
   struct iovec *iov;
 
+  char lookup[64];
+  size_t lookuplen = sizeof(lookup);
+  fi_av_lookup(av, fi_addrs[0],(void*) &lookup, &lookuplen);
+
+  
   mt = m->mtype;
   if (mt == NULL)
     return -EINVAL;
 
 
   if (!m->mtype->payload) {
-    ret = fi_tsend(ep, m->args, m->mtype->argsz, NULL,
+    ret = fi_tsend(ep, m->args, m->mtype->argsz, NULL,		
 		   fi_addrs[m->rcvid],
 		   m->mtype->id, m);
     if (ret != 0) {
       std::cerr << fi_error_str(ret, "", "", 0);
-      return ret;
+       return ret;
     }
   } else {
     n = 0;
@@ -349,13 +425,13 @@ int FabFabric::send(Message* m)
       if (n < 0)
 	return n;
     }
-
+    // CHECK -- I don't think data is ever actually being copied into the iovec??
     // TODO: make it network order???
     m->iov[0].iov_base = &m->mtype->id;
     m->iov[0].iov_len = sizeof(m->mtype->id);
     n += pidx;
     if (m->mtype->argsz != 0) {
-      m->iov[1].iov_base = m->args; // CHECK -- not sure if this is the correct args
+      m->iov[1].iov_base = m->args; 
       m->iov[1].iov_len = m->mtype->argsz;
     }
 
@@ -370,16 +446,14 @@ int FabFabric::send(Message* m)
 bool FabFabric::progress(bool wait)
 {
   fprintf(stderr, "made a progress thread... \n");
-  
   int ret, timeout;
   fi_addr_t src;
   fi_cq_tagged_entry ce;
   FabMessage *m;
 
-  
   timeout = wait ? 1000 : 0;
-  while (atomic_load(&stop_atomic_flag) == false) {
-    ret = fi_cq_sreadfrom(cq, &ce, 1, &src, NULL /* is this correct??? */, timeout);
+  while (stop_flag == false) {
+    ret = fi_cq_sreadfrom(rx_cq, &ce, 1, &src, NULL /* is this correct??? */, timeout);
     if (ret == 0 && !wait)
       break;
 
@@ -390,14 +464,14 @@ bool FabFabric::progress(bool wait)
 	struct fi_cq_err_entry cqerr;
 	const char *errstr;
 
-	ret = fi_cq_readerr(cq, &cqerr, 0);
+	ret = fi_cq_readerr(rx_cq, &cqerr, 0);
 	if (ret != 0) {
 	  // TODO: fix
 	  fprintf(stderr, "unknown error: %d\n", ret);
 	}
 
 	// TODO: fix
-	errstr = fi_cq_strerror(cq, cqerr.prov_errno, cqerr.err_data, NULL, 0);
+	errstr = fi_cq_strerror(rx_cq, cqerr.prov_errno, cqerr.err_data, NULL, 0);
 	fprintf(stderr, "%d %s\n", cqerr.err, fi_strerror(cqerr.err));
 	fprintf(stderr, "prov_err: %s (%d)\n", errstr, cqerr.prov_errno);
       } else {
@@ -443,7 +517,7 @@ bool FabFabric::incoming(FabMessage *m)
     // untagged message
     post_untagged();
     data = (char *) m->iov[0].iov_base;
-    // CHECK -- does this conversion actually work?
+    
     msgid = *(MessageId *) &data;
     data += sizeof(mtype);
     mtype = fabric->mts[msgid];
@@ -457,6 +531,8 @@ bool FabFabric::incoming(FabMessage *m)
       data += mtype->argsz;
     }
 
+    // Is this correct? Seems like this will copy arguments as well as payload
+    // TODO -- will need to respect other payload types
     m->payload = new ContiguousPayload(PAYLOAD_KEEP, data, m->iov[0].iov_len);
   }
 
@@ -544,7 +620,7 @@ void FabFabric::start_progress_threads(int count, size_t stack_size) {
 }
 
 void FabFabric::free_progress_threads() {
-  atomic_store(&stop_atomic_flag, true);
+  stop_flag = true;
   for (int i = 0; i < num_progress_threads; ++i) 
     pthread_join(progress_threads[i], NULL);
   if (progress_threads)
