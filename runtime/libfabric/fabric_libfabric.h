@@ -5,14 +5,14 @@
 #include <iostream>
 #include <cstdio>
 #include <pthread.h>
-#include <stdatomic.h>
+//#include <stdatomic.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netdb.h>
 
-#include "pmi.h"
+//#include "pmi.h"
 //#include "pmix.h"
 #include <cstring>
 #include <vector>
@@ -101,7 +101,7 @@ class FabMessage : public Message {
     ~FabFabric();
     
     void register_options(Realm::CommandLineParser &cp);
-    bool add_message_type(MessageType *mt);
+    bool add_message_type(MessageType *mt, const std::string tag);
     bool init();
     void shutdown();
     NodeId get_id();
@@ -114,8 +114,9 @@ class FabMessage : public Message {
     void memfree(void *);
     void print_fi_info(fi_info* fi);
     void wait_for_shutdown();
-    static std::string fi_cq_error_str(int ret, fid_cq* cq);
-    static std::string fi_error_str(int ret, std::string call, std::string file, int line);
+    static std::string fi_cq_error_str(const int ret, fid_cq* cq);
+    static std::string fi_error_str(const int ret, const std::string call,
+				    const std::string file, const int line);
 
   protected:
     NodeId	id;
@@ -144,10 +145,10 @@ class FabMessage : public Message {
     int post_tagged(MessageType* mt);
     int post_untagged();
     
-    bool init_fail(fi_info* hints, fi_info* fi, std::string message);
+    bool init_fail(fi_info* hints, fi_info* fi, const std::string message) const;
     int setup_pmi();
 
-    void start_progress_threads(int count, size_t stack_size);
+    void start_progress_threads(const int count, const size_t stack_size);
     void free_progress_threads();
     static void* bootstrap_progress(void* context);
     static int av_create_address_list(char *first_address, int base, int num_addr,

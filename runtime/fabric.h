@@ -14,6 +14,13 @@
 #define NELEM(x) (sizeof(x) / sizeof(x[0]))
 #define MAX_MESSAGE_TYPES 128
 
+
+enum MessageIds {
+  CLEAR_TIMER_MSGID,
+  ROLL_UP_TIMER_MSGID,
+  ROLL_UP_TIMER_RPLID
+};
+
 enum {
   FAB_PAYLOAD_ERROR,
   FAB_PAYLOAD_NONE, // no payload in packet
@@ -74,7 +81,8 @@ class MessageType {
   bool		payload;	// true if the message can have payload
   bool		inorder;	// true if the message has to be delivered in order
 
- MessageType(MessageId msgid, size_t asz, bool hasPayload, bool inOrder):id(msgid), argsz(asz), payload(hasPayload), inorder(inOrder) { }
+ MessageType(MessageId msgid, size_t asz, bool hasPayload, bool inOrder)
+   : id(msgid), argsz(asz), payload(hasPayload), inorder(inOrder) { }
 
   // called when a message of this type is received
   virtual void request(Message *m) = 0;
@@ -86,13 +94,13 @@ class MessageType {
 
 struct ContiguousPayload : public Payload {
  protected:
+  size_t sz;
+  void*	data;
 
  public:
   ContiguousPayload(int mode, void *data, size_t s);
   virtual ~ContiguousPayload(void);
   
-  size_t sz;
-  void*	data;
 
   virtual ssize_t size(void);
   virtual void* ptr(void);
@@ -117,7 +125,6 @@ struct TwoDPayload : public Payload {
   virtual ssize_t iovec(struct iovec *iov, size_t iovnum);
 };
 
-// ASK -- made void* not const
 typedef std::pair<void *, size_t> FabSpanListEntry;
 typedef std::vector<FabSpanListEntry> FabSpanList;
 
@@ -143,7 +150,10 @@ class Message {
   void*		args;
   Payload*	payload;
 
-  virtual ~Message() { delete payload; free(args); }
+  virtual ~Message() {
+    if (payload) delete payload;
+    if (args) free(args);
+  }
   
   // can be called by the request handler to send a reply
   // Commented out for now, I'm not sure yet if legion will actually use this
@@ -159,12 +169,10 @@ class Message {
 class Fabric {
  public:
   // all message types need to be added before init() is called
-  
-  //Fabric() { for (int i = 0; i < MAX_MESSAGE_TYPES; ++i) mts[i] = NULL; }
-  Fabric() { };
+  Fabric() { }
   ~Fabric() { }
   MessageType* mts[MAX_MESSAGE_TYPES];
-  virtual bool add_message_type(MessageType *mt) = 0;
+  virtual bool add_message_type(MessageType *mt, const std::string tag) = 0;
   virtual bool init() = 0;
   virtual void shutdown() = 0;
 

@@ -57,7 +57,8 @@ namespace Realm {
 
       for(unsigned i = 0; i < gasnet_nodes(); i++)
         if(i != gasnet_mynode())
-	  TimerDataRequestMessage::send_request(i, this);
+	  fabric->send(new TimerDataRequestMessage(i, this));
+      //TimerDataRequestMessage::send_request(i, this);
 
       // take the lock so that we can safely sleep until all the responses
       //  arrive
@@ -158,7 +159,7 @@ namespace Realm {
       if(all_nodes) {
 	ClearTimerRequestArgs args;
 	args.sender = gasnet_mynode();
-
+	
 	for(int i = 0; i < gasnet_nodes(); i++)
 	  if(i != gasnet_mynode())
 	    ClearTimerRequestMessage::request(i, args);
@@ -274,33 +275,13 @@ namespace Realm {
     }
 #endif
 
-  ////////////////////////////////////////////////////////////////////////
-  //
-  // class ClearTimersMessage
-  //
-
-  /*static*/ void ClearTimersMessage::handle_request(RequestArgs args)
-  {
+  void ClearTimersMessageType::request(Message *m) {
+    std::cout << "FABRIC -- ClearTimersMessageType::request() was called"  << std::endl;
     DetailedTimer::clear_timers(false);
   }
-
-  /*static*/ void ClearTimersMessage::send_request(gasnet_node_t target)
-  {
-    RequestArgs args;
-
-    args.sender = gasnet_mynode();
-    args.dummy = 0;
-    Message::request(target, args);
-  }
-
   
-  ////////////////////////////////////////////////////////////////////////
-  //
-  // class TimerDataRequestMessage
-  //
-
-  /*static*/ void TimerDataRequestMessage::handle_request(RequestArgs args)
-  {
+  void TimerDataRequestMessageType::request(Message* m) {
+    std::cout << "FABRIC -- TimerDataRequestMessageType::request() was called"  << std::endl;
     std::map<int,double> timers;
     DetailedTimer::roll_up_timers(timers, true);
 
@@ -315,46 +296,21 @@ namespace Realm {
     }
     assert(count <= 200);
 
-    TimerDataResponseMessage::send_request(args.sender, args.rollup_ptr,
-					   return_data, count*sizeof(double),
-					   PAYLOAD_COPY);
-  }
-
-  /*static*/ void TimerDataRequestMessage::send_request(gasnet_node_t target,
-							void *rollup_ptr)
-  {
-    RequestArgs args;
-
-    args.sender = gasnet_mynode();
-    args.rollup_ptr = rollup_ptr;
-    Message::request(target, args);
+    // Send a reply
+    ContiguousPayload* payload = new ContiguousPayload(FAB_PAYLOAD_COPY, return_data, sizeof(return_data));
+    fabric->send(new TimerDataResponseMessage(m->sndid,
+					      ((TimerDataRequestMessageType::RequestArgs*) m->args)->rollup_ptr,
+					      payload));
   }
   
-
-  ////////////////////////////////////////////////////////////////////////
-  //
-  // class TimerDataResponseMessage
-  //
-
-  /*static*/ void TimerDataResponseMessage::handle_request(RequestArgs args,
-							   const void *data,
-							   size_t datalen)
-  {
-    ((MultiNodeRollUp *)args.rollup_ptr)->handle_data(data, datalen); 
-  }
-
-  /*static*/ void TimerDataResponseMessage::send_request(gasnet_node_t target,
-							 void *rollup_ptr,
-							 const void *data,
-							 size_t datalen,
-							 int payload_mode)
-  {
-    RequestArgs args;
-
-    args.sender = gasnet_mynode();
-    args.rollup_ptr = rollup_ptr;
-    Message::request(target, args, data, datalen, payload_mode);
+  void TimerDataResponseMessageType::request(Message* m) {
+    std::cout << "FABRIC -- TimerDataResponseMessageType::request() was called"  << std::endl;
+    ((MultiNodeRollUp *)
+     ((TimerDataRequestMessageType::RequestArgs*) m->args)->rollup_ptr)
+      ->handle_data(m->payload->ptr(), m->payload->size());
   }
   
-
+  
 }; // namespace Realm
+
+

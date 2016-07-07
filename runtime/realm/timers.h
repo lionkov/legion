@@ -19,6 +19,8 @@
 #define REALM_TIMERS_H
 
 #include "activemsg.h"
+#include "fabric.h"
+#include "libfabric/fabric_libfabric.h"
 
 #include <stdio.h>
 #include <map>
@@ -134,52 +136,54 @@ namespace Realm {
     }
   };
 
-  // active messages
-
-  struct ClearTimersMessage {
-    struct RequestArgs {
-      int sender;
-      int dummy;
-    };
-
-    static void handle_request(RequestArgs args);
-     
-    typedef ActiveMessageShortNoReply<CLEAR_TIMER_MSGID,
-				      RequestArgs,
-				      handle_request> Message;
-
-    static void send_request(gasnet_node_t target);
+  class ClearTimersMessageType : public MessageType {
+  public:
+  ClearTimersMessageType()
+    : MessageType(CLEAR_TIMER_MSGID, 0, false, true) { }
+    virtual void request(Message *m);
   };
 
-  struct TimerDataRequestMessage {
-    struct RequestArgs {
-      int sender;
-      void *rollup_ptr;
-    };
-
-    static void handle_request(RequestArgs args);
-     
-    typedef ActiveMessageShortNoReply<ROLL_UP_TIMER_MSGID,
-				      RequestArgs,
-				      handle_request> Message;
-
-    static void send_request(gasnet_node_t target, void *rollup_ptr);
+  class ClearTimersMessage : public FabMessage {
+  public: 
+  ClearTimersMessage(NodeId dest)
+    : FabMessage(dest, CLEAR_TIMER_MSGID, NULL, NULL, false) { } 
   };
   
-  struct TimerDataResponseMessage {
-    struct RequestArgs : public BaseMedium {
-      int sender;
+  	
+  class TimerDataRequestMessageType : public MessageType {
+  public:
+  TimerDataRequestMessageType()
+    : MessageType(ROLL_UP_TIMER_MSGID, sizeof(RequestArgs), false, true) { }
+    
+    struct RequestArgs {
+      void *rollup_ptr;
+    };
+	
+    virtual void request(Message *m);
+  };
+
+  class TimerDataRequestMessage : public FabMessage {
+  public:
+  TimerDataRequestMessage(NodeId dest, void* args)
+    : FabMessage(dest, ROLL_UP_TIMER_MSGID, args, NULL, false) { }
+  };
+
+  class TimerDataResponseMessageType : public MessageType {
+  public:
+  TimerDataResponseMessageType()
+    : MessageType(ROLL_UP_TIMER_RPLID, sizeof(RequestArgs), true, true) { }
+    
+    struct RequestArgs {
       void *rollup_ptr;
     };
 
-    static void handle_request(RequestArgs args, const void *data, size_t datalen);
-     
-    typedef ActiveMessageMediumNoReply<ROLL_UP_TIMER_MSGID,
-			 	       RequestArgs,
-				       handle_request> Message;
+    virtual void request(Message *m);
+  };
 
-    static void send_request(gasnet_node_t target, void *rollup_ptr,
-			     const void *data, size_t datalen, int payload_mode);
+  class TimerDataResponseMessage : public FabMessage {
+  public:
+  TimerDataResponseMessage(NodeId dest, void* args, Payload* payload)
+    : FabMessage(dest, ROLL_UP_TIMER_RPLID, args, payload, false) { }
   };
   
 }; // namespace Realm

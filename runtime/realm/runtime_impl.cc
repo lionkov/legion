@@ -737,6 +737,12 @@ namespace Realm {
       // initialize barrier timestamp
       BarrierImpl::barrier_adjustment_timestamp = (((Barrier::timestamp_t)(gasnet_mynode())) << BarrierImpl::BARRIER_TIMESTAMP_NODEID_SHIFT) + 1;
 
+      // Register all message types with fabric before calling fabric->init()
+      fabric->add_message_type(new ClearTimersMessageType(), "Clear Timer Request");
+      fabric->add_message_type(new TimerDataRequestMessageType(), "Roll-up Request");
+      fabric->add_message_type(new TimerDataResponseMessageType(), "Roll-up Response");
+      
+      
       gasnet_handlerentry_t handlers[128];
       int hcount = 0;
       hcount += NodeAnnounceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Node Announce AM");
@@ -758,7 +764,7 @@ namespace Realm {
 #ifdef DETAILED_TIMING
       hcount += TimerDataRequestMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Roll-up Request AM");
       hcount += TimerDataResponseMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Roll-up Data AM");
-      hcount += ClearTimersMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Clear Timer Request AM");
+      //hcount += ClearTimersMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Clear Timer Request AM");
 #endif
       hcount += DestroyInstanceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Destroy Instance AM");
       hcount += RemoteWriteMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Write AM");

@@ -20,11 +20,17 @@ int Payload::checkmode()
   case FAB_PAYLOAD_COPY:
     bufsz = size();
     buf = malloc(bufsz);
+    
+    if (!buf) {
+      ret = -1;
+      break;
+    }
 
     if (copy(buf, bufsz) != bufsz) {
       mode = FAB_PAYLOAD_ERROR;
       ret = -1;
     }
+    
     break;
   }
   return ret;

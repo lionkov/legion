@@ -5,15 +5,16 @@ FabMessage::FabMessage(NodeId dest, MessageId id, void *args, Payload *payload, 
 {
   mtype = fabric->mts[id];
   rcvid = dest;
+  sndid = fabric->get_id();
   iov = new iovec;
 }
 
 FabMessage::~FabMessage()
 {
-  if (iov != siov)
+  if (iov != siov && iov)
     delete iov;
-
-  delete payload;
+  if (payload)
+    delete payload;
 }
 // run
 /*
@@ -48,7 +49,7 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
 
    Currently PMI isn't working, so just hard code these values.
 */
-
+/*
 int FabFabric::setup_pmi() {
   
   // Initialize PMI and discover other nodes
@@ -77,7 +78,7 @@ int FabFabric::setup_pmi() {
 
   return 1;
 }
-
+*/
 
 /*
   FabFabric::init():
@@ -111,6 +112,8 @@ bool FabFabric::init() {
   max_id = 1;
   id = 0; // Again, temporary since PMI is down
 
+  std::cout << "Initializing fabric... " << std::endl;
+  
   struct fi_info *hints, *fi;
   struct fi_cq_attr rx_cqattr; memset(&rx_cqattr, 0, sizeof(rx_cqattr));
   struct fi_cq_attr tx_cqattr; memset(&tx_cqattr, 0, sizeof(tx_cqattr));
@@ -324,7 +327,7 @@ bool FabFabric::init() {
 }
 
 
-bool FabFabric::init_fail(fi_info* hints, fi_info* fi, std::string message) {
+bool FabFabric::init_fail(fi_info* hints, fi_info* fi, const std::string message) const {
   std::cerr << message << std::endl;
   std::cerr << "ERROR -- Fabric Init failed. " << std::endl;
   
@@ -341,8 +344,9 @@ FabFabric::~FabFabric()
   shutdown();
 }
 
-bool FabFabric::add_message_type(MessageType *mt)
+bool FabFabric::add_message_type(MessageType *mt, const std::string tag)
 {
+  std::cout << "Fabric: registered message type: " << tag << std::endl;
   if (mt->id == 0 || mts[mt->id] != NULL)
     return false;
 
@@ -523,6 +527,7 @@ bool FabFabric::incoming(FabMessage *m)
     post_untagged();
     data = (char *) m->siov[0].iov_base;
     len = m->siov[0].iov_len;
+    std::cout << "len: " << len << std::endl;
     
     msgid = *(MessageId *) data;
     mtype = fabric->mts[msgid];
@@ -621,7 +626,7 @@ void FabFabric::print_fi_info(fi_info* fi) {
 // The stack_size parameter is currently not used (again this will wait
 // until integration with Legion runtime)
 
-void FabFabric::start_progress_threads(int count, size_t stack_size) {
+void FabFabric::start_progress_threads(const int count, const size_t stack_size) {
   num_progress_threads = count;
   progress_threads = new pthread_t[count];
   for (int i = 0; i < count; ++i) {
@@ -646,7 +651,7 @@ void FabFabric::wait_for_shutdown() {
 
 
 /* Return error for a fabric completion queue */
-std::string FabFabric::fi_cq_error_str(int ret, fid_cq* cq) {
+std::string FabFabric::fi_cq_error_str(const int ret, fid_cq* cq) {
   
   std::stringstream sstream;
   struct fi_cq_err_entry err;
@@ -660,7 +665,8 @@ std::string FabFabric::fi_cq_error_str(int ret, fid_cq* cq) {
 }
 
 
-std::string FabFabric::fi_error_str(int ret, std::string call, std::string file, int line) {
+std::string FabFabric::fi_error_str(const int ret, const std::string call,
+				    const std::string file, const int line) {
   std::stringstream sstream;
 
   sstream << "ERROR " << -ret << " in "<< call << "() at "
