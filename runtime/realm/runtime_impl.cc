@@ -531,7 +531,7 @@ namespace Realm {
       //  communication domains
       char *orig_pmi_gni_cookie = getenv("PMI_GNI_COOKIE");
       std::cout << "PMI_GNI_COOKIE" << std::endl;
-      std::cout << orign_pmi_gni_cookie << std::endl;
+      std::cout << orig_pmi_gni_cookie << std::endl;
       if(orig_pmi_gni_cookie) {
 	char new_pmi_gni_cookie[32];
 	snprintf(new_pmi_gni_cookie, 32, "%d", 1+atoi(orig_pmi_gni_cookie));
@@ -741,11 +741,12 @@ namespace Realm {
       fabric->add_message_type(new ClearTimersMessageType(), "Clear Timer Request");
       fabric->add_message_type(new TimerDataRequestMessageType(), "Roll-up Request");
       fabric->add_message_type(new TimerDataResponseMessageType(), "Roll-up Response");
+      fabric->add_message_type(new NodeAnnounceMessageType(), "Node Announce");
       
       
       gasnet_handlerentry_t handlers[128];
       int hcount = 0;
-      hcount += NodeAnnounceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Node Announce AM");
+      //hcount += NodeAnnounceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Node Announce AM");
       hcount += SpawnTaskMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Spawn Task AM");
       hcount += LockRequestMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Request AM");
       hcount += LockReleaseMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Release AM");
@@ -879,11 +880,15 @@ namespace Realm {
       else
 	global_memory = 0;
 
+
+      #ifdef USE_GASNET
+      std::cout << "We're using gasnet" << std::endl;
+      #endif
       fabric->init();
       
       Node *n = &nodes[gasnet_mynode()];
 
-      // create memories and processors for all loaded modules
+      // create memories and processors for all loaded module
       for(std::vector<Module *>::const_iterator it = modules.begin();
 	  it != modules.end();
 	  it++)
@@ -1155,13 +1160,13 @@ namespace Realm {
 	// now announce ourselves to everyone else
 	for(unsigned i = 0; i < gasnet_nodes(); i++)
 	  if(i != gasnet_mynode())
-	    NodeAnnounceMessage::send_request(i,
-						     num_procs,
-						     num_memories,
-						     adata, apos*sizeof(adata[0]),
-						     PAYLOAD_COPY);
+	    NodeAnnounceMessageType::send_request(i,
+					      num_procs,
+					      num_memories,
+					      adata, apos*sizeof(adata[0]),
+					      PAYLOAD_COPY);
 
-	NodeAnnounceMessage::await_all_announcements();
+	NodeAnnounceMessageType::await_all_announcements();
 
 #ifdef DEBUG_REALM_STARTUP
 	if(gasnet_mynode() == 0) {

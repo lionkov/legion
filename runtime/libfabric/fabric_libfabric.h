@@ -84,7 +84,7 @@ class FabMutex {
 
 class FabMessage : public Message {
  protected:
-  FabMessage(NodeId dest, MessageId id, void *args, Payload *payload, bool inOrder);
+  FabMessage(NodeId dest, MessageId id, void *args, FabPayload *payload, bool inOrder);
 
   public:
     virtual ~FabMessage();
@@ -107,7 +107,7 @@ class FabMessage : public Message {
     NodeId get_id();
     NodeId get_max_id();
     int send(Message* m);
-    int send(NodeId dest, MessageId id, void* args, Payload* payload, bool inOrder);
+    int send(NodeId dest, MessageId id, void* args, FabPayload* payload, bool inOrder);
     bool progress(bool wait);
     bool incoming(FabMessage *);
     void *memalloc(size_t size);

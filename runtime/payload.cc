@@ -1,6 +1,6 @@
 #include "fabric.h"
 
-int Payload::checkmode()
+int FabPayload::checkmode()
 {
   int ret;
 
@@ -36,7 +36,7 @@ int Payload::checkmode()
   return ret;
 }
 
-ssize_t Payload::checkiovec(struct iovec *iov, size_t iovnum)
+ssize_t FabPayload::checkiovec(struct iovec *iov, size_t iovnum)
 {
   if (mode != FAB_PAYLOAD_COPY)
     return -1;
@@ -50,7 +50,7 @@ ssize_t Payload::checkiovec(struct iovec *iov, size_t iovnum)
 }
 
 // if mode == FAB_PAYLOAD_COPY, copy the data, otherwise return -1
-ssize_t Payload::checkcopy(void *dest, size_t destsz)
+ssize_t FabPayload::checkcopy(void *dest, size_t destsz)
 {
   size_t n;
   if (mode != FAB_PAYLOAD_COPY)
@@ -62,18 +62,19 @@ ssize_t Payload::checkcopy(void *dest, size_t destsz)
   return n;
 }
 
-Payload::~Payload(void)
+FabPayload::~FabPayload(void)
 {
   free(buf);
   buf = NULL;
 }
 	
-ContiguousPayload::ContiguousPayload(int m, void *d, size_t s):Payload(m), sz(s), data(d)
+FabContiguousPayload::FabContiguousPayload(int m, void *d, size_t s)
+  : FabPayload(m), sz(s), data(d)
 {
   checkmode();
 }
 
-ContiguousPayload::~ContiguousPayload(void)
+FabContiguousPayload::~FabContiguousPayload(void)
 {
   if (mode == FAB_PAYLOAD_FREE) {
     free(data);
@@ -81,7 +82,7 @@ ContiguousPayload::~ContiguousPayload(void)
   }
 }
 
-ssize_t ContiguousPayload::size(void)
+ssize_t FabContiguousPayload::size(void)
 {
   if (mode == FAB_PAYLOAD_ERROR)
     return -1;
@@ -89,7 +90,7 @@ ssize_t ContiguousPayload::size(void)
   return sz;
 }
 
-void *ContiguousPayload::ptr(void)
+void *FabContiguousPayload::ptr(void)
 {
   if (mode == FAB_PAYLOAD_ERROR)
     return NULL;
@@ -97,7 +98,7 @@ void *ContiguousPayload::ptr(void)
   return data;
 }
 
-ssize_t ContiguousPayload::copy(void *dptr, size_t dsz)
+ssize_t FabContiguousPayload::copy(void *dptr, size_t dsz)
 {
   int ret;
 
@@ -116,7 +117,7 @@ ssize_t ContiguousPayload::copy(void *dptr, size_t dsz)
   return ret;
 }
 
-ssize_t ContiguousPayload::iovec(struct iovec *iov, size_t iovnum)
+ssize_t FabContiguousPayload::iovec(struct iovec *iov, size_t iovnum)
 {
   ssize_t ret;
 
@@ -137,29 +138,29 @@ ssize_t ContiguousPayload::iovec(struct iovec *iov, size_t iovnum)
 }
 
 
-TwoDPayload::TwoDPayload(int m, void *d, size_t line_size, size_t line_count, ptrdiff_t line_stride)
-  : Payload(m), linesz(line_size), linecnt(line_count), stride(line_stride), data(d)
+FabTwoDPayload::FabTwoDPayload(int m, void *d, size_t line_size, size_t line_count, ptrdiff_t line_stride)
+  : FabPayload(m), linesz(line_size), linecnt(line_count), stride(line_stride), data(d)
 {
   checkmode();
 }
 
-TwoDPayload::~TwoDPayload(void)
+FabTwoDPayload::~FabTwoDPayload(void)
 {
   if (mode == FAB_PAYLOAD_FREE)
     free(data);
 }
 
-ssize_t TwoDPayload::size(void)
+ssize_t FabTwoDPayload::size(void)
 {
   return (linecnt/stride + (linecnt%stride?1:0)) * linesz;
 }
 
-void* TwoDPayload::ptr(void)
+void* FabTwoDPayload::ptr(void)
 {
   return NULL;
 }
 
-ssize_t TwoDPayload::copy(void *dest, size_t destsz)
+ssize_t FabTwoDPayload::copy(void *dest, size_t destsz)
 {
   ssize_t ret;
   uintptr_t p, ep, d;
@@ -188,7 +189,7 @@ ssize_t TwoDPayload::copy(void *dest, size_t destsz)
   return ret;
 }
 
-ssize_t TwoDPayload::iovec(struct iovec *iov, size_t iovnum)
+ssize_t FabTwoDPayload::iovec(struct iovec *iov, size_t iovnum)
 {
   ssize_t ret;
 
@@ -211,7 +212,7 @@ ssize_t TwoDPayload::iovec(struct iovec *iov, size_t iovnum)
   return ret;
 }
 
-SpanPayload::SpanPayload(int m, FabSpanList &sl, size_t s) : Payload(m), spans(sl), sz(s)
+FabSpanPayload::FabSpanPayload(int m, FabSpanList &sl, size_t s) : FabPayload(m), spans(sl), sz(s)
 {
   checkmode();
   sz = 0;
@@ -222,7 +223,7 @@ SpanPayload::SpanPayload(int m, FabSpanList &sl, size_t s) : Payload(m), spans(s
 
 }
 
-SpanPayload::~SpanPayload(void)
+FabSpanPayload::~FabSpanPayload(void)
 {
 
  
@@ -234,17 +235,17 @@ SpanPayload::~SpanPayload(void)
  
 }
 
-ssize_t SpanPayload::size(void)
+ssize_t FabSpanPayload::size(void)
 {
   return sz;
 }
 
-void* SpanPayload::ptr(void)
+void* FabSpanPayload::ptr(void)
 {
   return NULL;
 }
 
-ssize_t SpanPayload::copy(void *dest, size_t destsz)
+ssize_t FabSpanPayload::copy(void *dest, size_t destsz)
 {
   ssize_t ret, n;
   char *p;
@@ -269,7 +270,7 @@ ssize_t SpanPayload::copy(void *dest, size_t destsz)
   return ret;
 }
 
-ssize_t SpanPayload::iovec(struct iovec *iov, size_t iovnum)
+ssize_t FabSpanPayload::iovec(struct iovec *iov, size_t iovnum)
 {
   ssize_t n;
   int ret;

@@ -18,7 +18,8 @@
 enum MessageIds {
   CLEAR_TIMER_MSGID,
   ROLL_UP_TIMER_MSGID,
-  ROLL_UP_TIMER_RPLID
+  ROLL_UP_TIMER_RPLID,
+  NODE_ANNOUNCE_MSGID
 };
 
 enum {
@@ -51,7 +52,7 @@ class CondVar {
   Mutex *lock;
 };
 
-class Payload {
+class FabPayload {
  protected:
   int	mode;
 
@@ -65,8 +66,8 @@ class Payload {
   ssize_t checkcopy(void *dest, size_t destsz);
 	
  public:
-  Payload(int m) : mode(m), buf(NULL), bufsz(0) {}
-  virtual ~Payload(void);
+  FabPayload(int m) : mode(m), buf(NULL), bufsz(0) {}
+  virtual ~FabPayload(void);
 
   virtual ssize_t size(void) = 0;
   virtual void* ptr(void) = 0;
@@ -89,17 +90,17 @@ class MessageType {
 
   int send(NodeId target);
   int send(NodeId target, void *args);
-  int send(NodeId target, void *args, Payload *payload);
+  int send(NodeId target, void *args, FabPayload *payload);
 };
 
-struct ContiguousPayload : public Payload {
+struct FabContiguousPayload : public FabPayload {
  protected:
   size_t sz;
   void*	data;
 
  public:
-  ContiguousPayload(int mode, void *data, size_t s);
-  virtual ~ContiguousPayload(void);
+  FabContiguousPayload(int mode, void *data, size_t s);
+  virtual ~FabContiguousPayload(void);
   
 
   virtual ssize_t size(void);
@@ -108,7 +109,7 @@ struct ContiguousPayload : public Payload {
   virtual ssize_t iovec(struct iovec *iov, size_t iovnum);
 };
 
-struct TwoDPayload : public Payload {
+struct FabTwoDPayload : public FabPayload {
  protected:
   size_t		linesz;
   size_t		linecnt;
@@ -116,8 +117,8 @@ struct TwoDPayload : public Payload {
   void*		data;
 
  public:
-  TwoDPayload(int m, void *data, size_t line_size, size_t line_count, ptrdiff_t line_stride);
-  virtual ~TwoDPayload(void);
+  FabTwoDPayload(int m, void *data, size_t line_size, size_t line_count, ptrdiff_t line_stride);
+  virtual ~FabTwoDPayload(void);
 
   virtual ssize_t size(void);
   virtual void* ptr(void);
@@ -128,13 +129,13 @@ struct TwoDPayload : public Payload {
 typedef std::pair<void *, size_t> FabSpanListEntry;
 typedef std::vector<FabSpanListEntry> FabSpanList;
 
-struct SpanPayload : public Payload {
+struct FabSpanPayload : public FabPayload {
  protected:
   FabSpanList	spans;
   size_t		sz;
  public:
-  SpanPayload(int m, FabSpanList &sl, size_t s);
-  virtual ~SpanPayload(void);
+  FabSpanPayload(int m, FabSpanList &sl, size_t s);
+  virtual ~FabSpanPayload(void);
 
   virtual ssize_t size(void);
   virtual void* ptr(void);
@@ -148,7 +149,7 @@ class Message {
   NodeId	sndid;		// sender id
   NodeId	rcvid;		// receiver id
   void*		args;
-  Payload*	payload;
+  FabPayload*	payload;
 
   virtual ~Message() {
     if (payload) delete payload;
@@ -163,7 +164,7 @@ class Message {
 
 
  protected:
-  Message(MessageId id, void *a, Payload *p):args(a), payload(p) { }  
+  Message(MessageId id, void *a, FabPayload *p):args(a), payload(p) { }  
 };
 
 class Fabric {
@@ -179,7 +180,7 @@ class Fabric {
   virtual NodeId get_id() = 0;
   virtual NodeId get_max_id() = 0;
   virtual int send(NodeId dest, MessageId id, void *args,
-		   Payload *payload, bool inOrder) = 0;
+		   FabPayload *payload, bool inOrder) = 0;
   virtual int send(Message* m) = 0;
   virtual bool progress(bool wait) = 0;
   // virtual bool incoming(Message *) = 0;

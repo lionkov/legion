@@ -1235,62 +1235,62 @@ namespace Realm {
     return chosen;
   }
 
-
-  ////////////////////////////////////////////////////////////////////////
-  //
-  // class NodeAnnounceMessage
-  //
-
   static int announcements_received = 0;
+  
+  void NodeAnnounceMessageType::request(Message* m) {
+    RequestArgs* args = (RequestArgs*) m->args;
+    void* data = m->payload->ptr();
+    size_t datalen = m->payload->size();
 
-  /*static*/ void NodeAnnounceMessage::handle_request(RequestArgs args,
-						      const void *data,
-						      size_t datalen)
-  {
     DetailedTimer::ScopedPush sp(TIME_LOW_LEVEL);
     log_annc.info("%d: received announce from %d (%d procs, %d memories)\n",
 		  gasnet_mynode(),
-		  args.node_id,
-		  args.num_procs,
-		  args.num_memories);
+		  args->node_id,
+		  args->num_procs,
+		  args->num_memories);
     
-    Node *n = &(get_runtime()->nodes[args.node_id]);
-    n->processors.resize(args.num_procs);
-    n->memories.resize(args.num_memories);
+    Node* n = &(get_runtime()->nodes[args->node_id]);
+    n->processors.resize(args->num_procs);
+    n->memories.resize(args->num_memories);
 
     // do the parsing of this data inside a mutex because it touches common
-    //  data structures
+    // data structures
     {
-      get_machine()->parse_node_announce_data(args.node_id,
-					      args.num_procs, args.num_memories,
+      get_machine()->parse_node_announce_data(args->node_id,
+					      args->num_procs, args->
+					      num_memories,
 					      data, datalen, true);
 
       __sync_fetch_and_add(&announcements_received, 1);
-    }
+    }    
   }
 
-  /*static*/ void NodeAnnounceMessage::send_request(gasnet_node_t target,
-						    unsigned num_procs,
-						    unsigned num_memories,
-						    const void *data,
-						    size_t datalen,
-						    int payload_mode)
-  {
-    RequestArgs args;
-
-    args.node_id = gasnet_mynode();
-    args.num_procs = num_procs;
-    args.num_memories = num_memories;
-    ActiveMessage::request(target, args, data, datalen, payload_mode);
+  /*static*/ void NodeAnnounceMessageType::send_request(NodeId dest,
+							uint32_t num_procs,
+							uint32_t num_memories,
+							void* data,
+							size_t datalen,
+							int payload_mode) {
+    RequestArgs* args = new RequestArgs;
+    args->node_id = fabric->get_id();
+    args->num_procs = num_procs;
+    args->num_memories = num_memories;
+    
+    FabContiguousPayload* payload = new FabContiguousPayload(payload_mode,
+							     data,
+							     datalen);
+    
+    fabric->send(new NodeAnnounceMessage(dest, (void*) args, payload));
   }
 
-  /*static*/ void NodeAnnounceMessage::await_all_announcements(void)
-  {
+  /* static */ void NodeAnnounceMessageType::await_all_announcements(void) {
     // wait until we hear from everyone else?
+    // TODO -- convert to fabric
     while((int)announcements_received < (int)(gasnet_nodes() - 1))
       do_some_polling();
-
+    
     log_annc.info("node %d has received all of its announcements\n", gasnet_mynode());
   }
+
 
 }; // namespace Realm

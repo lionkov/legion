@@ -271,27 +271,33 @@ namespace Realm {
     NODE_ANNOUNCE_MMA,  // MMA mem1_id mem2_id bw latency
   };
 
-  struct NodeAnnounceMessage {
+  class NodeAnnounceMessageType: public MessageType {
+  public:
+    NodeAnnounceMessageType()
+      : MessageType(NODE_ANNOUNCE_MSGID, sizeof(RequestArgs), true, true) { }
+
     struct RequestArgs : public BaseMedium {
-      gasnet_node_t node_id;
+      NodeId node_id;
       unsigned num_procs;
       unsigned num_memories;
     };
-
-    static void handle_request(RequestArgs args, const void *data, size_t datalen);
-
-    typedef ActiveMessageMediumNoReply<NODE_ANNOUNCE_MSGID,
-				       RequestArgs,
-				       handle_request> ActiveMessage;
-
-    static void send_request(gasnet_node_t target,
-			     unsigned num_procs, unsigned num_memories,
-			     const void *data, size_t datalen, int payload_mode);
-
+    
+    virtual void request(Message* m);
     static void await_all_announcements(void);
+    static void send_request(NodeId dest,
+			     uint32_t num_procs,
+			     uint32_t num_memories,
+			     void* data,
+			     size_t datalen,
+			     int payload_mode);
   };
 
-	
+  class NodeAnnounceMessage : public FabMessage {
+  public:
+    NodeAnnounceMessage(NodeId dest, void* args, FabPayload* payload)
+      : FabMessage(dest, NODE_ANNOUNCE_MSGID, args, payload, true) { }
+  };
+
 }; // namespace Realm
 
 //include "machine_impl.inl"

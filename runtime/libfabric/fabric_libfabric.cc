@@ -1,6 +1,6 @@
 #include "fabric_libfabric.h"
 
-FabMessage::FabMessage(NodeId dest, MessageId id, void *args, Payload *payload, bool inOrder)
+FabMessage::FabMessage(NodeId dest, MessageId id, void *args, FabPayload *payload, bool inOrder)
   : Message(id, args, payload)
 {
   mtype = fabric->mts[id];
@@ -375,7 +375,7 @@ NodeId FabFabric::get_max_id()
   return max_id;
 }
 
-int FabFabric::send(NodeId dest, MessageId id, void *args, Payload *payload, bool inOrder)
+int FabFabric::send(NodeId dest, MessageId id, void *args, FabPayload *payload, bool inOrder)
 {
   FabMessage *m;
 
@@ -547,7 +547,7 @@ bool FabFabric::incoming(FabMessage *m)
     
     // Is this correct? Seems like this will copy arguments as well as payload
     // TODO -- will need to respect other payload types
-    m->payload = new ContiguousPayload(PAYLOAD_KEEP, data, len);
+    m->payload = new FabContiguousPayload(PAYLOAD_KEEP, data, len);
   }
 
   m->mtype->request(m);
