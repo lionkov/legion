@@ -257,7 +257,7 @@ namespace Realm {
     class SpawnTaskMessageType : public MessageType {
     public:
       SpawnTaskMessageType()
-	:  MessageType(SPAWN_TASK_MSGID, sizeof(RequestArgs), true, true) { }
+	: MessageType(SPAWN_TASK_MSGID, sizeof(RequestArgs), true, true) { }
 
       struct RequestArgs : public BaseMedium {
 	Processor proc;
@@ -291,23 +291,21 @@ namespace Realm {
 	: FabMessage(dest, SPAWN_TASK_MSGID, args, payload, true) { }
     };
 
-    
-    
-    struct RegisterTaskMessage {
+    class RegisterTaskMessageType : public MessageType {
+    public:
+      RegisterTaskMessageType()
+	: MessageType(REGISTER_TASK_MSGID, sizeof(RequestArgs), true, true) { }
+
       struct RequestArgs : public BaseMedium {
-	gasnet_node_t sender;
+	NodeId sender;
 	Processor::TaskFuncID func_id;
 	Processor::Kind kind;
 	RemoteTaskRegistration *reg_op;
       };
 
-      static void handle_request(RequestArgs args, const void *data, size_t datalen);
-
-      typedef ActiveMessageMediumNoReply<REGISTER_TASK_MSGID,
- 	                                 RequestArgs,
- 	                                 handle_request> ActiveMessage;
-
-      static void send_request(gasnet_node_t target,
+      void request(Message* m);
+      
+      static void send_request(NodeId target,
 			       Processor::TaskFuncID func_id,
 			       Processor::Kind kind,
 			       const std::vector<Processor>& procs,
@@ -315,23 +313,35 @@ namespace Realm {
 			       const void *userdata, size_t userlen,
 			       RemoteTaskRegistration *reg_op);
     };
-    
-    struct RegisterTaskCompleteMessage {
+
+    class RegisterTaskMessage : public FabMessage {
+    public:
+      RegisterTaskMessage(NodeId dest, void* args, FabPayload* payload)
+	: FabMessage(dest, REGISTER_TASK_MSGID, args, payload, true) { }
+    };
+
+    class RegisterTaskCompleteMessageType : public MessageType {
+    public:
+      RegisterTaskCompleteMessageType()
+	: MessageType(REGISTER_TASK_COMPLETE_MSGID, sizeof(RequestArgs), false, true) { }
+      
       struct RequestArgs {
-	gasnet_node_t sender;
+	NodeId sender;
 	RemoteTaskRegistration *reg_op;
 	bool successful;
       };
 
-      static void handle_request(RequestArgs args);
-
-      typedef ActiveMessageShortNoReply<REGISTER_TASK_COMPLETE_MSGID,
-					RequestArgs,
-					handle_request> ActiveMessage;
-
-      static void send_request(gasnet_node_t target,
+      void request(Message* m);
+      
+      static void send_request(NodeId target,
 			       RemoteTaskRegistration *reg_op,
 			       bool successful);
+    };
+
+    class RegisterTaskCompleteMessage : public FabMessage {
+    public:
+      RegisterTaskCompleteMessage(NodeId dest, void* args)
+	: FabMessage(dest, REGISTER_TASK_COMPLETE_MSGID, args, NULL, true) { }
     };
 
 }; // namespace Realm

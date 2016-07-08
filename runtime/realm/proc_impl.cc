@@ -246,10 +246,10 @@ namespace Realm {
       for(std::map<gasnet_node_t, std::vector<Processor> >::const_iterator it = remote_procs.begin();
 	  it != remote_procs.end();
 	  it++) {
-	gasnet_node_t target = it->first;
+	NodeId target = it->first;
 	RemoteTaskRegistration *reg_op = new RemoteTaskRegistration(tro, target);
 	tro->add_async_work_item(reg_op);
-	RegisterTaskMessage::send_request(target, func_id, NO_KIND, it->second,
+	RegisterTaskMessageType::send_request(target, func_id, NO_KIND, it->second,
 					  tro->codedesc,
 					  tro->userdata.base(), tro->userdata.size(),
 					  reg_op);
@@ -315,7 +315,7 @@ namespace Realm {
 
 	  RemoteTaskRegistration *reg_op = new RemoteTaskRegistration(tro, target);
 	  tro->add_async_work_item(reg_op);
-	  RegisterTaskMessage::send_request(target, func_id, target_kind, std::vector<Processor>(),
+	  RegisterTaskMessageType::send_request(target, func_id, target_kind, std::vector<Processor>(),
 					    tro->codedesc,
 					    tro->userdata.base(), tro->userdata.size(),
 					    reg_op);
@@ -603,14 +603,11 @@ namespace Realm {
     }
   }
 
-
-  ////////////////////////////////////////////////////////////////////////
-  //
-  // class RegisterTaskMessage
-  //
-
-  /*static*/ void RegisterTaskMessage::handle_request(RequestArgs args, const void *data, size_t datalen)
-  {
+  void RegisterTaskMessageType::request(Message* m) {
+    RequestArgs* args = (RequestArgs*) m->args;
+    void* data = m->payload->ptr();
+    size_t datalen = m->payload->size();
+    
     std::vector<Processor> procs;
     CodeDescriptor codedesc;
     ByteArray userdata;
@@ -625,29 +622,31 @@ namespace Realm {
     if(procs.empty()) {
       // use the supplied kind and find all procs of that kind
       std::set<Processor> local_procs;
-      get_runtime()->machine->get_local_processors_by_kind(local_procs, args.kind);
+      get_runtime()->machine->get_local_processors_by_kind(local_procs, args->kind);
     
       for(std::set<Processor>::const_iterator it = local_procs.begin();
 	  it != local_procs.end();
 	  it++) {
 	ProcessorImpl *p = get_runtime()->get_processor_impl(*it);
-	p->register_task(args.func_id, codedesc, userdata);
+	p->register_task(args->func_id, codedesc, userdata);
       }
     } else {
       for(std::vector<Processor>::const_iterator it = procs.begin();
 	  it != procs.end();
 	  it++) {
 	ProcessorImpl *p = get_runtime()->get_processor_impl(*it);
-	p->register_task(args.func_id, codedesc, userdata);
+	p->register_task(args->func_id, codedesc, userdata);
       }
     }
 
     // TODO: include status/profiling eventually
-    RegisterTaskCompleteMessage::send_request(args.sender, args.reg_op,
-					      true /*successful*/);
+    RegisterTaskCompleteMessageType::send_request(args->sender,
+						  args->reg_op,
+						  true /*successful*/);
   }
+  
 
-  /*static*/ void RegisterTaskMessage::send_request(gasnet_node_t target,
+  /*static*/ void RegisterTaskMessageType::send_request(NodeId target,
 						    Processor::TaskFuncID func_id,
 						    Processor::Kind kind,
 						    const std::vector<Processor>& procs,
@@ -655,12 +654,12 @@ namespace Realm {
 						    const void *userdata, size_t userlen,
 						    RemoteTaskRegistration *reg_op)
   {
-    RequestArgs args;
+    RequestArgs* args = new RequestArgs();
 
-    args.sender = gasnet_mynode();
-    args.func_id = func_id;
-    args.kind = kind;
-    args.reg_op = reg_op;
+    args->sender = gasnet_mynode();
+    args->func_id = func_id;
+    args->kind = kind;
+    args->reg_op = reg_op;
 
     Serialization::DynamicBufferSerializer dbs(1024);
     dbs << procs;
@@ -669,33 +668,28 @@ namespace Realm {
 
     size_t datalen = dbs.bytes_used();
     void *data = dbs.detach_buffer(-1 /*no trim*/);
-    ActiveMessage::request(target, args, data, datalen, PAYLOAD_FREE);
+    FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_FREE, data, datalen);
+    
+    fabric->send(new RegisterTaskMessage(target, (void*) args, payload));
+  }
+
+  /*static*/ void RegisterTaskCompleteMessageType::send_request(NodeId target,
+								RemoteTaskRegistration *reg_op,
+								bool successful) {
+    RequestArgs* args = new RequestArgs();
+
+    args->sender = fabric->get_id();
+    args->reg_op = reg_op;
+    args->successful = successful;
+
+    fabric->send(new RegisterTaskCompleteMessage(target, (void*) args));
   }
 
 
-  ////////////////////////////////////////////////////////////////////////
-  //
-  // class RegisterTaskCompleteMessage
-  //
-
-  /*static*/ void RegisterTaskCompleteMessage::handle_request(RequestArgs args)
-  {
-    args.reg_op->mark_finished(args.successful);
-  }
-
-  /*static*/ void RegisterTaskCompleteMessage::send_request(gasnet_node_t target,
-							    RemoteTaskRegistration *reg_op,
-							    bool successful)
-  {
-    RequestArgs args;
-
-    args.sender = gasnet_mynode();
-    args.reg_op = reg_op;
-    args.successful = successful;
-
-    ActiveMessage::request(target, args);
-  }
-
+  void RegisterTaskCompleteMessageType::request(Message* m) {
+    RequestArgs* args = (RequestArgs*) m->args;
+    args->reg_op->mark_finished(args->successful);
+  }  
 
   ////////////////////////////////////////////////////////////////////////
   //

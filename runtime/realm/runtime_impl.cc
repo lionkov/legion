@@ -743,7 +743,8 @@ namespace Realm {
       fabric->add_message_type(new TimerDataResponseMessageType(), "Roll-up Response");
       fabric->add_message_type(new NodeAnnounceMessageType(), "Node Announce");
       fabric->add_message_type(new SpawnTaskMessageType(), "Spawn Task");
-      
+      fabric->add_message_type(new RegisterTaskMessageType(), "Register Task");
+      fabric->add_message_type(new RegisterTaskCompleteMessageType(), "Register Task Complete");
       
       gasnet_handlerentry_t handlers[128];
       int hcount = 0;
@@ -785,8 +786,8 @@ namespace Realm {
       hcount += MetadataResponseMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Response AM");
       hcount += MetadataInvalidateMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Invalidate AM");
       hcount += MetadataInvalidateAckMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Inval Ack AM");
-      hcount += RegisterTaskMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Register Task AM");
-      hcount += RegisterTaskCompleteMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Register Task Complete AM");
+      //hcount += RegisterTaskMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Register Task AM");
+      //hcount += RegisterTaskCompleteMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Register Task Complete AM");
       //hcount += TestMessage::add_handler_entries(&handlers[hcount], "Test AM");
       //hcount += TestMessage2::add_handler_entries(&handlers[hcount], "Test 2 AM");
 
