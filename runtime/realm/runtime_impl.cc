@@ -742,12 +742,13 @@ namespace Realm {
       fabric->add_message_type(new TimerDataRequestMessageType(), "Roll-up Request");
       fabric->add_message_type(new TimerDataResponseMessageType(), "Roll-up Response");
       fabric->add_message_type(new NodeAnnounceMessageType(), "Node Announce");
+      fabric->add_message_type(new SpawnTaskMessageType(), "Spawn Task");
       
       
       gasnet_handlerentry_t handlers[128];
       int hcount = 0;
       //hcount += NodeAnnounceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Node Announce AM");
-      hcount += SpawnTaskMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Spawn Task AM");
+      //hcount += SpawnTaskMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Spawn Task AM");
       hcount += LockRequestMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Request AM");
       hcount += LockReleaseMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Release AM");
       hcount += LockGrantMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Grant AM");

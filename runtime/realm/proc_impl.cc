@@ -520,63 +520,68 @@ namespace Realm {
       return task->get_finish_event();
     }
 
+  void SpawnTaskMessageType::request(Message* m) {
+    RequestArgs* args = (RequestArgs*) m->args;
+    void* data = m->payload->ptr();
+    size_t datalen = m->payload->size();
 
-  ////////////////////////////////////////////////////////////////////////
-  //
-  // class SpawnTaskMessage
-  //
-
-  /*static*/ void SpawnTaskMessage::handle_request(RequestArgs args,
-						   const void *data,
-						   size_t datalen)
-  {
     DetailedTimer::ScopedPush sp(TIME_LOW_LEVEL);
-    ProcessorImpl *p = get_runtime()->get_processor_impl(args.proc);
+    ProcessorImpl *p = get_runtime()->get_processor_impl(args->proc);
 
     Event start_event, finish_event;
-    start_event.id = args.start_id;
-    start_event.gen = args.start_gen;
-    finish_event.id = args.finish_id;
-    finish_event.gen = args.finish_gen;
+    start_event.id = args->start_id;
+    start_event.gen = args->start_gen;
+    finish_event.id = args->finish_id;
+    finish_event.gen = args->finish_gen;
 
     log_task.debug() << "received remote spawn request:"
-		     << " func=" << args.func_id
-		     << " proc=" << args.proc
+		     << " func=" << args->func_id
+		     << " proc=" << args->proc
 		     << " finish=" << finish_event;
 
     Serialization::FixedBufferDeserializer fbd(data, datalen);
-    fbd.extract_bytes(0, args.user_arglen);  // skip over task args - we'll access those directly
+    fbd.extract_bytes(0, args->user_arglen);  // skip over task args - we'll access those directly
 
     // profiling requests are optional - extract only if there's data
     ProfilingRequestSet prs;
     if(fbd.bytes_left() > 0)
       fbd >> prs;
       
-    p->spawn_task(args.func_id, data, args.user_arglen, prs,
-		  start_event, finish_event, args.priority);
+    p->spawn_task(args->func_id, data, args->user_arglen, prs,
+		  start_event, finish_event, args->priority);
+
   }
+  
+  /*static*/ void SpawnTaskMessageType::send_request(NodeId target,
+						     Processor proc,
+						     Processor::TaskFuncID func_id,
+						     const void *args,
+						     size_t arglen,
+						     const ProfilingRequestSet *prs,
+						     Event start_event,
+						     Event finish_event,
+						     int priority) { 
+    RequestArgs* r_args = new RequestArgs();
 
-  /*static*/ void SpawnTaskMessage::send_request(gasnet_node_t target, Processor proc,
-						 Processor::TaskFuncID func_id,
-						 const void *args, size_t arglen,
-						 const ProfilingRequestSet *prs,
-						 Event start_event, Event finish_event,
-						 int priority)
-  {
-    RequestArgs r_args;
-
-    r_args.proc = proc;
-    r_args.func_id = func_id;
-    r_args.start_id = start_event.id;
-    r_args.start_gen = start_event.gen;
-    r_args.finish_id = finish_event.id;
-    r_args.finish_gen = finish_event.gen;
-    r_args.priority = priority;
-    r_args.user_arglen = arglen;
+    r_args->proc = proc;
+    r_args->func_id = func_id;
+    r_args->start_id = start_event.id;
+    r_args->start_gen = start_event.gen;
+    r_args->finish_id = finish_event.id;
+    r_args->finish_gen = finish_event.gen;
+    r_args->priority = priority;
+    r_args->user_arglen = arglen;
     
     if(!prs || prs->empty()) {
       // no profiling, so task args are the only payload
-      ActiveMessage::request(target, r_args, args, arglen, PAYLOAD_COPY);
+      
+      // Create a copy of the args, since we do not own them
+      void* arg_copy = malloc(arglen);
+      memcpy(arg_copy, args, arglen);
+      FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_FREE,
+							       arg_copy,
+							       arglen);
+      fabric->send(new SpawnTaskMessage(target, (void*) r_args, payload));
     } else {
       // need to serialize both the task args and the profiling request
       //  into a single payload
@@ -591,7 +596,10 @@ namespace Realm {
 
       size_t datalen = dbs.bytes_used();
       void *data = dbs.detach_buffer(-1);  // don't trim - this buffer has a short life
-      ActiveMessage::request(target, r_args, data, datalen, PAYLOAD_FREE);
+      FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_FREE,
+							       data,
+							       datalen);
+      fabric->send(new SpawnTaskMessage(target, (void*) r_args, payload));
     }
   }
 
@@ -730,9 +738,9 @@ namespace Realm {
 
       get_runtime()->optable.add_remote_operation(finish_event, target);
 
-      SpawnTaskMessage::send_request(target, me, func_id,
-				     args, arglen, &reqs,
-				     start_event, finish_event, priority);
+      SpawnTaskMessageType::send_request(target, me, func_id,
+					 args, arglen, &reqs,
+					 start_event, finish_event, priority);
     }
 
   
@@ -796,10 +804,10 @@ namespace Realm {
   }
 
   void LocalTaskProcessor::spawn_task(Processor::TaskFuncID func_id,
-				     const void *args, size_t arglen,
-				     const ProfilingRequestSet &reqs,
-				     Event start_event, Event finish_event,
-				     int priority)
+				      const void *args, size_t arglen,
+				      const ProfilingRequestSet &reqs,
+				      Event start_event, Event finish_event,
+				      int priority)
   {
     assert(func_id != 0);
     // create a task object for this

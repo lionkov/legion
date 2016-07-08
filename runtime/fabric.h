@@ -19,7 +19,8 @@ enum MessageIds {
   CLEAR_TIMER_MSGID,
   ROLL_UP_TIMER_MSGID,
   ROLL_UP_TIMER_RPLID,
-  NODE_ANNOUNCE_MSGID
+  NODE_ANNOUNCE_MSGID,
+  SPAWN_TASK_MSGID
 };
 
 enum {
@@ -96,7 +97,7 @@ class MessageType {
 struct FabContiguousPayload : public FabPayload {
  protected:
   size_t sz;
-  void*	data;
+  void* data;
 
  public:
   FabContiguousPayload(int mode, void *data, size_t s);

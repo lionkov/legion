@@ -182,7 +182,7 @@ namespace Realm {
 
   class TimerDataResponseMessage : public FabMessage {
   public:
-  TimerDataResponseMessage(NodeId dest, void* args, Payload* payload)
+  TimerDataResponseMessage(NodeId dest, void* args, FabPayload* payload)
     : FabMessage(dest, ROLL_UP_TIMER_RPLID, args, payload, false) { }
   };
   

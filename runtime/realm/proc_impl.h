@@ -254,9 +254,11 @@ namespace Realm {
     };
 
     // active messages
+    class SpawnTaskMessageType : public MessageType {
+    public:
+      SpawnTaskMessageType()
+	:  MessageType(SPAWN_TASK_MSGID, sizeof(RequestArgs), true, true) { }
 
-    struct SpawnTaskMessage {
-      // Employ some fancy struct packing here to fit in 64 bytes
       struct RequestArgs : public BaseMedium {
 	Processor proc;
 	Event::id_t start_id;
@@ -268,19 +270,28 @@ namespace Realm {
 	Event::gen_t finish_gen;
       };
 
-      static void handle_request(RequestArgs args, const void *data, size_t datalen);
+      virtual void request(Message* m);
 
-      typedef ActiveMessageMediumNoReply<SPAWN_TASK_MSGID,
- 	                                 RequestArgs,
- 	                                 handle_request> ActiveMessage;
-
-      static void send_request(gasnet_node_t target, Processor proc,
+      
+      static void send_request(NodeId target,
+			       Processor proc,
 			       Processor::TaskFuncID func_id,
-			       const void *args, size_t arglen,
+			       const void *args,
+			       size_t arglen,
 			       const ProfilingRequestSet *prs,
-			       Event start_event, Event finish_event,
-			       int priority);
+			       Event start_event,
+			       Event finish_event,
+			       int priority);      
     };
+
+
+    class SpawnTaskMessage : public FabMessage {
+    public: 
+      SpawnTaskMessage(NodeId dest, void* args, FabPayload* payload)
+	: FabMessage(dest, SPAWN_TASK_MSGID, args, payload, true) { }
+    };
+
+    
     
     struct RegisterTaskMessage {
       struct RequestArgs : public BaseMedium {

@@ -297,7 +297,9 @@ namespace Realm {
     assert(count <= 200);
 
     // Send a reply
-    ContiguousPayload* payload = new ContiguousPayload(FAB_PAYLOAD_COPY, return_data, sizeof(return_data));
+    FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_COPY,
+							     return_data,
+							     sizeof(return_data));
     fabric->send(new TimerDataResponseMessage(m->sndid,
 					      ((TimerDataRequestMessageType::RequestArgs*) m->args)->rollup_ptr,
 					      payload));
