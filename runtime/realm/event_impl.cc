@@ -1676,7 +1676,7 @@ namespace Realm {
 							 Barrier barrier,
 							 int delta,
 							 Event wait_on,
-							 gasnet_node_t sender,
+							 NodeId sender,
 							 bool forwarded,
 							 const void *data,
 							 size_t datalen) { 
@@ -1702,9 +1702,11 @@ namespace Realm {
     fabric->send(new BarrierAdjustMessage(target, args, payload));
   }
 
-    /*static*/ void BarrierSubscribeMessage::send_request(gasnet_node_t target, ID::IDType barrier_id, Event::gen_t subscribe_gen,
-							  gasnet_node_t subscriber, bool forwarded)
-    {
+    /*static*/ void BarrierSubscribeMessage::send_request(gasnet_node_t target,
+							  ID::IDType barrier_id,
+							  Event::gen_t subscribe_gen,
+							  gasnet_node_t subscriber,
+							  bool forwarded) {
       RequestArgs args;
 
       args.subscriber = subscriber;
@@ -1715,25 +1717,6 @@ namespace Realm {
       ActiveMessage::request(target, args);
     }
 
-    /*static*/ void BarrierTriggerMessage::send_request(gasnet_node_t target, ID::IDType barrier_id,
-							Event::gen_t trigger_gen, Event::gen_t previous_gen,
-							Event::gen_t first_generation, ReductionOpID redop_id,
-							gasnet_node_t migration_target,	unsigned base_arrival_count,
-							const void *data, size_t datalen)
-    {
-      RequestArgs args;
-
-      args.node = gasnet_mynode();
-      args.barrier_id = barrier_id;
-      args.trigger_gen = trigger_gen;
-      args.previous_gen = previous_gen;
-      args.first_generation = first_generation;
-      args.redop_id = redop_id;
-      args.migration_target = migration_target;
-      args.base_arrival_count = base_arrival_count;
-
-      ActiveMessage::request(target, args, data, datalen, PAYLOAD_COPY);
-    }
 
 // like strdup, but works on arbitrary byte arrays
 static void *bytedup(const void *data, size_t datalen)
@@ -2079,9 +2062,10 @@ static void *bytedup(const void *data, size_t datalen)
 	    data = (char *)final_values_copy + (((*it).previous_gen - oldest_previous) * redop->sizeof_lhs);
 	    datalen = ((*it).trigger_gen - (*it).previous_gen) * redop->sizeof_lhs;
 	  }
-	  BarrierTriggerMessage::send_request((*it).node, me.id(), (*it).trigger_gen, (*it).previous_gen,
-					      first_generation, redop_id, migration_target, base_arrival_count,
-					      data, datalen);
+	  BarrierTriggerMessageType::send_request((*it).node, me.id(), (*it).trigger_gen, (*it).previous_gen,
+						  first_generation, redop_id, migration_target,
+						  base_arrival_count,
+						  data, datalen);
 	}
       }
 
@@ -2161,201 +2145,240 @@ static void *bytedup(const void *data, size_t datalen)
       return true;
     }
 
-    /*static*/ void BarrierSubscribeMessage::handle_request(BarrierSubscribeMessage::RequestArgs args)
-    {
-      Barrier b;
-      b.id = args.barrier_id;
-      b.gen = args.subscribe_gen;
-      BarrierImpl *impl = get_runtime()->get_barrier_impl(b);
+  void BarrierSubscribeMessage::handle_request(RequestArgs args) {
+    //RequestArgs* args = (RequestArgs*) m->args;
+    Barrier b;
+    b.id = args.barrier_id;
+    b.gen = args.subscribe_gen;
+    BarrierImpl *impl = get_runtime()->get_barrier_impl(b);
 
-      // take the lock and add the subscribing node - notice if they need to be notified for
-      //  any generations that have already triggered
-      Event::gen_t trigger_gen = 0;
-      Event::gen_t previous_gen = 0;
-      void *final_values_copy = 0;
-      size_t final_values_size = 0;
-      gasnet_node_t forward_to_node = (gasnet_node_t) -1;
-      gasnet_node_t inform_migration = (gasnet_node_t) -1;
+    // take the lock and add the subscribing node - notice if they need to be notified for
+    //  any generations that have already triggered
+    Event::gen_t trigger_gen = 0;
+    Event::gen_t previous_gen = 0;
+    void *final_values_copy = 0;
+    size_t final_values_size = 0;
+    NodeId forward_to_node = (NodeId) -1;
+    NodeId inform_migration = (NodeId) -1;
       
-      do {
-	AutoHSLLock a(impl->mutex);
+    do {
+      AutoHSLLock a(impl->mutex);
 
-	// first check - are we even the current owner?
-	if(impl->owner != gasnet_mynode()) {
-	  forward_to_node = impl->owner;
-	  break;
-	} else {
-	  if(args.forwarded) {
-	    // our own request wrapped back around can be ignored - we've already added the local waiter
-	    if(args.subscriber == gasnet_mynode()) {
-	      break;
-	    } else {
-	      inform_migration = args.subscriber;
-	    }
-	  }
-	}
-
-	// make sure the subscription is for this "lifetime" of the barrier
-	assert(args.subscribe_gen > impl->first_generation);
-
-	bool already_subscribed = false;
-	{
-	  std::map<unsigned, Event::gen_t>::iterator it = impl->remote_subscribe_gens.find(args.subscriber);
-	  if(it != impl->remote_subscribe_gens.end()) {
-	    // a valid subscription should always be for a generation that hasn't
-	    //  triggered yet
-	    assert(it->second > impl->generation);
-	    if(it->second >= args.subscribe_gen)
-	      already_subscribed = true;
-	    else
-	      it->second = args.subscribe_gen;
+      // first check - are we even the current owner?
+      if(impl->owner != gasnet_mynode()) {
+	forward_to_node = impl->owner;
+	
+      } else {
+	if(args.forwarded) {
+	  // our own request wrapped back around can be ignored - we've already added the local waiter
+	  if(args.subscriber == fabric->get_id()) {
+	    break;
 	  } else {
-	    // new subscription - don't reset remote_trigger_gens because the node may have
-	    //  been subscribed in the past
-	    // NOTE: remote_subscribe_gens should only hold subscriptions for
-	    //  generations that haven't triggered, so if we're subscribing to 
-	    //  an old generation, don't add it
-	    if(args.subscribe_gen > impl->generation)
-	      impl->remote_subscribe_gens[args.subscriber] = args.subscribe_gen;
+	    inform_migration = args.subscriber;
 	  }
 	}
-
-	// as long as we're not already subscribed to this generation, check to see if
-	//  any trigger notifications are needed
-	if(!already_subscribed && (impl->generation > impl->first_generation)) {
-	  std::map<unsigned, Event::gen_t>::iterator it = impl->remote_trigger_gens.find(args.subscriber);
-	  if((it == impl->remote_trigger_gens.end()) or (it->second < impl->generation)) {
-	    previous_gen = ((it == impl->remote_trigger_gens.end()) ?
-			      impl->first_generation :
-			      it->second);
-	    trigger_gen = impl->generation;
-	    impl->remote_trigger_gens[args.subscriber] = impl->generation;
-
-	    if(impl->redop) {
-	      int rel_gen = previous_gen + 1 - impl->first_generation;
-	      assert(rel_gen > 0);
-	      final_values_size = (trigger_gen - previous_gen) * impl->redop->sizeof_lhs;
-	      final_values_copy = bytedup(impl->final_values + ((rel_gen - 1) * impl->redop->sizeof_lhs),
-					  final_values_size);
-	    }
-	  }
-	}
-      } while(0);
-
-      if(forward_to_node != (gasnet_node_t) -1) {
-	BarrierSubscribeMessage::send_request(forward_to_node, args.barrier_id, args.subscribe_gen,
-					      args.subscriber, (args.subscriber != gasnet_mynode()));
       }
 
-      if(inform_migration != (gasnet_node_t) -1) {
-	BarrierMigrationMessage::send_request(inform_migration, b, gasnet_mynode());
-      }
+      // make sure the subscription is for this "lifetime" of the barrier
+      assert(args.subscribe_gen > impl->first_generation);
 
-      // send trigger message outside of lock, if needed
-      if(trigger_gen > 0) {
-	log_barrier.info("sending immediate barrier trigger: " IDFMT "/%d -> %d",
-			 args.barrier_id, previous_gen, trigger_gen);
-	BarrierTriggerMessage::send_request(args.subscriber, args.barrier_id, trigger_gen, previous_gen,
-					    impl->first_generation, impl->redop_id,
-					    (gasnet_node_t) -1 /*no migration*/, 0 /*dummy arrival count*/,
-					    final_values_copy, final_values_size);
-      }
-
-      if(final_values_copy)
-	free(final_values_copy);
-    }
-
-    /*static*/ void BarrierTriggerMessage::handle_request(BarrierTriggerMessage::RequestArgs args,
-							  const void *data, size_t datalen)
-    {
-      log_barrier.info("received remote barrier trigger: " IDFMT "/%d -> %d",
-		       args.barrier_id, args.previous_gen, args.trigger_gen);
-
-      Barrier b;
-      b.id = args.barrier_id;
-      b.gen = args.trigger_gen;
-      BarrierImpl *impl = get_runtime()->get_barrier_impl(b);
-
-      // we'll probably end up with a list of local waiters to notify
-      std::vector<EventWaiter *> local_notifications;
+      bool already_subscribed = false;
       {
-	AutoHSLLock a(impl->mutex);
-
-	// handle migration of the barrier ownership (possibly to us)
-	if(args.migration_target != (gasnet_node_t) -1) {
-	  //log_barrier.info() << "barrier " << b << " has migrated to " << args.migration_target;
-	  impl->owner = args.migration_target;
-	  impl->base_arrival_count = args.base_arrival_count;
-	}
-
-	// it's theoretically possible for multiple trigger messages to arrive out
-	//  of order, so check if this message triggers the oldest possible range
-	if(args.previous_gen == impl->generation) {
-	  // see if we can pick up any of the held triggers too
-	  while(!impl->held_triggers.empty()) {
-	    std::map<Event::gen_t, Event::gen_t>::iterator it = impl->held_triggers.begin();
-	    // if it's not contiguous, we're done
-	    if(it->first != args.trigger_gen) break;
-	    // it is contiguous, so absorb it into this message and remove the held trigger
-	    log_barrier.info("collapsing future trigger: " IDFMT "/%d -> %d -> %d",
-			     args.barrier_id, args.previous_gen, args.trigger_gen, it->second);
-	    args.trigger_gen = it->second;
-	    impl->held_triggers.erase(it);
-	  }
-
-	  impl->generation = args.trigger_gen;
-
-	  // now iterate through any generations up to and including the latest triggered
-	  //  generation, and accumulate local waiters to notify
-	  while(!impl->generations.empty()) {
-	    std::map<Event::gen_t, BarrierImpl::Generation *>::iterator it = impl->generations.begin();
-	    if(it->first > args.trigger_gen) break;
-
-	    local_notifications.insert(local_notifications.end(),
-				       it->second->local_waiters.begin(),
-				       it->second->local_waiters.end());
-	    delete it->second;
-	    impl->generations.erase(it);
-	  }
+	std::map<unsigned, Event::gen_t>::iterator it = impl->remote_subscribe_gens.find(args.subscriber);
+	if(it != impl->remote_subscribe_gens.end()) {
+	  // a valid subscription should always be for a generation that hasn't
+	  //  triggered yet
+	  assert(it->second > impl->generation);
+	  if(it->second >= args.subscribe_gen)
+	    already_subscribed = true;
+	  else
+	    it->second = args.subscribe_gen;
 	} else {
-	  // hold this trigger until we get messages for the earlier generation(s)
-	  log_barrier.info("holding future trigger: " IDFMT "/%d (%d -> %d)",
-			   args.barrier_id, impl->generation, 
-			   args.previous_gen, args.trigger_gen);
-	  impl->held_triggers[args.previous_gen] = args.trigger_gen;
-	}
-
-	// is there any data we need to store?
-	if(datalen) {
-	  assert(args.redop_id != 0);
-
-	  // TODO: deal with invalidation of previous instance of a barrier
-	  impl->redop_id = args.redop_id;
-	  impl->redop = get_runtime()->reduce_op_table[args.redop_id];
-	  impl->first_generation = args.first_generation;
-
-	  int rel_gen = args.trigger_gen - impl->first_generation;
-	  assert(rel_gen > 0);
-	  if(impl->value_capacity < (size_t)rel_gen) {
-	    size_t new_capacity = rel_gen;
-	    impl->final_values = (char *)realloc(impl->final_values, new_capacity * impl->redop->sizeof_lhs);
-	    // no need to initialize new entries - we'll overwrite them now or when data does show up
-	    impl->value_capacity = new_capacity;
-	  }
-	  assert(datalen == (impl->redop->sizeof_lhs * (args.trigger_gen - args.previous_gen)));
-	  memcpy(impl->final_values + ((rel_gen - 1) * impl->redop->sizeof_lhs), data, datalen);
+	  // new subscription - don't reset remote_trigger_gens because the node may have
+	  //  been subscribed in the past
+	  // NOTE: remote_subscribe_gens should only hold subscriptions for
+	  //  generations that haven't triggered, so if we're subscribing to 
+	  //  an old generation, don't add it
+	  if(args.subscribe_gen > impl->generation)
+	    impl->remote_subscribe_gens[args.subscriber] = args.subscribe_gen;
 	}
       }
 
-      // with lock released, perform any local notifications
-      for(std::vector<EventWaiter *>::const_iterator it = local_notifications.begin();
-	  it != local_notifications.end();
-	  it++) {
-	bool nuke = (*it)->event_triggered(b, POISON_FIXME);
-	if(nuke)
-	  delete (*it);
+      // as long as we're not already subscribed to this generation, check to see if
+      //  any trigger notifications are needed
+      if(!already_subscribed && (impl->generation > impl->first_generation)) {
+	std::map<unsigned, Event::gen_t>::iterator it = impl->remote_trigger_gens.find(args.subscriber);
+	if((it == impl->remote_trigger_gens.end()) or (it->second < impl->generation)) {
+	  previous_gen = ((it == impl->remote_trigger_gens.end()) ?
+			  impl->first_generation :
+			  it->second);
+	  trigger_gen = impl->generation;
+	  impl->remote_trigger_gens[args.subscriber] = impl->generation;
+
+	  if(impl->redop) {
+	    int rel_gen = previous_gen + 1 - impl->first_generation;
+	    assert(rel_gen > 0);
+	    final_values_size = (trigger_gen - previous_gen) * impl->redop->sizeof_lhs;
+	    final_values_copy = bytedup(impl->final_values + ((rel_gen - 1) * impl->redop->sizeof_lhs),
+					final_values_size);
+	  }
+	}
+      }
+    } while(0);
+
+    if(forward_to_node != (gasnet_node_t) -1) {
+      BarrierSubscribeMessage::send_request(forward_to_node, args.barrier_id, args.subscribe_gen,
+					    args.subscriber, (args.subscriber != gasnet_mynode()));
+    }
+
+    if(inform_migration != (gasnet_node_t) -1) {
+      BarrierMigrationMessage::send_request(inform_migration, b, gasnet_mynode());
+    }
+
+    // send trigger message outside of lock, if needed
+    if(trigger_gen > 0) {
+      log_barrier.info("sending immediate barrier trigger: " IDFMT "/%d -> %d",
+		       args.barrier_id, previous_gen, trigger_gen);
+      BarrierTriggerMessageType::send_request(args.subscriber, args.barrier_id, trigger_gen, previous_gen,
+					      impl->first_generation, impl->redop_id,
+					      (gasnet_node_t) -1 /*no migration*/, 0 /*dummy arrival count*/,
+					      final_values_copy, final_values_size);
+    }
+
+    if(final_values_copy)
+      free(final_values_copy);
+  } // BarrierSubscribeMessageType::request(Message* m)
+
+  void BarrierTriggerMessageType::request(Message* m) {
+    RequestArgs* args = (RequestArgs*) m->args;
+    void* data = m->payload->ptr();
+    size_t datalen = m->payload->size();
+      
+    log_barrier.info("received remote barrier trigger: " IDFMT "/%d -> %d",
+		     args->barrier_id, args->previous_gen, args->trigger_gen);
+
+    Barrier b;
+    b.id = args->barrier_id;
+    b.gen = args->trigger_gen;
+    BarrierImpl *impl = get_runtime()->get_barrier_impl(b);
+
+    // we'll probably end up with a list of local waiters to notify
+    std::vector<EventWaiter *> local_notifications;
+    {
+      AutoHSLLock a(impl->mutex);
+
+      // handle migration of the barrier ownership (possibly to us)
+      if(args->migration_target != (gasnet_node_t) -1) {
+	//log_barrier.info() << "barrier " << b << " has migrated to " << args->migration_target;
+	impl->owner = args->migration_target;
+	impl->base_arrival_count = args->base_arrival_count;
+      }
+
+      // it's theoretically possible for multiple trigger messages to arrive out
+      //  of order, so check if this message triggers the oldest possible range
+      if(args->previous_gen == impl->generation) {
+	// see if we can pick up any of the held triggers too
+	while(!impl->held_triggers.empty()) {
+	  std::map<Event::gen_t, Event::gen_t>::iterator it = impl->held_triggers.begin();
+	  // if it's not contiguous, we're done
+	  if(it->first != args->trigger_gen) break;
+	  // it is contiguous, so absorb it into this message and remove the held trigger
+	  log_barrier.info("collapsing future trigger: " IDFMT "/%d -> %d -> %d",
+			   args->barrier_id, args->previous_gen, args->trigger_gen, it->second);
+	  args->trigger_gen = it->second;
+	  impl->held_triggers.erase(it);
+	}
+
+	impl->generation = args->trigger_gen;
+
+	// now iterate through any generations up to and including the latest triggered
+	//  generation, and accumulate local waiters to notify
+	while(!impl->generations.empty()) {
+	  std::map<Event::gen_t, BarrierImpl::Generation *>::iterator it = impl->generations.begin();
+	  if(it->first > args->trigger_gen) break;
+
+	  local_notifications.insert(local_notifications.end(),
+				     it->second->local_waiters.begin(),
+				     it->second->local_waiters.end());
+	  delete it->second;
+	  impl->generations.erase(it);
+	}
+      } else {
+	// hold this trigger until we get messages for the earlier generation(s)
+	log_barrier.info("holding future trigger: " IDFMT "/%d (%d -> %d)",
+			 args->barrier_id, impl->generation, 
+			 args->previous_gen, args->trigger_gen);
+	impl->held_triggers[args->previous_gen] = args->trigger_gen;
+      }
+
+      // is there any data we need to store?
+      if(datalen) {
+	assert(args->redop_id != 0);
+
+	// TODO: deal with invalidation of previous instance of a barrier
+	impl->redop_id = args->redop_id;
+	impl->redop = get_runtime()->reduce_op_table[args->redop_id];
+	impl->first_generation = args->first_generation;
+
+	int rel_gen = args->trigger_gen - impl->first_generation;
+	assert(rel_gen > 0);
+	if(impl->value_capacity < (size_t)rel_gen) {
+	  size_t new_capacity = rel_gen;
+	  impl->final_values = (char *)realloc(impl->final_values, new_capacity * impl->redop->sizeof_lhs);
+	  // no need to initialize new entries - we'll overwrite them now or when data does show up
+	  impl->value_capacity = new_capacity;
+	}
+	assert(datalen == (impl->redop->sizeof_lhs * (args->trigger_gen - args->previous_gen)));
+	memcpy(impl->final_values + ((rel_gen - 1) * impl->redop->sizeof_lhs), data, datalen);
       }
     }
+
+    // with lock released, perform any local notifications
+    for(std::vector<EventWaiter *>::const_iterator it = local_notifications.begin();
+	it != local_notifications.end();
+	it++) {
+      bool nuke = (*it)->event_triggered(b, POISON_FIXME);
+      if(nuke)
+	delete (*it);
+    }
+  } // void BarrierTriggerMessageType::request(Message* m)
+
+
+  /*static*/ void BarrierTriggerMessageType::send_request(NodeId target,
+							  ID::IDType barrier_id,
+							  Event::gen_t trigger_gen,
+							  Event::gen_t previous_gen,
+							  Event::gen_t first_generation,
+							  ReductionOpID redop_id,
+							  NodeId migration_target,
+							  unsigned base_arrival_count,
+							  const void *data, size_t datalen) { 
+    RequestArgs* args = new RequestArgs();
+
+    args->node = gasnet_mynode();
+    args->barrier_id = barrier_id;
+    args->trigger_gen = trigger_gen;
+    args->previous_gen = previous_gen;
+    args->first_generation = first_generation;
+    args->redop_id = redop_id;
+    args->migration_target = migration_target;
+    args->base_arrival_count = base_arrival_count;
+
+    void* data_copy = malloc(datalen);
+    if (!data_copy) {
+      log_barrier.error("Message send failed. Type: BarrierAdjustMessageType Cause: malloc failed");
+      return;
+    }
+    memcpy(data_copy, data, datalen);
+
+    // We now have our own copy of the payload
+    FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_KEEP,
+							     data_copy,
+							     datalen);
+
+    fabric->send(new BarrierTriggerMessage(target, args, payload));
+  }
+
 
     bool BarrierImpl::get_result(Event::gen_t result_gen, void *value, size_t value_size)
     {

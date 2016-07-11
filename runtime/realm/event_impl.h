@@ -339,7 +339,25 @@ namespace Realm {
     BarrierAdjustMessage(NodeId dest, void* args, FabPayload* payload)
       : FabMessage(dest, BARRIER_ADJUST_MSGID, args, payload, true) { }
   };
-  
+
+
+  class BarrierSubscribeMessageType : public MessageType {
+  public:
+    BarrierSubscribeMessageType()
+      : MessageType(BARRIER_SUBSCRIBE_MSGID, sizeof(RequestArgs), true, true) { }
+    
+    struct RequestArgs {
+      NodeId subscriber;
+      ID::IDType barrier_id;
+      Event::gen_t subscribe_gen;
+      bool forwarded;
+    };
+
+    void request(Message* m);
+    static void send_request(NodeId target, ID::IDType barrier_id,
+			     Event::gen_t subscribe_gen,
+			     NodeId subscriber, bool forwarded);
+  };
 
     struct BarrierSubscribeMessage {
       struct RequestArgs {
@@ -360,29 +378,35 @@ namespace Realm {
 			       gasnet_node_t subscriber, bool forwarded);
     };
 
-    struct BarrierTriggerMessage {
+    class BarrierTriggerMessageType : public MessageType {
+    public:
+      BarrierTriggerMessageType()
+	: MessageType(BARRIER_TRIGGER_MSGID, sizeof(RequestArgs), true, true) { }
+
       struct RequestArgs : public BaseMedium {
-	gasnet_node_t node;
+	NodeId node;
 	ID::IDType barrier_id;
 	Event::gen_t trigger_gen;
 	Event::gen_t previous_gen;
 	Event::gen_t first_generation;
 	ReductionOpID redop_id;
-	gasnet_node_t migration_target;
+	NodeId migration_target;
 	unsigned base_arrival_count;
       };
 
-      static void handle_request(RequestArgs args, const void *data, size_t datalen);
-
-      typedef ActiveMessageMediumNoReply<BARRIER_TRIGGER_MSGID,
-					 RequestArgs,
-					 handle_request> ActiveMessage;
-
-      static void send_request(gasnet_node_t target, ID::IDType barrier_id,
+      void request(Message* m);
+      
+      static void send_request(NodeId target, ID::IDType barrier_id,
 			       Event::gen_t trigger_gen, Event::gen_t previous_gen,
 			       Event::gen_t first_generation, ReductionOpID redop_id,
-			       gasnet_node_t migration_target, unsigned base_arrival_count,
+			       NodeId migration_target, unsigned base_arrival_count,
 			       const void *data, size_t datalen);
+    };
+
+    class BarrierTriggerMessage : public FabMessage {
+    public:
+    BarrierTriggerMessage(NodeId dest, void* args, FabPayload* payload)
+      : FabMessage(dest, BARRIER_TRIGGER_MSGID, args, payload, true) { }
     };
 
     struct BarrierMigrationMessage {
