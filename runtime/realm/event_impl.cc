@@ -981,9 +981,9 @@ namespace Realm {
       }
 
       if((subscribe_owner != -1))
-	EventSubscribeMessage::send_request(owner,
-					    make_event(needed_gen),
-					    previous_subscribe_gen);
+	EventSubscribeMessageType::send_request(owner,
+						make_event(needed_gen),
+						previous_subscribe_gen);
 
       if(trigger_now) {
 	bool nuke = waiter->event_triggered(make_event(needed_gen),
@@ -1036,6 +1036,8 @@ namespace Realm {
   };
   
 
+  
+  
   /*static*/ void EventTriggerMessage::send_request(gasnet_node_t target, Event event,
 						    bool poisoned)
   {
@@ -1047,56 +1049,31 @@ namespace Realm {
 
     ActiveMessage::request(target, args);
   }
+  
+  /*static*/ void EventSubscribeMessageType::send_request(NodeId target,
+							  Event event,
+							  Event::gen_t previous_gen) {
+    RequestArgs* args = new RequestArgs();
 
-  /*static*/ void EventUpdateMessage::send_request(gasnet_node_t target, Event event,
-						   int num_poisoned,
-						   const Event::gen_t *poisoned_generations)
-  {
-    RequestArgs args;
-
-    args.event = event;
-
-    ActiveMessage::request(target, args,
-		     poisoned_generations, num_poisoned * sizeof(Event::gen_t),
-		     PAYLOAD_KEEP);
+    args->node = gasnet_mynode();
+    args->event = event;
+    args->previous_subscribe_gen = previous_gen;
+    fabric->send(new EventSubscribeMessage(target, args));
   }
-
-  /*static*/ void EventUpdateMessage::broadcast_request(const NodeSet& targets, Event event,
-							int num_poisoned,
-							const Event::gen_t *poisoned_generations)
-  {
-    MediumBroadcastHelper<EventUpdateMessage> args;
-
-    args.event = event;
-
-    args.broadcast(targets,
-		   poisoned_generations, num_poisoned * sizeof(Event::gen_t),
-		   PAYLOAD_KEEP);
-  }
-
-  /*static*/ void EventSubscribeMessage::send_request(gasnet_node_t target, Event event, Event::gen_t previous_gen)
-  {
-    RequestArgs args;
-
-    args.node = gasnet_mynode();
-    args.event = event;
-    args.previous_subscribe_gen = previous_gen;
-    ActiveMessage::request(target, args);
-  }
-
-    // only called for generational events
-    /*static*/ void EventSubscribeMessage::handle_request(EventSubscribeMessage::RequestArgs args)
-    {
+  
+  // only called for generational events
+  void EventSubscribeMessageType::request(Message* m) {
+      RequestArgs* args = (RequestArgs*) m->args;
       log_event.debug("event subscription: node=%d event=" IDFMT "/%d",
-		args.node, args.event.id, args.event.gen);
+		args->node, args->event.id, args->event.gen);
 
-      GenEventImpl *impl = get_runtime()->get_genevent_impl(args.event);
+      GenEventImpl *impl = get_runtime()->get_genevent_impl(args->event);
 
 #ifdef EVENT_TRACING
       {
         EventTraceItem &item = Tracer<EventTraceItem>::trace_item();
-        item.event_id = args.event.id; 
-        item.event_gen = args.event.gen;
+        item.event_id = args->event.id; 
+        item.event_gen = args->event.gen;
         item.action = EventTraceItem::ACT_WAIT;
       }
 #endif
@@ -1108,43 +1085,43 @@ namespace Realm {
       // early-out case: if we can see the generation needed has already
       //  triggered, signal without taking the mutex
       Event::gen_t stale_gen = impl->generation;
-      if(stale_gen >= args.event.gen) {
+      if(stale_gen >= args->event.gen) {
 	trigger_gen = stale_gen;
       } else {
 	AutoHSLLock a(impl->mutex);
 
 	// look at the previously-subscribed generation from the requestor - we'll send
 	//  a trigger message if anything newer has triggered
-        if(impl->generation > args.previous_subscribe_gen)
+        if(impl->generation > args->previous_subscribe_gen)
 	  trigger_gen = impl->generation;
 
 	// are they subscribing to the current generation?
-	if(args.event.gen == (impl->generation + 1)) {
-	  impl->remote_waiters.add(args.node);
+	if(args->event.gen == (impl->generation + 1)) {
+	  impl->remote_waiters.add(args->node);
 	  subscription_recorded = true;
 	} else {
 	  // should never get subscriptions newer than our current
-	  assert(args.event.gen <= impl->generation);
+	  assert(args->event.gen <= impl->generation);
 	}
       }
 
       if(subscription_recorded)
-	log_event.debug() << "event subscription recorded: node=" << args.node
-			  << " event=" << args.event << " (> " << impl->generation << ")";
+	log_event.debug() << "event subscription recorded: node=" << args->node
+			  << " event=" << args->event << " (> " << impl->generation << ")";
 
       if(trigger_gen > 0) {
-	log_event.debug() << "event subscription immediate trigger: node=" << args.node
-			  << " event=" << args.event << " (<= " << trigger_gen << ")";
-	Event triggered = args.event;
+	log_event.debug() << "event subscription immediate trigger: node=" << args->node
+			  << " event=" << args->event << " (<= " << trigger_gen << ")";
+	Event triggered = args->event;
 	triggered.gen = trigger_gen;
 	// it is legal to use poisoned generation info like this because it is always
 	// updated before the generation - the barrier makes sure we read in the correct
 	// order
 	__sync_synchronize();
-	EventUpdateMessage::send_request(args.node,
-					 triggered,
-					 impl->num_poisoned_generations,
-					 impl->poisoned_generations);
+	EventUpdateMessageType::send_request(args->node,
+					     triggered,
+					     impl->num_poisoned_generations,
+					     impl->poisoned_generations);
       }
     } 
 
@@ -1181,6 +1158,57 @@ namespace Realm {
       return os;
     }
   }
+
+
+  void EventUpdateMessageType::request(Message* m) {
+    RequestArgs* args = (RequestArgs*) m->args;
+    void* data = m->payload->ptr();
+    size_t datalen = m->payload->size();
+    
+    const Event::gen_t *new_poisoned_gens = (const Event::gen_t *)data;
+    int new_poisoned_count = datalen / sizeof(Event::gen_t);
+    assert((new_poisoned_count * sizeof(Event::gen_t)) == datalen);  // no remainders or overflow please
+    
+    log_event.debug() << "event update: event=" << args->event
+		      << " poisoned="
+		      << ArrayOstreamHelper<Event::gen_t>(new_poisoned_gens, new_poisoned_count);
+
+      GenEventImpl *impl = get_runtime()->get_genevent_impl(args->event);
+      impl->process_update(args->event.gen, new_poisoned_gens, new_poisoned_count);
+  }
+
+
+  
+  /*static*/ void EventUpdateMessageType::send_request(NodeId target, Event event,
+						       int num_poisoned,
+						       const Event::gen_t *poisoned_generations) { 
+        
+    RequestArgs* args = new RequestArgs;
+
+    args->event = event;
+
+    FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_KEEP,
+							     (void*) poisoned_generations,
+							     num_poisoned*sizeof(Event::gen_t));
+
+    fabric->send(new EventUpdateMessage(target, args, payload));
+  }
+
+
+  // TODO
+  // /*static*/ void EventUpdateMessage::broadcast_request(const NodeSet& targets, Event event,
+  // 							int num_poisoned,
+  // 							const Event::gen_t *poisoned_generations)
+  // {
+  //   MediumBroadcastHelper<EventUpdateMessage> args;
+
+  //   args.event = event;
+
+  //   args.broadcast(targets,
+  // 		   poisoned_generations, num_poisoned * sizeof(Event::gen_t),
+  // 		   PAYLOAD_KEEP);
+  // }
+
 
 
   void GenEventImpl::process_update(Event::gen_t current_gen,
@@ -1282,20 +1310,6 @@ namespace Realm {
       }
     }
   }
-
-    /*static*/ void EventUpdateMessage::handle_request(EventUpdateMessage::RequestArgs args,
-						       const void *data, size_t datalen)
-    {
-      const Event::gen_t *new_poisoned_gens = (const Event::gen_t *)data;
-      int new_poisoned_count = datalen / sizeof(Event::gen_t);
-      assert((new_poisoned_count * sizeof(Event::gen_t)) == datalen);  // no remainders or overflow please
-
-      log_event.debug() << "event update: event=" << args.event
-			<< " poisoned=" << ArrayOstreamHelper<Event::gen_t>(new_poisoned_gens, new_poisoned_count);
-
-      GenEventImpl *impl = get_runtime()->get_genevent_impl(args.event);
-      impl->process_update(args.event.gen, new_poisoned_gens, new_poisoned_count);
-    }
 
 
   /*static*/ Barrier::timestamp_t BarrierImpl::barrier_adjustment_timestamp;
@@ -1451,11 +1465,12 @@ namespace Realm {
 	}
 
 	// any remote nodes to notify?
-	if(!to_update.empty())
-	  EventUpdateMessage::broadcast_request(to_update, 
-						make_event(gen_triggered),
-						num_poisoned_generations,
-						poisoned_generations);
+	// TODO
+	// if(!to_update.empty())
+	//   EventUpdateMessage::broadcast_request(to_update, 
+	// 					make_event(gen_triggered),
+	// 					num_poisoned_generations,
+	// 					poisoned_generations);
 
 	// free event?
 	if(free_event)
@@ -1527,9 +1542,9 @@ namespace Realm {
 	}
 
 	if(subscribe_needed)
-	  EventSubscribeMessage::send_request(owner,
-					      make_event(gen_triggered),
-					      previous_subscribe_gen);
+	  EventSubscribeMessageType::send_request(owner,
+						  make_event(gen_triggered),
+						  previous_subscribe_gen);
       }
 
       // finally, trigger any local waiters

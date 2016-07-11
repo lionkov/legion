@@ -745,6 +745,13 @@ namespace Realm {
       fabric->add_message_type(new SpawnTaskMessageType(), "Spawn Task");
       fabric->add_message_type(new RegisterTaskMessageType(), "Register Task");
       fabric->add_message_type(new RegisterTaskCompleteMessageType(), "Register Task Complete");
+      fabric->add_message_type(new MetadataRequestMessageType(), "Metadata Request");
+      fabric->add_message_type(new MetadataRequestMessageType(), "Metadata Request");
+      fabric->add_message_type(new MetadataResponseMessageType(), "Metadata Response");
+      fabric->add_message_type(new MetadataInvalidateMessageType(), "Metadata Invalidate");
+      fabric->add_message_type(new MetadataInvalidateAckMessageType(), "Metadata Inval Ack");
+      fabric->add_message_type(new EventSubscribeMessageType(), "Event Subscribe");
+      fabric->add_message_type(new EventUpdateMessageType(), "Event Update");
       
       gasnet_handlerentry_t handlers[128];
       int hcount = 0;
@@ -753,9 +760,9 @@ namespace Realm {
       hcount += LockRequestMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Request AM");
       hcount += LockReleaseMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Release AM");
       hcount += LockGrantMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Grant AM");
-      hcount += EventSubscribeMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Event Subscribe AM");
+      //hcount += EventSubscribeMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Event Subscribe AM");
       hcount += EventTriggerMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Event Trigger AM");
-      hcount += EventUpdateMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Event Update AM");
+      //hcount += EventUpdateMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Event Update AM");
       hcount += RemoteMemAllocRequest::Request::add_handler_entries(&handlers[hcount], "Remote Memory Allocation Request AM");
       hcount += RemoteMemAllocRequest::Response::add_handler_entries(&handlers[hcount], "Remote Memory Allocation Response AM");
       hcount += CreateInstanceRequest::Request::add_handler_entries(&handlers[hcount], "Create Instance Request AM");
@@ -782,10 +789,10 @@ namespace Realm {
       hcount += BarrierSubscribeMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Subscribe AM");
       hcount += BarrierTriggerMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Trigger AM");
       hcount += BarrierMigrationMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Migration AM");
-      hcount += MetadataRequestMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Request AM");
-      hcount += MetadataResponseMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Response AM");
-      hcount += MetadataInvalidateMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Invalidate AM");
-      hcount += MetadataInvalidateAckMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Inval Ack AM");
+      // hcount += MetadataRequestMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Request AM"); 
+      //hcount += MetadataResponseMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Response AM");
+      // hcount += MetadataInvalidateMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Invalidate AM");
+      //      hcount += MetadataInvalidateAckMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Inval Ack AM");
       //hcount += RegisterTaskMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Register Task AM");
       //hcount += RegisterTaskCompleteMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Register Task Complete AM");
       //hcount += TestMessage::add_handler_entries(&handlers[hcount], "Test AM");

@@ -244,20 +244,25 @@ namespace Realm {
 
   // active messages
 
-  struct EventSubscribeMessage {
+  class EventSubscribeMessageType : public MessageType {
+  public: 
+    EventSubscribeMessageType()
+      : MessageType(EVENT_SUBSCRIBE_MSGID, sizeof(RequestArgs), false, true) { }
+    
     struct RequestArgs {
-      gasnet_node_t node;
+      NodeId node;
       Event event;
       Event::gen_t previous_subscribe_gen;
     };
 
-    static void handle_request(RequestArgs args);
+    void request(Message* m);
+    static void send_request(NodeId target, Event event, Event::gen_t previous_gen);
+  };
 
-    typedef ActiveMessageShortNoReply<EVENT_SUBSCRIBE_MSGID,
-				      RequestArgs,
-				      handle_request> ActiveMessage;
-
-    static void send_request(gasnet_node_t target, Event event, Event::gen_t previous_gen);
+  class EventSubscribeMessage : public FabMessage {
+  public:
+    EventSubscribeMessage(NodeId dest, void* args)
+      : FabMessage(dest, EVENT_SUBSCRIBE_MSGID, args, NULL, true) { }
   };
 
   // EventTriggerMessage is used by non-owner nodes to trigger an event
@@ -280,25 +285,34 @@ namespace Realm {
     static void send_request(gasnet_node_t target, Event event, bool poisoned);
   };
 
-  struct EventUpdateMessage {
+  class EventTriggerMessageType : public MessageType {   
+  };
+  
+  class EventUpdateMessageType : public MessageType {
+  public:
+  EventUpdateMessageType()
+      : MessageType(EVENT_UPDATE_MSGID, sizeof(RequestArgs), true, true) { }
+
     struct RequestArgs : public BaseMedium {
       Event event;
-
-      void apply(gasnet_node_t target);
+      void apply(NodeId target);
     };
 
-    static void handle_request(RequestArgs args, const void *data, size_t datalen);
-
-    typedef ActiveMessageMediumNoReply<EVENT_UPDATE_MSGID,
-				       RequestArgs,
-				       handle_request> ActiveMessage;
-
-    static void send_request(gasnet_node_t target, Event event,
+    void request(Message* m);
+    static void send_request(NodeId target, Event event,
 			     int num_poisoned, const Event::gen_t *poisoned_generations);
-    static void broadcast_request(const NodeSet& targets, Event event,
-				  int num_poisoned, const Event::gen_t *poisoned_generations);
+    // TODO
+    //static void broadcast_request(const NodeSet& targets, Event event,
+    //int num_poisoned, const Event::gen_t *poisoned_generations);
   };
 
+  class EventUpdateMessage : public FabMessage {
+  public:
+    EventUpdateMessage(NodeId dest, void* args, FabPayload* payload)
+      : FabMessage(dest, EVENT_UPDATE_MSGID, args, payload, true) { }
+  };
+
+  
     struct BarrierAdjustMessage {
       struct RequestArgs : public BaseMedium {
 	int sender;

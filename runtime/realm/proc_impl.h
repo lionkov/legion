@@ -327,7 +327,7 @@ namespace Realm {
       
       struct RequestArgs {
 	NodeId sender;
-	RemoteTaskRegistration *reg_op;
+	RemoteTaskRegistration *reg_op; 
 	bool successful;
       };
 

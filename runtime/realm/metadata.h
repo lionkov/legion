@@ -62,66 +62,86 @@ namespace Realm {
     };
 
     // active messages
-    
-    struct MetadataRequestMessage {
+    class MetadataRequestMessageType : public MessageType {
+    public:
+      MetadataRequestMessageType()
+	: MessageType(METADATA_REQUEST_MSGID, sizeof(RequestArgs), false, true) { }
+      
       struct RequestArgs {
 	int node;
 	ID::IDType id;
       };
 
-      static void handle_request(RequestArgs args);
-
-      typedef ActiveMessageShortNoReply<METADATA_REQUEST_MSGID,
-					RequestArgs,
-					handle_request> ActiveMessage;
-
-      static void send_request(gasnet_node_t target, ID::IDType id);
+      void request(Message* m);
+      static void send_request(NodeId target, ID::IDType id);
     };
 
-    struct MetadataResponseMessage {
+    class MetadataRequestMessage : public FabMessage {
+    public:
+      MetadataRequestMessage(NodeId target, void* args)
+	: FabMessage(target, METADATA_REQUEST_MSGID, args, NULL, true) { }
+    };
+    
+    class MetadataResponseMessageType : public MessageType {
+    public:
+      MetadataResponseMessageType()
+	: MessageType(METADATA_RESPONSE_MSGID, sizeof(RequestArgs), true, true) { }
+      
       struct RequestArgs : public BaseMedium {
 	ID::IDType id;
       };
-	
-      static void handle_request(RequestArgs args, const void *data, size_t datalen);
 
-      typedef ActiveMessageMediumNoReply<METADATA_RESPONSE_MSGID,
-					 RequestArgs,
-					 handle_request> ActiveMessage;
-
-      static void send_request(gasnet_node_t target, ID::IDType id, 
-			       const void *data, size_t datalen, int payload_mode);
+      void request(Message* m);
+      static void send_request(NodeId target, ID::IDType id, 
+			       void *data, size_t datalen, int payload_mode);
     };
 
-    struct MetadataInvalidateMessage {
+    class MetadataResponseMessage : public FabMessage {
+    public: 
+      MetadataResponseMessage(NodeId target, void* args, FabPayload* payload)
+	: FabMessage(target, METADATA_RESPONSE_MSGID, args, payload, true) { }
+    };
+    
+    class MetadataInvalidateMessageType : public MessageType {
+    public:
+      MetadataInvalidateMessageType()
+	: MessageType(METADATA_INVALIDATE_MSGID, sizeof(RequestArgs), false, true) { }
+      
       struct RequestArgs {
 	int owner;
 	ID::IDType id;
       };
 
-      static void handle_request(RequestArgs args);
-
-      typedef ActiveMessageShortNoReply<METADATA_INVALIDATE_MSGID,
-					RequestArgs,
-					handle_request> ActiveMessage;
-
-      static void send_request(gasnet_node_t target, ID::IDType id);
-      static void broadcast_request(const NodeSet& targets, ID::IDType id);
+      void request(Message* m);
+      static void send_request(NodeId target, ID::IDType id);
+      // TODO
+      //static void broadcast_request(const NodeSet& targets, ID::IDType id);
     };
 
-    struct MetadataInvalidateAckMessage {
+    class MetadataInvalidateMessage : public FabMessage {
+    public:
+      MetadataInvalidateMessage(NodeId dest, void* args)
+	: FabMessage(dest, METADATA_INVALIDATE_MSGID, args, NULL, true) { }
+    };
+    
+    class MetadataInvalidateAckMessageType : public MessageType {
+    public:
+      MetadataInvalidateAckMessageType()
+	: MessageType(METADATA_INVALIDATE_ACK_MSGID, sizeof(RequestArgs), false, true) { }
+      
       struct RequestArgs {
 	gasnet_node_t node;
 	ID::IDType id;
       };
 
-      static void handle_request(RequestArgs args);
-    
-      typedef ActiveMessageShortNoReply<METADATA_INVALIDATE_ACK_MSGID,
-					RequestArgs,
-					handle_request> ActiveMessage;
+      void request(Message* m);
+      static void send_request(NodeId target, ID::IDType id);
+    };
 
-      static void send_request(gasnet_node_t target, ID::IDType id);
+    class MetadataInvalidateAckMessage : public FabMessage {
+    public:
+      MetadataInvalidateAckMessage(NodeId dest, void* args)
+	: FabMessage(dest, METADATA_INVALIDATE_ACK_MSGID, args, NULL, true) { }      
     };
     
 }; // namespace Realm
