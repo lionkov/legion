@@ -268,24 +268,26 @@ namespace Realm {
   // EventTriggerMessage is used by non-owner nodes to trigger an event
   // EventUpdateMessage is used by the owner node to tell non-owner nodes about one or
   //   more triggerings of an event
-
-  struct EventTriggerMessage {
+  
+  class EventTriggerMessageType : public MessageType {
+  public:
+    EventTriggerMessageType()
+      : MessageType(EVENT_TRIGGER_MSGID, sizeof(RequestArgs), false, true) { }
+    
     struct RequestArgs {
       gasnet_node_t node;
       Event event;
       bool poisoned;
     };
 
-    static void handle_request(RequestArgs args);
-
-    typedef ActiveMessageShortNoReply<EVENT_TRIGGER_MSGID,
-				       RequestArgs,
-				       handle_request> ActiveMessage;
-
-    static void send_request(gasnet_node_t target, Event event, bool poisoned);
+    void request(Message* m);
+    static void send_request(NodeId target, Event event, bool poisoned);
   };
 
-  class EventTriggerMessageType : public MessageType {   
+  class EventTriggerMessage : public FabMessage {
+  public:
+    EventTriggerMessage(NodeId dest, void* args)
+      : FabMessage(dest, EVENT_TRIGGER_MSGID, args, NULL, true) { }    
   };
   
   class EventUpdateMessageType : public MessageType {

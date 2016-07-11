@@ -752,6 +752,7 @@ namespace Realm {
       fabric->add_message_type(new MetadataInvalidateAckMessageType(), "Metadata Inval Ack");
       fabric->add_message_type(new EventSubscribeMessageType(), "Event Subscribe");
       fabric->add_message_type(new EventUpdateMessageType(), "Event Update");
+      fabric->add_message_type(new EventTriggerMessageType(), "Event Trigger");
       
       gasnet_handlerentry_t handlers[128];
       int hcount = 0;
@@ -761,7 +762,7 @@ namespace Realm {
       hcount += LockReleaseMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Release AM");
       hcount += LockGrantMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Grant AM");
       //hcount += EventSubscribeMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Event Subscribe AM");
-      hcount += EventTriggerMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Event Trigger AM");
+      //hcount += EventTriggerMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Event Trigger AM");
       //hcount += EventUpdateMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Event Update AM");
       hcount += RemoteMemAllocRequest::Request::add_handler_entries(&handlers[hcount], "Remote Memory Allocation Request AM");
       hcount += RemoteMemAllocRequest::Response::add_handler_entries(&handlers[hcount], "Remote Memory Allocation Response AM");

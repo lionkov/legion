@@ -1034,22 +1034,7 @@ namespace Realm {
     size_t payload_size;
     int payload_mode;
   };
-  
-
-  
-  
-  /*static*/ void EventTriggerMessage::send_request(gasnet_node_t target, Event event,
-						    bool poisoned)
-  {
-    RequestArgs args;
-
-    args.node = gasnet_mynode();
-    args.event = event;
-    args.poisoned = poisoned;
-
-    ActiveMessage::request(target, args);
-  }
-  
+    
   /*static*/ void EventSubscribeMessageType::send_request(NodeId target,
 							  Event event,
 							  Event::gen_t previous_gen) {
@@ -1125,14 +1110,27 @@ namespace Realm {
       }
     } 
 
-    /*static*/ void EventTriggerMessage::handle_request(EventTriggerMessage::RequestArgs args)
-    {
-      DetailedTimer::ScopedPush sp(TIME_LOW_LEVEL);
-      log_event.debug("Remote trigger of event " IDFMT "/%d from node %d!",
-		args.event.id, args.event.gen, args.node);
-      GenEventImpl *impl = get_runtime()->get_genevent_impl(args.event);
-      impl->trigger(args.event.gen, args.node, args.poisoned);
-    }
+  void EventTriggerMessageType::request(Message* m) {
+    RequestArgs* args = (RequestArgs*) m->args;
+    
+    DetailedTimer::ScopedPush sp(TIME_LOW_LEVEL);
+    log_event.debug("Remote trigger of event " IDFMT "/%d from node %d!",
+		    args->event.id, args->event.gen, args->node);
+    GenEventImpl *impl = get_runtime()->get_genevent_impl(args->event);
+    impl->trigger(args->event.gen, args->node, args->poisoned);
+  }
+
+  /*static*/ void EventTriggerMessageType::send_request(NodeId target,
+							Event event,
+							bool poisoned) {
+    RequestArgs* args = new RequestArgs;
+
+    args->node = fabric->get_id();
+    args->event = event;
+    args->poisoned = poisoned;
+
+    fabric->send(new EventTriggerMessage(target, args));
+  }
 
   template <typename T>
   struct ArrayOstreamHelper {
@@ -1484,7 +1482,7 @@ namespace Realm {
 	// (the alternative is to not send the message until after we update local state, but
 	// that adds latency for everybody else)
 	assert(gen_triggered > generation);
-	EventTriggerMessage::send_request(owner, make_event(gen_triggered), poisoned);
+	EventTriggerMessageType::send_request(owner, make_event(gen_triggered), poisoned);
 
 	// we might need to subscribe to intermediate generations
 	bool subscribe_needed = false;
