@@ -761,6 +761,8 @@ namespace Realm {
       fabric->add_message_type(new LockReleaseMessageType(), "Lock Release");
       fabric->add_message_type(new LockGrantMessageType(), "Lock Grant");
       fabric->add_message_type(new DestroyLockMessageType(), "Destroy Lock");
+      fabric->add_message_type(new RemoteMemAllocRequestType(), "Remote Memory Allocation Request");
+      fabric->add_message_type(new RemoteMemAllocResponseType(), "Remote Memory Allocation Response");
             
       gasnet_handlerentry_t handlers[128];
       int hcount = 0;
@@ -772,8 +774,8 @@ namespace Realm {
       //hcount += EventSubscribeMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Event Subscribe AM");
       //hcount += EventTriggerMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Event Trigger AM");
       //hcount += EventUpdateMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Event Update AM");
-      hcount += RemoteMemAllocRequest::Request::add_handler_entries(&handlers[hcount], "Remote Memory Allocation Request AM");
-      hcount += RemoteMemAllocRequest::Response::add_handler_entries(&handlers[hcount], "Remote Memory Allocation Response AM");
+      //hcount += RemoteMemAllocRequest::Request::add_handler_entries(&handlers[hcount], "Remote Memory Allocation Request AM");
+      //hcount += RemoteMemAllocRequest::Response::add_handler_entries(&handlers[hcount], "Remote Memory Allocation Response AM");
       hcount += CreateInstanceRequest::Request::add_handler_entries(&handlers[hcount], "Create Instance Request AM");
       hcount += CreateInstanceRequest::Response::add_handler_entries(&handlers[hcount], "Create Instance Response AM");
       hcount += RemoteCopyMessage::add_handler_entries(&handlers[hcount], "Remote Copy AM");

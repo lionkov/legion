@@ -419,8 +419,12 @@ namespace Realm {
 
 
     // active messages
-
-    struct RemoteMemAllocRequest {
+    
+    class RemoteMemAllocRequestType : public MessageType {
+    public:
+      RemoteMemAllocRequestType()
+	: MessageType(REMOTE_MALLOC_MSGID, sizeof(RequestArgs), false, true) { }
+      
       struct RequestArgs {
 	int sender;
 	void *resp_ptr;
@@ -428,25 +432,35 @@ namespace Realm {
 	size_t size;
       };
 
-      struct ResponseArgs {
+      void request(Message* m);
+      static off_t send_request(NodeId target, Memory memory, size_t size);
+    };
+
+    class RemoteMemAllocRequestMessage : public FabMessage {
+    public: 
+      RemoteMemAllocRequestMessage(NodeId target, void* args)
+	: FabMessage(target, REMOTE_MALLOC_MSGID, args, NULL, true) { }
+    };
+
+    class RemoteMemAllocResponseType : public MessageType {
+    public:
+      RemoteMemAllocResponseType()
+	: MessageType(REMOTE_MALLOC_RPLID, sizeof(RequestArgs), false, true) { }
+      
+      struct RequestArgs {
 	void *resp_ptr;
 	off_t offset;
       };
 
-      static void handle_request(RequestArgs args);
-      static void handle_response(ResponseArgs args);
-
-      typedef ActiveMessageShortNoReply<REMOTE_MALLOC_MSGID,
- 	                                RequestArgs,
-	                                handle_request> Request;
-
-      typedef ActiveMessageShortNoReply<REMOTE_MALLOC_RPLID,
- 	                                ResponseArgs,
-	                                handle_response> Response;
-
-      static off_t send_request(gasnet_node_t target, Memory memory, size_t size);
+      void request(Message* m);      
     };
 
+    class RemoteMemAllocResponse : public FabMessage {
+    public:
+      RemoteMemAllocResponse(NodeId dest, void* args)
+	: FabMessage(dest, REMOTE_MALLOC_RPLID, args, NULL, true) { }      
+    };
+    
     struct CreateInstanceRequest {
       struct RequestArgs : public BaseMedium {
 	Memory m;

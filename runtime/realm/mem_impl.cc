@@ -234,7 +234,7 @@ namespace Realm {
     off_t MemoryImpl::alloc_bytes_remote(size_t size)
     {
       // RPC over to owner's node for allocation
-      return RemoteMemAllocRequest::send_request(ID(me).node(), me, size);
+      return RemoteMemAllocRequestType::send_request(ID(me).node(), me, size);
     }
 
     void MemoryImpl::free_bytes_remote(off_t offset, size_t size)
@@ -862,50 +862,45 @@ namespace Realm {
     }
 
 
-  ////////////////////////////////////////////////////////////////////////
-  //
-  // class RemoteMemAllocRequest
-  //
-
-  /*static*/ void RemoteMemAllocRequest::handle_request(RequestArgs args)
-  {
+  void RemoteMemAllocRequestType::request(Message* m) {
+    RequestArgs* args = (RequestArgs*) m->args;
     DetailedTimer::ScopedPush sp(TIME_LOW_LEVEL);
     //printf("[%d] handling remote alloc of size %zd\n", gasnet_mynode(), args.size);
-    off_t offset = get_runtime()->get_memory_impl(args.memory)->alloc_bytes(args.size);
+    off_t offset = get_runtime()->get_memory_impl(args->memory)->alloc_bytes(args->size);
     //printf("[%d] remote alloc will return %d\n", gasnet_mynode(), result);
 
-    ResponseArgs r_args;
-    r_args.resp_ptr = args.resp_ptr;
-    r_args.offset = offset;
-    Response::request(args.sender, r_args);
+    RemoteMemAllocResponseType::RequestArgs* r_args =
+      new RemoteMemAllocResponseType::RequestArgs();
+    
+    r_args->resp_ptr = args->resp_ptr;
+    r_args->offset = offset;
+    fabric->send(new RemoteMemAllocResponse(args->sender, r_args));
   }
   
-  /*static*/ void RemoteMemAllocRequest::handle_response(ResponseArgs args)
-  {
-    HandlerReplyFuture<off_t> *f = static_cast<HandlerReplyFuture<off_t> *>(args.resp_ptr);
-    f->set(args.offset);
-  }
-
-  /*static*/ off_t RemoteMemAllocRequest::send_request(gasnet_node_t target,
-						       Memory memory,
-						       size_t size)
-  {
+  /*static*/ off_t RemoteMemAllocRequestType::send_request(NodeId target,
+							   Memory memory,
+							   size_t size) {
     HandlerReplyFuture<off_t> result;
 
-    RequestArgs args;
-    args.sender = gasnet_mynode();
-    args.resp_ptr = &result;
-    args.memory = memory;
-    args.size = size;
+    RequestArgs* args = new RequestArgs(); 
+    args->sender = fabric->get_id();
+    args->resp_ptr = &result;
+    args->memory = memory;
+    args->size = size;
 
-    Request::request(target, args);
+    fabric->send(new RemoteMemAllocRequestMessage(target, args));
 
     // wait for result to come back
     result.wait();
     return result.get();
   }
-  
 
+  void RemoteMemAllocResponseType::request(Message* m) { 
+    RequestArgs* args = (RequestArgs*) m->args;
+    HandlerReplyFuture<off_t> *f = static_cast<HandlerReplyFuture<off_t> *>(args->resp_ptr);
+    f->set(args->offset);
+  }
+  
   ////////////////////////////////////////////////////////////////////////
   //
   // class CreateInstanceRequest
