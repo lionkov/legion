@@ -753,6 +753,7 @@ namespace Realm {
       fabric->add_message_type(new EventSubscribeMessageType(), "Event Subscribe");
       fabric->add_message_type(new EventUpdateMessageType(), "Event Update");
       fabric->add_message_type(new EventTriggerMessageType(), "Event Trigger");
+      fabric->add_message_type(new BarrierAdjustMessageType(), "Barrier Adjust");
       
       gasnet_handlerentry_t handlers[128];
       int hcount = 0;
@@ -786,7 +787,7 @@ namespace Realm {
       hcount += DestroyLockMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Destroy Lock AM");
       hcount += RemoteReduceListMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Reduction List AM");
       hcount += RuntimeShutdownMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Machine Shutdown AM");
-      hcount += BarrierAdjustMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Adjust AM");
+      //hcount += BarrierAdjustMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Adjust AM");
       hcount += BarrierSubscribeMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Subscribe AM");
       hcount += BarrierTriggerMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Trigger AM");
       hcount += BarrierMigrationMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Migration AM");

@@ -1642,35 +1642,65 @@ namespace Realm {
       final_values = 0;
     }
 
-    /*static*/ void BarrierAdjustMessage::handle_request(RequestArgs args, const void *data, size_t datalen)
-    {
-      log_barrier.info("received barrier arrival: delta=%d in=" IDFMT "/%d out=" IDFMT "/%d (%llx)",
-		       args.delta, args.wait_on.id, args.wait_on.gen, args.barrier.id, args.barrier.gen, args.barrier.timestamp);
-      BarrierImpl *impl = get_runtime()->get_barrier_impl(args.barrier);
-      gasnet_node_t sender = args.sender;
-      bool forwarded = false;
-      if(args.sender < 0) {
-	forwarded = true;
-	sender = -1 - args.sender;
-      }
-      impl->adjust_arrival(args.barrier.gen, args.delta, args.barrier.timestamp, args.wait_on,
-			   sender, forwarded,
-			   datalen ? data : 0, datalen);
+  void BarrierAdjustMessageType::request(Message* m) {
+    RequestArgs* args = (RequestArgs*) m->args;
+    void* data = m->payload->ptr();
+    size_t datalen = m->payload->size();
+      
+    log_barrier.info("received barrier arrival: delta=%d in=" IDFMT "/%d out=" IDFMT "/%d (%llx)",
+		     args->delta,
+		     args->wait_on.id,
+		     args->wait_on.gen,
+		     args->barrier.id,
+		     args->barrier.gen,
+		     args->barrier.timestamp);
+      
+    BarrierImpl *impl = get_runtime()->get_barrier_impl(args->barrier);
+    NodeId sender = args->sender;
+    bool forwarded = false;
+    if(args->sender < 0) {
+      forwarded = true;
+      sender = -1 - args->sender;
     }
+    
+    impl->adjust_arrival(args->barrier.gen,
+			 args->delta,
+			 args->barrier.timestamp,
+			 args->wait_on,
+			 sender,
+			 forwarded,
+			 datalen ? data : 0, datalen);
+  }
 
-    /*static*/ void BarrierAdjustMessage::send_request(gasnet_node_t target, Barrier barrier, int delta, Event wait_on,
-						       gasnet_node_t sender, bool forwarded,
-						       const void *data, size_t datalen)
-    {
-      RequestArgs args;
+  /*static*/ void BarrierAdjustMessageType::send_request(NodeId target,
+							 Barrier barrier,
+							 int delta,
+							 Event wait_on,
+							 gasnet_node_t sender,
+							 bool forwarded,
+							 const void *data,
+							 size_t datalen) { 
+    RequestArgs* args = new RequestArgs();
       
-      args.barrier = barrier;
-      args.delta = delta;
-      args.wait_on = wait_on;
-      args.sender = forwarded ? (-1 - sender) : sender;
-      
-      ActiveMessage::request(target, args, data, datalen, PAYLOAD_COPY);
+    args->barrier = barrier;
+    args->delta = delta;
+    args->wait_on = wait_on;
+    args->sender = forwarded ? (-1 - sender) : sender;
+
+    void* data_copy = malloc(datalen);
+    if (!data_copy) {
+      log_barrier.error("Message send failed. Type: BarrierAdjustMessageType Cause: malloc failed");
+      return;
     }
+    memcpy(data_copy, data, datalen);
+
+    // We now have our own copy of the payload
+    FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_KEEP,
+							     data_copy,
+							     datalen);
+
+    fabric->send(new BarrierAdjustMessage(target, args, payload));
+  }
 
     /*static*/ void BarrierSubscribeMessage::send_request(gasnet_node_t target, ID::IDType barrier_id, Event::gen_t subscribe_gen,
 							  gasnet_node_t subscriber, bool forwarded)
@@ -1842,9 +1872,9 @@ static void *bytedup(const void *data, size_t datalen)
           //       owner, e.id, e.gen, wait_on.id, wait_on.gen);
 	  log_barrier.info("forwarding deferred barrier arrival: delta=%d in=" IDFMT "/%d out=" IDFMT "/%d (%llx)",
 			   delta, wait_on.id, wait_on.gen, b.id, b.gen, b.timestamp);
-	  BarrierAdjustMessage::send_request(owner, b, delta, wait_on,
-					     sender, (sender != gasnet_mynode()),
-					     reduce_value, reduce_value_size);
+	  BarrierAdjustMessageType::send_request(owner, b, delta, wait_on,
+						 sender, (sender != gasnet_mynode()),
+						 reduce_value, reduce_value_size);
 	  return;
         }
 
@@ -2012,7 +2042,7 @@ static void *bytedup(const void *data, size_t datalen)
 
       if(forward_to_node != (gasnet_node_t) -1) {
 	Barrier b = make_barrier(barrier_gen, timestamp);
-	BarrierAdjustMessage::send_request(forward_to_node, b, delta, Event::NO_EVENT,
+	BarrierAdjustMessageType::send_request(forward_to_node, b, delta, Event::NO_EVENT,
 					   sender, (sender != gasnet_mynode()),
 					   reduce_value, reduce_value_size);
 	return;

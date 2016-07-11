@@ -314,26 +314,32 @@ namespace Realm {
       : FabMessage(dest, EVENT_UPDATE_MSGID, args, payload, true) { }
   };
 
-  
-    struct BarrierAdjustMessage {
-      struct RequestArgs : public BaseMedium {
-	int sender;
-	//bool forwarded;  no room to store this, so encoded as: sender < 0
-	int delta;
-	Barrier barrier;
-        Event wait_on;
-      };
-
-      static void handle_request(RequestArgs args, const void *data, size_t datalen);
-
-      typedef ActiveMessageMediumNoReply<BARRIER_ADJUST_MSGID,
-					 RequestArgs,
-					 handle_request> ActiveMessage;
-
-      static void send_request(gasnet_node_t target, Barrier barrier, int delta, Event wait_on,
-			       gasnet_node_t sender, bool forwarded,
-			       const void *data, size_t datalen);
+  class BarrierAdjustMessageType : public MessageType {
+  public: 
+    BarrierAdjustMessageType()
+      : MessageType(BARRIER_ADJUST_MSGID, sizeof(RequestArgs), true, true) { }
+    
+    struct RequestArgs : public BaseMedium {
+      int sender;
+      //bool forwarded;  no room to store this, so encoded as: sender < 0
+      int delta;
+      Barrier barrier;
+      Event wait_on;
     };
+    
+    void request(Message* m);
+
+    static void send_request(NodeId target, Barrier barrier, int delta, Event wait_on,
+			     NodeId sender, bool forwarded,
+			     const void *data, size_t datalen);
+  };
+
+  class BarrierAdjustMessage : public FabMessage {
+  public:
+    BarrierAdjustMessage(NodeId dest, void* args, FabPayload* payload)
+      : FabMessage(dest, BARRIER_ADJUST_MSGID, args, payload, true) { }
+  };
+  
 
     struct BarrierSubscribeMessage {
       struct RequestArgs {
