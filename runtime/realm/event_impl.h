@@ -344,7 +344,7 @@ namespace Realm {
   class BarrierSubscribeMessageType : public MessageType {
   public:
     BarrierSubscribeMessageType()
-      : MessageType(BARRIER_SUBSCRIBE_MSGID, sizeof(RequestArgs), true, true) { }
+      : MessageType(BARRIER_SUBSCRIBE_MSGID, sizeof(RequestArgs), false, true) { }
     
     struct RequestArgs {
       NodeId subscriber;
@@ -359,71 +359,64 @@ namespace Realm {
 			     NodeId subscriber, bool forwarded);
   };
 
-    struct BarrierSubscribeMessage {
-      struct RequestArgs {
-	gasnet_node_t subscriber;
-	ID::IDType barrier_id;
-	Event::gen_t subscribe_gen;
-	bool forwarded;
-      };
+  class BarrierSubscribeMessage : public FabMessage {
+  public:
+    BarrierSubscribeMessage(NodeId dest, void* args)
+      : FabMessage(dest, BARRIER_SUBSCRIBE_MSGID, args, NULL, true) { }
+  };
 
-      static void handle_request(RequestArgs args);
-
-      typedef ActiveMessageShortNoReply<BARRIER_SUBSCRIBE_MSGID,
-					RequestArgs,
-					handle_request> ActiveMessage;
-
-      static void send_request(gasnet_node_t target, ID::IDType barrier_id,
-			       Event::gen_t subscribe_gen,
-			       gasnet_node_t subscriber, bool forwarded);
+  
+  class BarrierTriggerMessageType : public MessageType {
+  public:
+  BarrierTriggerMessageType()
+    : MessageType(BARRIER_TRIGGER_MSGID, sizeof(RequestArgs), true, true) { }
+    
+    struct RequestArgs : public BaseMedium {
+      NodeId node;
+      ID::IDType barrier_id;
+      Event::gen_t trigger_gen;
+      Event::gen_t previous_gen;
+      Event::gen_t first_generation;
+      ReductionOpID redop_id;
+      NodeId migration_target;
+      unsigned base_arrival_count;
     };
 
-    class BarrierTriggerMessageType : public MessageType {
-    public:
-      BarrierTriggerMessageType()
-	: MessageType(BARRIER_TRIGGER_MSGID, sizeof(RequestArgs), true, true) { }
-
-      struct RequestArgs : public BaseMedium {
-	NodeId node;
-	ID::IDType barrier_id;
-	Event::gen_t trigger_gen;
-	Event::gen_t previous_gen;
-	Event::gen_t first_generation;
-	ReductionOpID redop_id;
-	NodeId migration_target;
-	unsigned base_arrival_count;
-      };
-
-      void request(Message* m);
+    void request(Message* m);
       
-      static void send_request(NodeId target, ID::IDType barrier_id,
-			       Event::gen_t trigger_gen, Event::gen_t previous_gen,
-			       Event::gen_t first_generation, ReductionOpID redop_id,
-			       NodeId migration_target, unsigned base_arrival_count,
-			       const void *data, size_t datalen);
+    static void send_request(NodeId target, ID::IDType barrier_id,
+			     Event::gen_t trigger_gen, Event::gen_t previous_gen,
+			     Event::gen_t first_generation, ReductionOpID redop_id,
+			     NodeId migration_target, unsigned base_arrival_count,
+			     const void *data, size_t datalen);
+  };
+
+  class BarrierTriggerMessage : public FabMessage {
+  public:
+  BarrierTriggerMessage(NodeId dest, void* args, FabPayload* payload)
+    : FabMessage(dest, BARRIER_TRIGGER_MSGID, args, payload, true) { }
+  };
+
+  class BarrierMigrationMessageType : public MessageType {
+  public:
+  BarrierMigrationMessageType()
+    : MessageType(BARRIER_MIGRATE_MSGID, sizeof(RequestArgs), false, true) { }
+      
+    struct RequestArgs {
+      Barrier barrier;
+      gasnet_node_t current_owner;
     };
 
-    class BarrierTriggerMessage : public FabMessage {
-    public:
-    BarrierTriggerMessage(NodeId dest, void* args, FabPayload* payload)
-      : FabMessage(dest, BARRIER_TRIGGER_MSGID, args, payload, true) { }
-    };
+    void request(Message* m);
+    static void send_request(NodeId target, Barrier barrier, NodeId owner);
+  };
 
-    struct BarrierMigrationMessage {
-      struct RequestArgs {
-	Barrier barrier;
-	gasnet_node_t current_owner;
-      };
-
-      static void handle_request(RequestArgs args);
-
-      typedef ActiveMessageShortNoReply<BARRIER_MIGRATE_MSGID,
-					RequestArgs,
-					handle_request> ActiveMessage;
-
-      static void send_request(gasnet_node_t target, Barrier barrier, gasnet_node_t owner);
-    };
-	
+  class BarrierMigrationMessage : public FabMessage {
+  public:
+  BarrierMigrationMessage(NodeId dest, void* args)
+    : FabMessage(dest, BARRIER_MIGRATE_MSGID, args, NULL, true) { }	
+  };
+    
 }; // namespace Realm
 
 #include "event_impl.inl"

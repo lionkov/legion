@@ -755,6 +755,8 @@ namespace Realm {
       fabric->add_message_type(new EventTriggerMessageType(), "Event Trigger");
       fabric->add_message_type(new BarrierAdjustMessageType(), "Barrier Adjust");
       fabric->add_message_type(new BarrierTriggerMessageType(), "Barrier Trigger");
+      fabric->add_message_type(new BarrierSubscribeMessageType(), "Barrier Subscribe");
+      fabric->add_message_type(new BarrierMigrationMessageType(), "Barrier Migrate");
 
       
       gasnet_handlerentry_t handlers[128];
@@ -790,9 +792,9 @@ namespace Realm {
       hcount += RemoteReduceListMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Reduction List AM");
       hcount += RuntimeShutdownMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Machine Shutdown AM");
       //hcount += BarrierAdjustMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Adjust AM");
-      hcount += BarrierSubscribeMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Subscribe AM");
+      //hcount += BarrierSubscribeMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Subscribe AM");
       //      hcount += BarrierTriggerMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Trigger AM");
-      hcount += BarrierMigrationMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Migration AM");
+      //hcount += BarrierMigrationMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Migration AM");
       // hcount += MetadataRequestMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Request AM"); 
       //hcount += MetadataResponseMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Response AM");
       // hcount += MetadataInvalidateMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Invalidate AM");

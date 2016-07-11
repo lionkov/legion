@@ -1702,22 +1702,6 @@ namespace Realm {
     fabric->send(new BarrierAdjustMessage(target, args, payload));
   }
 
-    /*static*/ void BarrierSubscribeMessage::send_request(gasnet_node_t target,
-							  ID::IDType barrier_id,
-							  Event::gen_t subscribe_gen,
-							  gasnet_node_t subscriber,
-							  bool forwarded) {
-      RequestArgs args;
-
-      args.subscriber = subscriber;
-      args.forwarded = forwarded;
-      args.barrier_id = barrier_id;
-      args.subscribe_gen = subscribe_gen;
-      
-      ActiveMessage::request(target, args);
-    }
-
-
 // like strdup, but works on arbitrary byte arrays
 static void *bytedup(const void *data, size_t datalen)
 {
@@ -2033,7 +2017,7 @@ static void *bytedup(const void *data, size_t datalen)
 
       if(inform_migration != (gasnet_node_t) -1) {
 	Barrier b = make_barrier(barrier_gen, timestamp);
-	BarrierMigrationMessage::send_request(inform_migration, b, gasnet_mynode());
+	BarrierMigrationMessageType::send_request(inform_migration, b, gasnet_mynode());
       }
 
       if(trigger_gen != 0) {
@@ -2094,7 +2078,7 @@ static void *bytedup(const void *data, size_t datalen)
 
 	if(previous_subscription < needed_gen) {
 	  log_barrier.info("subscribing to barrier " IDFMT "/%d", me.id(), needed_gen);
-	  BarrierSubscribeMessage::send_request(owner, me.id(), needed_gen, gasnet_mynode(), false/*!forwarded*/);
+	  BarrierSubscribeMessageType::send_request(owner, me.id(), needed_gen, gasnet_mynode(), false/*!forwarded*/);
 	}
       }
 
@@ -2145,11 +2129,11 @@ static void *bytedup(const void *data, size_t datalen)
       return true;
     }
 
-  void BarrierSubscribeMessage::handle_request(RequestArgs args) {
-    //RequestArgs* args = (RequestArgs*) m->args;
+  void BarrierSubscribeMessageType::request(Message* m) {
+    RequestArgs* args = (RequestArgs*) m->args;
     Barrier b;
-    b.id = args.barrier_id;
-    b.gen = args.subscribe_gen;
+    b.id = args->barrier_id;
+    b.gen = args->subscribe_gen;
     BarrierImpl *impl = get_runtime()->get_barrier_impl(b);
 
     // take the lock and add the subscribing node - notice if they need to be notified for
@@ -2169,51 +2153,51 @@ static void *bytedup(const void *data, size_t datalen)
 	forward_to_node = impl->owner;
 	
       } else {
-	if(args.forwarded) {
+	if(args->forwarded) {
 	  // our own request wrapped back around can be ignored - we've already added the local waiter
-	  if(args.subscriber == fabric->get_id()) {
+	  if(args->subscriber == fabric->get_id()) {
 	    break;
 	  } else {
-	    inform_migration = args.subscriber;
+	    inform_migration = args->subscriber;
 	  }
 	}
       }
 
       // make sure the subscription is for this "lifetime" of the barrier
-      assert(args.subscribe_gen > impl->first_generation);
+      assert(args->subscribe_gen > impl->first_generation);
 
       bool already_subscribed = false;
       {
-	std::map<unsigned, Event::gen_t>::iterator it = impl->remote_subscribe_gens.find(args.subscriber);
+	std::map<unsigned, Event::gen_t>::iterator it = impl->remote_subscribe_gens.find(args->subscriber);
 	if(it != impl->remote_subscribe_gens.end()) {
 	  // a valid subscription should always be for a generation that hasn't
 	  //  triggered yet
 	  assert(it->second > impl->generation);
-	  if(it->second >= args.subscribe_gen)
+	  if(it->second >= args->subscribe_gen)
 	    already_subscribed = true;
 	  else
-	    it->second = args.subscribe_gen;
+	    it->second = args->subscribe_gen;
 	} else {
 	  // new subscription - don't reset remote_trigger_gens because the node may have
 	  //  been subscribed in the past
 	  // NOTE: remote_subscribe_gens should only hold subscriptions for
 	  //  generations that haven't triggered, so if we're subscribing to 
 	  //  an old generation, don't add it
-	  if(args.subscribe_gen > impl->generation)
-	    impl->remote_subscribe_gens[args.subscriber] = args.subscribe_gen;
+	  if(args->subscribe_gen > impl->generation)
+	    impl->remote_subscribe_gens[args->subscriber] = args->subscribe_gen;
 	}
       }
 
       // as long as we're not already subscribed to this generation, check to see if
       //  any trigger notifications are needed
       if(!already_subscribed && (impl->generation > impl->first_generation)) {
-	std::map<unsigned, Event::gen_t>::iterator it = impl->remote_trigger_gens.find(args.subscriber);
+	std::map<unsigned, Event::gen_t>::iterator it = impl->remote_trigger_gens.find(args->subscriber);
 	if((it == impl->remote_trigger_gens.end()) or (it->second < impl->generation)) {
 	  previous_gen = ((it == impl->remote_trigger_gens.end()) ?
 			  impl->first_generation :
 			  it->second);
 	  trigger_gen = impl->generation;
-	  impl->remote_trigger_gens[args.subscriber] = impl->generation;
+	  impl->remote_trigger_gens[args->subscriber] = impl->generation;
 
 	  if(impl->redop) {
 	    int rel_gen = previous_gen + 1 - impl->first_generation;
@@ -2227,19 +2211,19 @@ static void *bytedup(const void *data, size_t datalen)
     } while(0);
 
     if(forward_to_node != (gasnet_node_t) -1) {
-      BarrierSubscribeMessage::send_request(forward_to_node, args.barrier_id, args.subscribe_gen,
-					    args.subscriber, (args.subscriber != gasnet_mynode()));
+      BarrierSubscribeMessageType::send_request(forward_to_node, args->barrier_id, args->subscribe_gen,
+						args->subscriber, (args->subscriber != gasnet_mynode()));
     }
 
     if(inform_migration != (gasnet_node_t) -1) {
-      BarrierMigrationMessage::send_request(inform_migration, b, gasnet_mynode());
+      BarrierMigrationMessageType::send_request(inform_migration, b, gasnet_mynode());
     }
 
     // send trigger message outside of lock, if needed
     if(trigger_gen > 0) {
       log_barrier.info("sending immediate barrier trigger: " IDFMT "/%d -> %d",
-		       args.barrier_id, previous_gen, trigger_gen);
-      BarrierTriggerMessageType::send_request(args.subscriber, args.barrier_id, trigger_gen, previous_gen,
+		       args->barrier_id, previous_gen, trigger_gen);
+      BarrierTriggerMessageType::send_request(args->subscriber, args->barrier_id, trigger_gen, previous_gen,
 					      impl->first_generation, impl->redop_id,
 					      (gasnet_node_t) -1 /*no migration*/, 0 /*dummy arrival count*/,
 					      final_values_copy, final_values_size);
@@ -2248,6 +2232,22 @@ static void *bytedup(const void *data, size_t datalen)
     if(final_values_copy)
       free(final_values_copy);
   } // BarrierSubscribeMessageType::request(Message* m)
+
+  /*static*/ void BarrierSubscribeMessageType::send_request(NodeId target,
+							    ID::IDType barrier_id,
+							    Event::gen_t subscribe_gen,
+							    NodeId subscriber,
+							    bool forwarded) {
+    RequestArgs* args = new RequestArgs();
+    
+    args->subscriber = subscriber;
+    args->forwarded = forwarded;
+    args->barrier_id = barrier_id;
+    args->subscribe_gen = subscribe_gen;
+
+    fabric->send(new BarrierSubscribeMessage(target, args));
+  }
+
 
   void BarrierTriggerMessageType::request(Message* m) {
     RequestArgs* args = (RequestArgs*) m->args;
@@ -2400,24 +2400,26 @@ static void *bytedup(const void *data, size_t datalen)
       return true;
     }
 
-    /*static*/ void BarrierMigrationMessage::handle_request(RequestArgs args)
+  void BarrierMigrationMessageType::request(Message* m) {
+    RequestArgs* args = (RequestArgs*) m->args;
+    log_barrier.info() << "received barrier migration: barrier="
+		       << args->barrier << " owner=" << args->current_owner;
+    BarrierImpl *impl = get_runtime()->get_barrier_impl(args->barrier);
     {
-      log_barrier.info() << "received barrier migration: barrier=" << args.barrier << " owner=" << args.current_owner;
-      BarrierImpl *impl = get_runtime()->get_barrier_impl(args.barrier);
-      {
-	AutoHSLLock a(impl->mutex);
-	impl->owner = args.current_owner;
-      }
+      AutoHSLLock a(impl->mutex);
+      impl->owner = args->current_owner;
     }
+  }
 
-    /*static*/ void BarrierMigrationMessage::send_request(gasnet_node_t target, Barrier barrier, gasnet_node_t owner)
-    {
-      RequestArgs args;
-
-      args.barrier = barrier;
-      args.current_owner = owner;
-
-      ActiveMessage::request(target, args);
-    }
-
+  /*static*/ void BarrierMigrationMessageType::send_request(NodeId target,
+							    Barrier barrier,
+							    NodeId owner) { 
+    RequestArgs* args = new RequestArgs();
+    
+    args->barrier = barrier;
+    args->current_owner = owner;
+    
+    fabric->send(new BarrierMigrationMessage(target, args));
+  }
+  
 }; // namespace Realm
