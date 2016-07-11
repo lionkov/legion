@@ -332,16 +332,16 @@ namespace Realm {
                                                         const ProfilingRequestSet &reqs,
 							RegionInstance parent_inst)
     {
-      CreateInstanceRequest::Result resp;
+      CreateInstanceRequestType::Result resp;
 
-      CreateInstanceRequest::send_request(&resp,
-					  ID(me).node(), me, r,
-					  parent_inst, bytes_needed,
-					  block_size, element_size,
-					  list_size, redopid,
-					  linearization_bits,
-					  field_sizes,
-					  &reqs);
+      CreateInstanceRequestType::send_request(&resp,
+					      ID(me).node(), me, r,
+					      parent_inst, bytes_needed,
+					      block_size, element_size,
+					      list_size, redopid,
+					      linearization_bits,
+					      field_sizes,
+					      &reqs);
 
       // Only do this if the response succeeds
       if (resp.i.exists()) {
@@ -906,12 +906,14 @@ namespace Realm {
   // class CreateInstanceRequest
   //
 
-  /*static*/ void CreateInstanceRequest::handle_request(RequestArgs args,
-							const void *msgdata, size_t msglen)
-  {
+  void CreateInstanceRequestType::request(Message* m) { 
+    RequestArgs* args = (RequestArgs*) m->args;
+    void* msgdata = m->payload->ptr();
+    size_t msglen = m->payload->size();
+    
     DetailedTimer::ScopedPush sp(TIME_LOW_LEVEL);
 
-    const Payload *payload = (const Payload *)msgdata;
+    const PayloadData *payload = (const PayloadData*) msgdata;
 
     std::vector<size_t> field_sizes(payload->num_fields);
     for(size_t i = 0; i < payload->num_fields; i++)
@@ -922,8 +924,8 @@ namespace Realm {
     //size_t req_offset = sizeof(CreateInstancePayload) + sizeof(size_t) * payload->num_fields;
     //requests.deserialize(((const char*)msgdata)+req_offset);
 
-    MemoryImpl *m_impl = get_runtime()->get_memory_impl(args.m);
-    RegionInstance inst = m_impl->create_instance(args.r, 
+    MemoryImpl *m_impl = get_runtime()->get_memory_impl(args->m);
+    RegionInstance inst = m_impl->create_instance(args->r, 
 						  payload->linearization_bits,
 						  payload->bytes_needed,
 						  payload->block_size,
@@ -932,87 +934,93 @@ namespace Realm {
 						  payload->redopid,
 						  payload->list_size,
 						  prs,
-						  args.parent_inst);
-
+						  args->parent_inst);
 
     // send the response
-    ResponseArgs r_args;
+    CreateInstanceResponseType::RequestArgs* r_args
+      = new CreateInstanceResponseType::RequestArgs();
 
-    r_args.resp_ptr = args.resp_ptr;
-    r_args.i = inst;
+    r_args->resp_ptr = args->resp_ptr;
+    r_args->i = inst;
 
     if (inst.exists()) {
       RegionInstanceImpl *i_impl = get_runtime()->get_instance_impl(inst);
 
-      r_args.inst_offset = i_impl->metadata.alloc_offset;
-      r_args.count_offset = i_impl->metadata.count_offset;
+      r_args->inst_offset = i_impl->metadata.alloc_offset;
+      r_args->count_offset = i_impl->metadata.count_offset;
     } else {
-      r_args.inst_offset = -1;
-      r_args.count_offset = -1;
+      r_args->inst_offset = -1;
+      r_args->count_offset = -1;
     }
 
-    Response::request(args.sender, r_args);
+    fabric->send(new CreateInstanceResponse(args->sender, r_args));
   }
 
-  /*static*/ void CreateInstanceRequest::handle_response(ResponseArgs args)
-  {
-    HandlerReplyFuture<Result> *f = static_cast<HandlerReplyFuture<Result> *>(args.resp_ptr);
-
-    Result r;
-    r.i = args.i;
-    r.inst_offset = args.inst_offset;
-    r.count_offset = args.count_offset;
-
-    f->set(r);
-  }
-
-  /*static*/ void CreateInstanceRequest::send_request(Result *result,
-						      gasnet_node_t target, Memory memory, IndexSpace ispace,
-						      RegionInstance parent_inst, size_t bytes_needed,
-						      size_t block_size, size_t element_size,
-						      off_t list_size, ReductionOpID redopid,
-						      const int *linearization_bits,
-						      const std::vector<size_t>& field_sizes,
-						      const ProfilingRequestSet *prs)
-  {
-    size_t req_offset = sizeof(Payload) + sizeof(size_t) * field_sizes.size();
+  /*static*/ void CreateInstanceRequestType::send_request(Result *result,
+							  NodeId target, Memory memory, IndexSpace ispace,
+							  RegionInstance parent_inst, size_t bytes_needed,
+							  size_t block_size, size_t element_size,
+							  off_t list_size, ReductionOpID redopid,
+							  const int *linearization_bits,
+							  const std::vector<size_t>& field_sizes,
+							  const ProfilingRequestSet *prs) {
+    
+    size_t req_offset = sizeof(PayloadData) + sizeof(size_t) * field_sizes.size();
     // TODO: unbreak once the serialization stuff is repaired
     //if(prs)
     //  assert(prs->empty());
     size_t payload_size = req_offset + 0;//reqs.compute_size();
-    Payload *payload = (Payload *)malloc(payload_size);
+    PayloadData *payload_data = (PayloadData*) malloc(payload_size);
 
-    payload->bytes_needed = bytes_needed;
-    payload->block_size = block_size;
-    payload->element_size = element_size;
-    //payload->adjust = ?
-    payload->list_size = list_size;
-    payload->redopid = redopid;
+    payload_data->bytes_needed = bytes_needed;
+    payload_data->block_size = block_size;
+    payload_data->element_size = element_size;
+    //payload_data->adjust = ?
+    payload_data->list_size = list_size;
+    payload_data->redopid = redopid;
 
     for(unsigned i = 0; i < RegionInstanceImpl::MAX_LINEARIZATION_LEN; i++)
-      payload->linearization_bits[i] = linearization_bits[i];
+      payload_data->linearization_bits[i] = linearization_bits[i];
 
-    payload->num_fields = field_sizes.size();
+    payload_data->num_fields = field_sizes.size();
     for(unsigned i = 0; i < field_sizes.size(); i++)
-      payload->field_size(i) = field_sizes[i];
+      payload_data->field_size(i) = field_sizes[i];
 
-    //reqs.serialize(((char*)payload)+req_offset);
+    //reqs.serialize(((char*)payload_data)+req_offset);
 
-    RequestArgs args;
-    args.m = memory;
-    args.r = ispace;
-    args.parent_inst = parent_inst;
+    RequestArgs* args = new RequestArgs();
+    args->m = memory;
+    args->r = ispace;
+    args->parent_inst = parent_inst;
     log_inst.debug("creating remote instance: node=%d", ID(memory).node());
 
     HandlerReplyFuture<Result> result_future;
-    args.resp_ptr = &result_future;
-    args.sender = gasnet_mynode();
+    args->resp_ptr = &result_future;
+    args->sender = gasnet_mynode();
 
-    Request::request(target, args, payload, payload_size, PAYLOAD_FREE);
+    FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_FREE,
+							     (void*) payload_data,
+							     payload_size);
+
+    fabric->send(new CreateInstanceRequest(target, args, payload));
 
     result_future.wait();
     *result = result_future.get();
   }
+
+  void CreateInstanceResponseType::request(Message* m) {
+    RequestArgs* args = (RequestArgs*) m->args;
+    HandlerReplyFuture<CreateInstanceRequestType::Result> *f
+      = static_cast<HandlerReplyFuture<CreateInstanceRequestType::Result> *>(args->resp_ptr);
+
+    CreateInstanceRequestType::Result r;
+    r.i = args->i;
+    r.inst_offset = args->inst_offset;
+    r.count_offset = args->count_offset;
+
+    f->set(r);  
+  }
+
 
 
   ////////////////////////////////////////////////////////////////////////

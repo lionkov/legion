@@ -460,8 +460,12 @@ namespace Realm {
       RemoteMemAllocResponse(NodeId dest, void* args)
 	: FabMessage(dest, REMOTE_MALLOC_RPLID, args, NULL, true) { }      
     };
-    
-    struct CreateInstanceRequest {
+
+    class CreateInstanceRequestType : public MessageType {
+    public:
+      CreateInstanceRequestType()
+	: MessageType(CREATE_INST_MSGID, sizeof(RequestArgs), true, true) { }
+
       struct RequestArgs : public BaseMedium {
 	Memory m;
 	IndexSpace r;
@@ -470,15 +474,8 @@ namespace Realm {
 	void *resp_ptr;
       };
 
-      struct ResponseArgs {
-	void *resp_ptr;
-	RegionInstance i;
-	off_t inst_offset;
-	off_t count_offset;
-      };
-
       // TODO: replace with new serialization stuff
-      struct Payload {
+      struct PayloadData {
 	size_t bytes_needed;
 	size_t block_size;
 	size_t element_size;
@@ -491,25 +488,17 @@ namespace Realm {
 	size_t &field_size(int idx) { return *((&num_fields)+idx+1); }
       };
 
-      static void handle_request(RequestArgs args, const void *data, size_t datalen);
-      static void handle_response(ResponseArgs args);
-
-      typedef ActiveMessageMediumNoReply<CREATE_INST_MSGID,
- 	                                 RequestArgs,
-	                                 handle_request> Request;
-
-      typedef ActiveMessageShortNoReply<CREATE_INST_RPLID,
- 	                                ResponseArgs,
-	                                handle_response> Response;
-
       struct Result {
 	RegionInstance i;
 	off_t inst_offset;
 	off_t count_offset;
       };
 
+
+      void request(Message* m);
+      
       static void send_request(Result *result,
-			       gasnet_node_t target, Memory memory, IndexSpace ispace,
+			       NodeId target, Memory memory, IndexSpace ispace,
 			       RegionInstance parent_inst, size_t bytes_needed,
 			       size_t block_size, size_t element_size,
 			       off_t list_size, ReductionOpID redopid,
@@ -517,6 +506,90 @@ namespace Realm {
 			       const std::vector<size_t>& field_sizes,
 			       const ProfilingRequestSet *prs);
     };
+
+    class CreateInstanceRequest : public FabMessage {
+    public:
+      CreateInstanceRequest(NodeId dest, void* args, FabPayload* payload) 
+	: FabMessage(dest, CREATE_INST_MSGID, args, payload, true) { }
+    };
+
+    class CreateInstanceResponseType : public MessageType {
+    public:
+      CreateInstanceResponseType()
+	: MessageType(CREATE_INST_RPLID, sizeof(RequestArgs), false, true) { }
+      
+      struct RequestArgs {
+	void *resp_ptr;
+	RegionInstance i;
+	off_t inst_offset;
+	off_t count_offset;
+      };
+
+      void request(Message* m);
+    };
+
+    class CreateInstanceResponse : public FabMessage {
+    public:
+      CreateInstanceResponse(NodeId dest, void* args)
+	: FabMessage(dest, CREATE_INST_RPLID, args, NULL, true) { }
+    };
+    
+    /* struct CreateInstanceRequest { */
+    /*   struct RequestArgs : public BaseMedium { */
+    /* 	Memory m; */
+    /* 	IndexSpace r; */
+    /* 	RegionInstance parent_inst; */
+    /* 	int sender; */
+    /* 	void *resp_ptr; */
+    /*   }; */
+
+    /*   struct ResponseArgs { */
+    /* 	void *resp_ptr; */
+    /* 	RegionInstance i; */
+    /* 	off_t inst_offset; */
+    /* 	off_t count_offset; */
+    /*   }; */
+
+    /*   // TODO: replace with new serialization stuff */
+    /*   struct PayloadData { */
+    /* 	size_t bytes_needed; */
+    /* 	size_t block_size; */
+    /* 	size_t element_size; */
+    /* 	//off_t adjust; */
+    /* 	off_t list_size; */
+    /* 	ReductionOpID redopid; */
+    /* 	int linearization_bits[16]; //RegionInstanceImpl::MAX_LINEARIZATION_LEN]; */
+    /* 	size_t num_fields; // as long as it needs to be */
+    /* 	const size_t &field_size(int idx) const { return *((&num_fields)+idx+1); } */
+    /* 	size_t &field_size(int idx) { return *((&num_fields)+idx+1); } */
+
+    /*   }; */
+    /*   static void handle_request(RequestArgs args, const void *data, size_t datalen); */
+    /*   static void handle_response(ResponseArgs args); */
+
+    /*   typedef ActiveMessageMediumNoReply<CREATE_INST_MSGID, */
+    /* 	                                 RequestArgs, */
+    /* 	                                 handle_request> Request; */
+
+    /*   typedef ActiveMessageShortNoReply<CREATE_INST_RPLID, */
+    /* 	                                ResponseArgs, */
+    /* 	                                handle_response> Response; */
+
+    /*   struct Result { */
+    /* 	RegionInstance i; */
+    /* 	off_t inst_offset; */
+    /* 	off_t count_offset; */
+    /*   }; */
+
+    /*   static void send_request(Result *result, */
+    /* 			       gasnet_node_t target, Memory memory, IndexSpace ispace, */
+    /* 			       RegionInstance parent_inst, size_t bytes_needed, */
+    /* 			       size_t block_size, size_t element_size, */
+    /* 			       off_t list_size, ReductionOpID redopid, */
+    /* 			       const int *linearization_bits, */
+    /* 			       const std::vector<size_t>& field_sizes, */
+    /* 			       const ProfilingRequestSet *prs); */
+    /* }; */
 
     struct DestroyInstanceMessage {
       struct RequestArgs {
