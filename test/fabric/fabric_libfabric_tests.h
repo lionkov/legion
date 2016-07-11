@@ -58,7 +58,7 @@ class TestPayloadMessageType : public MessageType {
 
 class TestPayloadMessage : public FabMessage {
  public:
- TestPayloadMessage(NodeId dest, void* args, Payload* payload)
+ TestPayloadMessage(NodeId dest, void* args, FabPayload* payload)
    : FabMessage(dest, 2, args, payload, false) { }
 };
 

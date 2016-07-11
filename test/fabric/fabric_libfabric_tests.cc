@@ -27,8 +27,8 @@ int FabTester::init() {
   fabric = new FabFabric();
 
   std::cout << "Adding message types... " << std::endl;
-  fabric->add_message_type(new TestMessageType());
-  fabric->add_message_type(new TestPayloadMessageType());
+  fabric->add_message_type(new TestMessageType(), "Test Message");
+  fabric->add_message_type(new TestPayloadMessageType(), "Test Payload Message");
   
   bool ret;
   ret = fabric->init();
@@ -63,7 +63,7 @@ int FabTester::run() {
 
     char paybuf[64];
     strcpy(paybuf, "This is a payload.");
-    ContiguousPayload payload(FAB_PAYLOAD_KEEP, &paybuf, sizeof(paybuf));
+    FabContiguousPayload payload(FAB_PAYLOAD_KEEP, &paybuf, sizeof(paybuf));
     
     std::cout << "Sending payload message..." << std::endl;
     ret = fabric->send(new TestPayloadMessage(fabric->get_id(), &buf, &payload));
