@@ -757,15 +757,18 @@ namespace Realm {
       fabric->add_message_type(new BarrierTriggerMessageType(), "Barrier Trigger");
       fabric->add_message_type(new BarrierSubscribeMessageType(), "Barrier Subscribe");
       fabric->add_message_type(new BarrierMigrationMessageType(), "Barrier Migrate");
-
-      
+      fabric->add_message_type(new LockRequestMessageType(), "Lock Request");
+      fabric->add_message_type(new LockReleaseMessageType(), "Lock Release");
+      fabric->add_message_type(new LockGrantMessageType(), "Lock Grant");
+      fabric->add_message_type(new DestroyLockMessageType(), "Destroy Lock");
+            
       gasnet_handlerentry_t handlers[128];
       int hcount = 0;
       //hcount += NodeAnnounceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Node Announce AM");
       //hcount += SpawnTaskMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Spawn Task AM");
-      hcount += LockRequestMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Request AM");
-      hcount += LockReleaseMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Release AM");
-      hcount += LockGrantMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Grant AM");
+      //hcount += LockRequestMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Request AM");
+      //hcount += LockReleaseMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Release AM");
+      //hcount += LockGrantMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Grant AM");
       //hcount += EventSubscribeMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Event Subscribe AM");
       //hcount += EventTriggerMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Event Trigger AM");
       //hcount += EventUpdateMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Event Update AM");
@@ -788,7 +791,7 @@ namespace Realm {
       hcount += RemoteSerdezMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Serdez AM");
       hcount += RemoteWriteFenceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Write Fence AM");
       hcount += RemoteWriteFenceAckMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Write Fence Ack AM");
-      hcount += DestroyLockMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Destroy Lock AM");
+      //hcount += DestroyLockMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Destroy Lock AM");
       hcount += RemoteReduceListMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Reduction List AM");
       hcount += RuntimeShutdownMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Machine Shutdown AM");
       //hcount += BarrierAdjustMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Adjust AM");

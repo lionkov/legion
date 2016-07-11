@@ -190,69 +190,88 @@ namespace Realm {
     };
 
   // active messages
+  class LockRequestMessageType : public MessageType {
+  public:
+    LockRequestMessageType()
+      : MessageType(LOCK_REQUEST_MSGID, sizeof(RequestArgs), false, true) { }
 
-  struct LockRequestMessage {
     struct RequestArgs {
       gasnet_node_t node;
       Reservation lock;
       unsigned mode;
     };
 
-    static void handle_request(RequestArgs args);
-
-    typedef ActiveMessageShortNoReply<LOCK_REQUEST_MSGID, 
-				      RequestArgs, 
-				      handle_request> ActiveMessage;
-
-    static void send_request(gasnet_node_t target, gasnet_node_t req_node,
+    void request(Message* m);
+    static void send_request(NodeId target, NodeId req_node,
 			     Reservation lock, unsigned mode);
   };
 
-  struct LockReleaseMessage {
+  class LockRequestMessage : public FabMessage {
+  public:
+    LockRequestMessage(NodeId dest, void* args)
+      : FabMessage(dest, LOCK_REQUEST_MSGID, args, NULL, true) { }
+  }; 
+
+  class LockReleaseMessageType : public MessageType {
+  public:
+    LockReleaseMessageType()
+      : MessageType(LOCK_RELEASE_MSGID, sizeof(RequestArgs), false, true) { }
+    
     struct RequestArgs {
-      gasnet_node_t node;
+      NodeId node;
       Reservation lock;
     };
-    
-    static void handle_request(RequestArgs args);
 
-    typedef ActiveMessageShortNoReply<LOCK_RELEASE_MSGID,
-				      RequestArgs,
-				      handle_request> ActiveMessage;
-
-    static void send_request(gasnet_node_t target, Reservation lock);
+    void request(Message* m);
+    static void send_request(NodeId target, Reservation lock);
   };
 
-  struct LockGrantMessage {
+  class LockReleaseMessage : public FabMessage {
+  public:
+    LockReleaseMessage(NodeId target, void* args)
+      : FabMessage(target, LOCK_RELEASE_MSGID, args, NULL, true) { }
+  };
+  
+  class LockGrantMessageType : public MessageType {
+  public:
+    LockGrantMessageType()
+      : MessageType(LOCK_GRANT_MSGID, sizeof(RequestArgs), true, true) { }
+    
     struct RequestArgs : public BaseMedium {
       Reservation lock;
       unsigned mode;
     };
 
-    static void handle_request(RequestArgs args, const void *data, size_t datalen);
-
-    typedef ActiveMessageMediumNoReply<LOCK_GRANT_MSGID,
-				       RequestArgs,
-				       handle_request> ActiveMessage;
-
+    void request(Message* m);
     static void send_request(gasnet_node_t target, Reservation lock,
-			     unsigned mode, const void *data, size_t datalen,
+			     unsigned mode, void* data, size_t datalen,
 			     int payload_mode);
   };
 
-  struct DestroyLockMessage {
+  class LockGrantMessage : public FabMessage {
+  public:
+    LockGrantMessage(NodeId dest, void* args, FabPayload* payload)
+      : FabMessage(dest, LOCK_GRANT_MSGID, args, payload, true) { }
+  }; 
+ 
+  class DestroyLockMessageType : public MessageType {
+  public: 
+    DestroyLockMessageType()
+      : MessageType(DESTROY_LOCK_MSGID, sizeof(RequestArgs), false, true) { }
+
     struct RequestArgs {
       Reservation actual;
       Reservation dummy;
     };
 
-    static void handle_request(RequestArgs args);
+    void request(Message* m);
+    static void send_request(NodeId target, Reservation lock);
+  };
 
-    typedef ActiveMessageShortNoReply<DESTROY_LOCK_MSGID,
-				      RequestArgs,
-				      handle_request> ActiveMessage;
-
-    static void send_request(gasnet_node_t target, Reservation lock);
+  class DestroyLockMessage : public FabMessage {
+  public:
+    DestroyLockMessage(NodeId dest, void* args)
+      : FabMessage(dest, DESTROY_LOCK_MSGID, args, NULL, true) { }
   };
 
 }; // namespace Realm
