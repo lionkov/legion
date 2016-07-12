@@ -533,81 +533,35 @@ namespace Realm {
       CreateInstanceResponse(NodeId dest, void* args)
 	: FabMessage(dest, CREATE_INST_RPLID, args, NULL, true) { }
     };
-    
-    /* struct CreateInstanceRequest { */
-    /*   struct RequestArgs : public BaseMedium { */
-    /* 	Memory m; */
-    /* 	IndexSpace r; */
-    /* 	RegionInstance parent_inst; */
-    /* 	int sender; */
-    /* 	void *resp_ptr; */
-    /*   }; */
 
-    /*   struct ResponseArgs { */
-    /* 	void *resp_ptr; */
-    /* 	RegionInstance i; */
-    /* 	off_t inst_offset; */
-    /* 	off_t count_offset; */
-    /*   }; */
+    class DestroyInstanceMessageType : public MessageType {
+    public:
+      DestroyInstanceMessageType()
+	: MessageType(DESTROY_INST_MSGID, sizeof(RequestArgs), false, true) { }
 
-    /*   // TODO: replace with new serialization stuff */
-    /*   struct PayloadData { */
-    /* 	size_t bytes_needed; */
-    /* 	size_t block_size; */
-    /* 	size_t element_size; */
-    /* 	//off_t adjust; */
-    /* 	off_t list_size; */
-    /* 	ReductionOpID redopid; */
-    /* 	int linearization_bits[16]; //RegionInstanceImpl::MAX_LINEARIZATION_LEN]; */
-    /* 	size_t num_fields; // as long as it needs to be */
-    /* 	const size_t &field_size(int idx) const { return *((&num_fields)+idx+1); } */
-    /* 	size_t &field_size(int idx) { return *((&num_fields)+idx+1); } */
-
-    /*   }; */
-    /*   static void handle_request(RequestArgs args, const void *data, size_t datalen); */
-    /*   static void handle_response(ResponseArgs args); */
-
-    /*   typedef ActiveMessageMediumNoReply<CREATE_INST_MSGID, */
-    /* 	                                 RequestArgs, */
-    /* 	                                 handle_request> Request; */
-
-    /*   typedef ActiveMessageShortNoReply<CREATE_INST_RPLID, */
-    /* 	                                ResponseArgs, */
-    /* 	                                handle_response> Response; */
-
-    /*   struct Result { */
-    /* 	RegionInstance i; */
-    /* 	off_t inst_offset; */
-    /* 	off_t count_offset; */
-    /*   }; */
-
-    /*   static void send_request(Result *result, */
-    /* 			       gasnet_node_t target, Memory memory, IndexSpace ispace, */
-    /* 			       RegionInstance parent_inst, size_t bytes_needed, */
-    /* 			       size_t block_size, size_t element_size, */
-    /* 			       off_t list_size, ReductionOpID redopid, */
-    /* 			       const int *linearization_bits, */
-    /* 			       const std::vector<size_t>& field_sizes, */
-    /* 			       const ProfilingRequestSet *prs); */
-    /* }; */
-
-    struct DestroyInstanceMessage {
       struct RequestArgs {
 	Memory m;
 	RegionInstance i;
       };
 
-      static void handle_request(RequestArgs args);
-
-      typedef ActiveMessageShortNoReply<DESTROY_INST_MSGID,
- 	                                RequestArgs,
-	                                handle_request> ActiveMessage;
-
-      static void send_request(gasnet_node_t target, Memory memory,
+      void request(Message* m);
+      
+      static void send_request(NodeId target,
+			       Memory memory,
 			       RegionInstance inst);
     };
 
-    struct RemoteWriteMessage {
+    class DestroyInstanceMessage : public FabMessage {
+    public: 
+      DestroyInstanceMessage(NodeId dest, void* args)
+	: FabMessage(dest, DESTROY_INST_MSGID, args, NULL, true) { }
+    }; 
+
+    class RemoteWriteMessageType : public MessageType {
+    public:
+      RemoteWriteMessageType()
+	: MessageType(REMOTE_WRITE_MSGID, sizeof(RequestArgs), true, true) { }
+
       struct RequestArgs : public BaseMedium {
 	Memory mem;
 	off_t offset;
@@ -615,15 +569,17 @@ namespace Realm {
 	unsigned sequence_id;
       };
 
-      static void handle_request(RequestArgs args, const void *data, size_t datalen);
+      void request(Message* m);
 
-      typedef ActiveMessageMediumNoReply<REMOTE_WRITE_MSGID,
-				         RequestArgs,
-				         handle_request> ActiveMessage;
-
-      // no simple send_request method here - see below
+      // no simple send_request methodg
     };
 
+    class RemoteWriteMessage : public FabMessage {
+    public:
+    RemoteWriteMessage(NodeId dest, void* args, FabPayload* payload)
+      : FabMessage(dest, REMOTE_WRITE_MSGID, args, payload, true) { }
+    };
+    
     struct RemoteSerdezMessage {
       struct RequestArgs : public BaseMedium {
         Memory mem;
@@ -743,10 +699,12 @@ namespace Realm {
 				    const SpanList& spans, size_t datalen,
 				    unsigned sequence_id,
 				    bool make_copy = false);
+    
     extern unsigned do_remote_serdez(Memory mem, off_t offset,
                                      CustomSerdezID serdez_id,
                                      const void *data, size_t datalen,
                                      unsigned sequence_id);
+    
     extern unsigned do_remote_reduce(Memory mem, off_t offset,
 				     ReductionOpID redop_id, bool red_fold,
 				     const void *data, size_t count,

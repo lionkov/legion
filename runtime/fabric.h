@@ -33,6 +33,7 @@ enum MessageIds {
   EVENT_UPDATE_MSGID, // TODO: BROADCAST
   EVENT_TRIGGER_MSGID,
   BARRIER_ADJUST_MSGID,
+  DESTROY_INST_MSGID = 160,
   BARRIER_TRIGGER_MSGID,
   BARRIER_SUBSCRIBE_MSGID = 170,
   BARRIER_MIGRATE_MSGID,
@@ -153,10 +154,10 @@ typedef std::vector<FabSpanListEntry> FabSpanList;
 
 struct FabSpanPayload : public FabPayload {
  protected:
-  FabSpanList	spans;
+  SpanList	spans;
   size_t		sz;
  public:
-  FabSpanPayload(int m, FabSpanList &sl, size_t s);
+  FabSpanPayload(int m, SpanList &sl, size_t s);
   virtual ~FabSpanPayload(void);
 
   virtual ssize_t size(void);
@@ -210,6 +211,7 @@ class Fabric {
   virtual void memfree(void *) = 0;
   virtual void register_options(Realm::CommandLineParser& cp) = 0;
   virtual void wait_for_shutdown() = 0;
+  virtual int get_max_send() = 0;
 
 };
 

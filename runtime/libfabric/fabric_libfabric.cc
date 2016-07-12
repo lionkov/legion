@@ -255,14 +255,9 @@ bool FabFabric::init() {
   // inserting only this address for now, since PMI_Allgather is not working
   ret = fi_av_insert(av, &addr, 1, fi_addrs, 0, NULL);
   if (ret <= 0) 
-    return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));
-
-
-  char lookup[64];
-  size_t lookuplen = sizeof(lookup);
-  fi_av_lookup(av, fi_addrs[0],(void*) &lookup, &lookuplen);
-  
+    return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));  
   /*
+
   // void* addrs = malloc(max_id * addrlen);
 
   // ASK -- most pmi.h implementations do not have PMI_Allgather,
@@ -392,11 +387,6 @@ int FabFabric::send(Message* m)
   MessageType *mt;
   struct iovec *iov;
   size_t sz = 0;
-
-  char lookup[64];
-  size_t lookuplen = sizeof(lookup);
-  fi_av_lookup(av, fi_addrs[0],(void*) &lookup, &lookuplen);
-
   
   mt = m->mtype;
   if (mt == NULL)
@@ -429,7 +419,7 @@ int FabFabric::send(Message* m)
       if (n < 0)
 	return n;
     }
-    // CHECK -- I don't think payload data is ever actually being copied into the iovec??
+
     // TODO: make it network order???
     m->iov[0].iov_base = &m->mtype->id;
     m->iov[0].iov_len = sizeof(m->mtype->id);
@@ -739,7 +729,9 @@ int FabFabric::add_address(char* first_address, int index, void* addr) {
 	sin->sin_addr.s_addr = htonl(tmp);
 
 	freeaddrinfo(ai);
-	return 0;
+	return 0;  
+}
 
-  
+int FabFabric::get_max_send() {
+  return max_send;
 }

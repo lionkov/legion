@@ -69,7 +69,7 @@ FabPayload::~FabPayload(void)
 }
 	
 FabContiguousPayload::FabContiguousPayload(int m, void *d, size_t s)
-  : FabPayload(m), sz(s), data(d)
+  : FabPayload(m), sz(s), data((void*) d)
 {
   checkmode();
 }
@@ -139,7 +139,7 @@ ssize_t FabContiguousPayload::iovec(struct iovec *iov, size_t iovnum)
 
 
 FabTwoDPayload::FabTwoDPayload(int m, void *d, size_t line_size, size_t line_count, ptrdiff_t line_stride)
-  : FabPayload(m), linesz(line_size), linecnt(line_count), stride(line_stride), data(d)
+  : FabPayload(m), linesz(line_size), linecnt(line_count), stride(line_stride), data((void*) d)
 {
   checkmode();
 }
@@ -212,12 +212,12 @@ ssize_t FabTwoDPayload::iovec(struct iovec *iov, size_t iovnum)
   return ret;
 }
 
-FabSpanPayload::FabSpanPayload(int m, FabSpanList &sl, size_t s) : FabPayload(m), spans(sl), sz(s)
+FabSpanPayload::FabSpanPayload(int m, SpanList &sl, size_t s) : FabPayload(m), spans(sl), sz(s)
 {
   checkmode();
   sz = 0;
 	
-  for(FabSpanList::const_iterator it = spans.begin(); it != spans.end(); it++) {
+  for(SpanList::const_iterator it = spans.begin(); it != spans.end(); it++) {
     sz += it->second;
   }
 
@@ -225,14 +225,12 @@ FabSpanPayload::FabSpanPayload(int m, FabSpanList &sl, size_t s) : FabPayload(m)
 
 FabSpanPayload::~FabSpanPayload(void)
 {
-
- 
+  
      if (mode == FAB_PAYLOAD_FREE) {
-       for(FabSpanList::const_iterator it = spans.begin(); it != spans.end(); it++) {
-	 free(it->first);
+       for(SpanList::const_iterator it = spans.begin(); it != spans.end(); it++) {
+	 free((void*) it->first);
        }
-     }
- 
+     } 
 }
 
 ssize_t FabSpanPayload::size(void)
@@ -259,7 +257,7 @@ ssize_t FabSpanPayload::copy(void *dest, size_t destsz)
 
   ret = 0;
   p = (char *) dest;
-  for(FabSpanList::const_iterator it = spans.begin(); (destsz > 0) && (it != spans.end()); it++) {
+  for(SpanList::const_iterator it = spans.begin(); (destsz > 0) && (it != spans.end()); it++) {
     n = destsz > it->second ? it->second : destsz;
     memmove(p, it->first, n);
     ret += n;
@@ -286,10 +284,10 @@ ssize_t FabSpanPayload::iovec(struct iovec *iov, size_t iovnum)
   if (iovnum < n)
     return n;
 
-  FabSpanList::const_iterator it;
+  SpanList::const_iterator it;
   ssize_t i;
   for(it = spans.begin(), i = 0; it != spans.end(); it++, i++) {
-    iov[i].iov_base = it->first;
+    iov[i].iov_base = (void*) it->first;
     iov[i].iov_len = it->second;
   }
 

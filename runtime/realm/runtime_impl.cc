@@ -765,6 +765,8 @@ namespace Realm {
       fabric->add_message_type(new RemoteMemAllocResponseType(), "Remote Memory Allocation Response");
       fabric->add_message_type(new CreateInstanceRequestType(), "Create Instance Request");
       fabric->add_message_type(new CreateInstanceResponseType(), "Create Instance Response");
+      fabric->add_message_type(new DestroyInstanceMessageType(), "Destroy Instance");
+      fabric->add_message_type(new RemoteWriteMessageType(), "Remote Write");
             
       gasnet_handlerentry_t handlers[128];
       int hcount = 0;
@@ -789,8 +791,8 @@ namespace Realm {
       hcount += TimerDataResponseMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Roll-up Data AM");
       //hcount += ClearTimersMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Clear Timer Request AM");
 #endif
-      hcount += DestroyInstanceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Destroy Instance AM");
-      hcount += RemoteWriteMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Write AM");
+      //hcount += DestroyInstanceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Destroy Instance AM");
+      //hcount += RemoteWriteMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Write AM");
       hcount += RemoteReduceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Reduce AM");
       hcount += RemoteSerdezMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Serdez AM");
       hcount += RemoteWriteFenceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Write Fence AM");

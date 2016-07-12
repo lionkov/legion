@@ -431,7 +431,7 @@ namespace Realm {
 
 	log_inst.debug("destroying remote instance: node=%d inst=" IDFMT "", owner, i.id);
 
-	DestroyInstanceMessage::send_request(owner, me, i);
+	DestroyInstanceMessageType::send_request(owner, me, i);
       }
 
       // and right now, we leave the instance itself untouched
@@ -1021,28 +1021,20 @@ namespace Realm {
     f->set(r);  
   }
 
-
-
-  ////////////////////////////////////////////////////////////////////////
-  //
-  // class DestroyInstanceRequest
-  //
-
-  /*static*/ void DestroyInstanceMessage::handle_request(RequestArgs args)
-  {
-    MemoryImpl *m_impl = get_runtime()->get_memory_impl(args.m);
-    m_impl->destroy_instance(args.i, false);
+  void DestroyInstanceMessageType::request(Message* m) { 
+    RequestArgs* args = (RequestArgs*) m->args;
+    MemoryImpl *m_impl = get_runtime()->get_memory_impl(args->m);
+    m_impl->destroy_instance(args->i, false);
   }
 
-  /*static*/ void DestroyInstanceMessage::send_request(gasnet_node_t target,
-						       Memory memory,
-						       RegionInstance inst)
-  {
-    RequestArgs args;
+  /*static*/ void DestroyInstanceMessageType::send_request(NodeId target,
+							   Memory memory,
+							   RegionInstance inst) {
+    RequestArgs* args = new RequestArgs();
 
-    args.m = memory;
-    args.i = inst;
-    ActiveMessage::request(target, args);
+    args->m = memory;
+    args->i = inst;
+    fabric->send(new DestroyInstanceMessage(target, args));
   }
   
 
@@ -1070,20 +1062,22 @@ namespace Realm {
   typedef std::map<PartialWriteKey, PartialWriteEntry> PartialWriteMap;
   static PartialWriteMap partial_remote_writes;
   static GASNetHSL partial_remote_writes_lock;
+  
+  void RemoteWriteMessageType::request(Message* m) {
+    RequestArgs* args = (RequestArgs*) m->args;
+    void* data = m->payload->ptr();
+    size_t datalen = m->payload->size();
+    
+    MemoryImpl *impl = get_runtime()->get_memory_impl(args->mem);
 
-  /*static*/ void RemoteWriteMessage::handle_request(RequestArgs args,
-						     const void *data,
-						     size_t datalen)
-  {
-    MemoryImpl *impl = get_runtime()->get_memory_impl(args.mem);
-
-    log_copy.debug() << "received remote write request: mem=" << args.mem
-		     << ", offset=" << args.offset << ", size=" << datalen
-		     << ", seq=" << args.sender << '/' << args.sequence_id;
+    log_copy.debug() << "received remote write request: mem=" << args->mem
+		     << ", offset=" << args->offset << ", size=" << datalen
+		     << ", seq=" << args->sender << '/' << args->sequence_id;
+    
 #ifdef DEBUG_REMOTE_WRITES
     printf("received remote write request: mem=" IDFMT ", offset=%zd, size=%zd, seq=%d/%d",
-	   args.mem.id, args.offset, datalen,
-	   args.sender, args.sequence_id);
+	   args->mem.id, args->offset, datalen,
+	   args->sender, args->sequence_id);
     printf("  data[%p]: %08x %08x %08x %08x %08x %08x %08x %08x\n",
 	   data,
 	   ((unsigned *)(data))[0], ((unsigned *)(data))[1],
@@ -1097,15 +1091,15 @@ namespace Realm {
       {
 	LocalCPUMemory *cpumem = (LocalCPUMemory *)impl;
 	if(cpumem->registered) {
-	  if(data == (cpumem->base + args.offset)) {
+	  if(data == (cpumem->base + args->offset)) {
 	    // copy is in right spot - yay!
 	  } else {
 	    printf("%d: received remote write to registered memory in wrong spot: %p != %p+%zd = %p\n",
-		   gasnet_mynode(), data, cpumem->base, args.offset, cpumem->base + args.offset);
-	    impl->put_bytes(args.offset, data, datalen);
+		   fabric->get_id(), data, cpumem->base, args->offset, cpumem->base + args->offset);
+	    impl->put_bytes(args->offset, data, datalen);
 	  }
 	} else {
-	  impl->put_bytes(args.offset, data, datalen);
+	  impl->put_bytes(args->offset, data, datalen);
 	}
 	    
 	break;
@@ -1114,8 +1108,7 @@ namespace Realm {
     case MemoryImpl::MKIND_ZEROCOPY:
     case MemoryImpl::MKIND_GPUFB:
       {
-	impl->put_bytes(args.offset, data, datalen);
-	
+	impl->put_bytes(args->offset, data, datalen);
 	break;
       }
 
@@ -1124,10 +1117,10 @@ namespace Realm {
     }
 
     // track the sequence ID to know when the full RDMA is done
-    if(args.sequence_id > 0) {
+    if(args->sequence_id > 0) {
       PartialWriteKey key;
-      key.sender = args.sender;
-      key.sequence_id = args.sequence_id;
+      key.sender = args->sender;
+      key.sequence_id = args->sequence_id;
       partial_remote_writes_lock.lock();
       PartialWriteMap::iterator it = partial_remote_writes.find(key);
       if(it == partial_remote_writes.end()) {
@@ -1146,7 +1139,7 @@ namespace Realm {
 	PartialWriteEntry& entry = it->second;
 #ifdef DEBUG_PWT
 	printf("PWT: %d: have entry for %d/%d: %p, %d -> %d\n",
-	       gasnet_mynode(), key.sender, key.sequence_id,
+	       fabric->get_id(), key.sender, key.sequence_id,
 	       entry.fence,
 	       entry.remaining_count, entry.remaining_count - 1);
 #endif
@@ -1154,7 +1147,7 @@ namespace Realm {
 	if(entry.remaining_count == 0) {
 	  // we're the last write, and we've already got the fence, so 
 	  //  respond
-          RemoteWriteFenceAckMessage::send_request(args.sender,
+          RemoteWriteFenceAckMessage::send_request(args->sender,
                                                    entry.fence);
 	  partial_remote_writes.erase(it);
 	  partial_remote_writes_lock.unlock();
@@ -1163,7 +1156,7 @@ namespace Realm {
       }
       partial_remote_writes_lock.unlock();
     }
-  }
+  } // RemoteWriteMessageType::request(Message* m)
 
   ////////////////////////////////////////////////////////////////////////
   //
@@ -1486,245 +1479,271 @@ namespace Realm {
   // do_remote_*
   //
 
-    unsigned do_remote_write(Memory mem, off_t offset,
-			     const void *data, size_t datalen,
-			     unsigned sequence_id,
-			     bool make_copy /*= false*/)
-    {
-      log_copy.debug("sending remote write request: mem=" IDFMT ", offset=%zd, size=%zd",
-		     mem.id, offset, datalen);
+  unsigned do_remote_write(Memory mem, off_t offset,
+			   const void *data, size_t datalen,
+			   unsigned sequence_id,
+			   bool make_copy /*= false*/) {
+      
+    log_copy.debug("sending remote write request: mem=" IDFMT ", offset=%zd, size=%zd",
+		   mem.id, offset, datalen);
 
-      MemoryImpl *m_impl = get_runtime()->get_memory_impl(mem);
+    MemoryImpl *m_impl = get_runtime()->get_memory_impl(mem);
+
+    NodeId dest = ID(mem).node();
+      
+    /*
       char *dstptr;
       if(m_impl->kind == MemoryImpl::MKIND_RDMA) {
-	dstptr = ((char *)(((RemoteMemory *)m_impl)->regbase)) + offset;
-	//printf("remote mem write to rdma'able memory: dstptr = %p\n", dstptr);
-      } else
-	dstptr = 0;
-      assert(datalen > 0);
+      dstptr = ((char *)(((RemoteMemory *)m_impl)->regbase)) + offset;
+      //printf("remote mem write to rdma'able memory: dstptr = %p\n", dstptr);
+      } else { 
+      dstptr = 0;
+      }*/
+      
+    assert(datalen > 0); 
+    // CHECK -- using fabric, I believe it is no longer valid to do a remote
+    // write using dstptr. So, we should always chop the message up if necessary.
+      
+    // TODO -- this should check the max message size for the destination node.
+    // This information should probably be recorded into fabric instance on startup?
+    int max_xfer_size = fabric->get_max_send();
 
-      // if we don't have a destination pointer, we need to use the LMB, which
-      //  may require chopping this request into pieces
-      if(!dstptr) {
-	size_t max_xfer_size = get_lmb_size(ID(mem).node());
+    if(datalen > max_xfer_size) {
+      log_copy.info("breaking large send into pieces");
+    }
+    char *pos = (char *)data;
+	  
+    int count = 1;
+    while(datalen > max_xfer_size) {
+	   
+      RemoteWriteMessageType::RequestArgs* args = new RemoteWriteMessageType::RequestArgs();
+      args->mem = mem;
+      args->offset = offset;
+      args->sender = fabric->get_id();
+      args->sequence_id = sequence_id;
 
-	if(datalen > max_xfer_size) {
-	  log_copy.info("breaking large send into pieces");
-	  const char *pos = (const char *)data;
-	  RemoteWriteMessage::RequestArgs args;
-	  args.mem = mem;
-	  args.offset = offset;
-	  args.sender = gasnet_mynode();
-	  args.sequence_id = sequence_id;
-
-	  int count = 1;
-	  while(datalen > max_xfer_size) {
-	    RemoteWriteMessage::ActiveMessage::request(ID(mem).node(), args,
-						 pos, max_xfer_size,
-						 make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP);
-	    args.offset += max_xfer_size;
-	    pos += max_xfer_size;
-	    datalen -= max_xfer_size;
-	    count++;
-	  }
-
-	  // last send includes whatever's left
-	  RemoteWriteMessage::ActiveMessage::request(ID(mem).node(), args,
-					       pos, datalen, 
-					       make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP);
-	  return count;
-	}
-      }
-
-      // we get here with either a valid destination pointer (so no size limit)
-      //  or a write smaller than the LMB
-      {
-	RemoteWriteMessage::RequestArgs args;
-	args.mem = mem;
-	args.offset = offset;
-        args.sender = gasnet_mynode();
-	args.sequence_id = sequence_id;
-	RemoteWriteMessage::ActiveMessage::request(ID(mem).node(), args,
-					     data, datalen,
-					     (make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP),
-					     dstptr);
-	return 1;
-      }
+      FabContiguousPayload* payload = new FabContiguousPayload(make_copy ?
+							       FAB_PAYLOAD_COPY : FAB_PAYLOAD_KEEP,
+							       pos,
+							       max_xfer_size);
+      
+      fabric->send(new RemoteWriteMessage(dest, args, payload));
+      
+      offset += max_xfer_size;
+      pos += max_xfer_size;
+      datalen -= max_xfer_size;
+      count++;
     }
 
-    unsigned do_remote_write(Memory mem, off_t offset,
-			     const void *data, size_t datalen,
-			     off_t stride, size_t lines,
-			     unsigned sequence_id,
-			     bool make_copy /*= false*/)
-    {
-      log_copy.debug("sending remote write request: mem=" IDFMT ", offset=%zd, size=%zdx%zd",
-		     mem.id, offset, datalen, lines);
+    RemoteWriteMessageType::RequestArgs* args = new RemoteWriteMessageType::RequestArgs();
+    args->mem = mem;
+    args->offset = offset;
+    args->sender = fabric->get_id();
+    args->sequence_id = sequence_id;
+	  
+    FabContiguousPayload* payload = new FabContiguousPayload(make_copy ?
+							     FAB_PAYLOAD_COPY : FAB_PAYLOAD_KEEP,
+							     pos,
+							     max_xfer_size);
+      
+    fabric->send(new RemoteWriteMessage(dest, args, payload));
+    
+    return count;    
+  }
+  
+  
 
-      MemoryImpl *m_impl = get_runtime()->get_memory_impl(mem);
-      char *dstptr;
-      if(m_impl->kind == MemoryImpl::MKIND_RDMA) {
-	dstptr = ((char *)(((RemoteMemory *)m_impl)->regbase)) + offset;
-	//printf("remote mem write to rdma'able memory: dstptr = %p\n", dstptr);
-      } else
-	dstptr = 0;
 
-      // if we don't have a destination pointer, we need to use the LMB, which
-      //  may require chopping this request into pieces
-      if(!dstptr) {
-	size_t max_xfer_size = get_lmb_size(ID(mem).node());
-	size_t max_lines_per_xfer = max_xfer_size / datalen;
-	assert(max_lines_per_xfer > 0);
+  unsigned do_remote_write(Memory mem, off_t offset,
+			   const void *data, size_t datalen,
+			   off_t stride, size_t lines,
+			   unsigned sequence_id,
+			   bool make_copy /*= false*/) {
+    log_copy.debug("sending remote write request: mem=" IDFMT ", offset=%zd, size=%zdx%zd",
+		   mem.id, offset, datalen, lines);
 
-	if(lines > max_lines_per_xfer) {
-	  log_copy.info("breaking large send into pieces");
-	  const char *pos = (const char *)data;
-	  RemoteWriteMessage::RequestArgs args;
-	  args.mem = mem;
-	  args.offset = offset;
-	  args.sender = gasnet_mynode();
-	  args.sequence_id = sequence_id;
+    MemoryImpl *m_impl = get_runtime()->get_memory_impl(mem);
+    NodeId dest = ID(mem).node();
+      
+    /* CHECK -- I believe fabric is always constrained by posted buffer size 
+       char *dstptr;
+       if(m_impl->kind == MemoryImpl::MKIND_RDMA) {
+       dstptr = ((char *)(((RemoteMemory *)m_impl)->regbase)) + offset;
+       //printf("remote mem write to rdma'able memory: dstptr = %p\n", dstptr);
+       } else
+       dstptr = 0;
+    */ 
+    // if we don't have a destination pointer, we need to use the LMB, which
+    //  may require chopping this request into pieces
 
-	  int count = 1;
-	  while(lines > max_lines_per_xfer) {
-	    RemoteWriteMessage::ActiveMessage::request(ID(mem).node(), args,
-						 pos, datalen,
-						 stride, max_lines_per_xfer,
-						 make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP);
-	    args.offset += datalen * max_lines_per_xfer;
-	    pos += stride * max_lines_per_xfer;
-	    lines -= max_lines_per_xfer;
-	    count++;
-	  }
+      
+    //TODO -- get info from destination node
+    size_t max_xfer_size = fabric->get_max_send();
+    size_t max_lines_per_xfer = max_xfer_size / datalen;
+    assert(max_lines_per_xfer > 0);
 
-	  // last send includes whatever's left
-	  RemoteWriteMessage::ActiveMessage::request(ID(mem).node(), args,
-					       pos, datalen, stride, lines,
-					       make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP);
-	  return count;
-	}
-      }
+    if(lines > max_lines_per_xfer) {
+      log_copy.info("breaking large send into pieces");
+    }
+    char *pos = (char *)data;
 
-      // we get here with either a valid destination pointer (so no size limit)
-      //  or a write smaller than the LMB
-      {
-	RemoteWriteMessage::RequestArgs args;
-	args.mem = mem;
-	args.offset = offset;
-        args.sender = gasnet_mynode();
-	args.sequence_id = sequence_id;
+    int count = 1;
+    while(lines > max_lines_per_xfer) {
+	    
+      RemoteWriteMessageType::RequestArgs* args
+	= new RemoteWriteMessageType::RequestArgs();
+      args->mem = mem;
+      args->offset = offset;
+      args->sender = fabric->get_id();
+      args->sequence_id = sequence_id;
 
-	RemoteWriteMessage::ActiveMessage::request(ID(mem).node(), args,
-					     data, datalen, stride, lines,
-					     make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP,
-					     dstptr);
-
-	return 1;
-      }
+      FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
+						   FAB_PAYLOAD_COPY : FAB_PAYLOAD_KEEP,
+						   pos,
+						   datalen, 
+						   max_lines_per_xfer,
+						   stride);						       
+	    
+      fabric->send(new RemoteWriteMessage(ID(mem).node(), args, payload));
+	    
+      offset += datalen * max_lines_per_xfer;
+      pos += stride * max_lines_per_xfer;
+      lines -= max_lines_per_xfer;
+      count++;
     }
 
-    unsigned do_remote_write(Memory mem, off_t offset,
-			     const SpanList &spans, size_t datalen,
-			     unsigned sequence_id,
-			     bool make_copy /*= false*/)
-    {
-      log_copy.debug("sending remote write request: mem=" IDFMT ", offset=%zd, size=%zd(%zd spans)",
-		     mem.id, offset, datalen, spans.size());
-
-      MemoryImpl *m_impl = get_runtime()->get_memory_impl(mem);
-      char *dstptr;
-      if(m_impl->kind == MemoryImpl::MKIND_RDMA) {
-	dstptr = ((char *)(((RemoteMemory *)m_impl)->regbase)) + offset;
-	//printf("remote mem write to rdma'able memory: dstptr = %p\n", dstptr);
-      } else
-	dstptr = 0;
-
-      // if we don't have a destination pointer, we need to use the LMB, which
-      //  may require chopping this request into pieces
-      if(!dstptr) {
-	size_t max_xfer_size = get_lmb_size(ID(mem).node());
-
-	if(datalen > max_xfer_size) {
-	  log_copy.info("breaking large send into pieces");
-	  RemoteWriteMessage::RequestArgs args;
-	  args.mem = mem;
-	  args.offset = offset;
-	  args.sender = gasnet_mynode();
-	  args.sequence_id = sequence_id;
-
-	  int count = 0;
-	  // this is trickier because we don't actually know how much will fit
-	  //  in each transfer
-	  SpanList::const_iterator it = spans.begin();
-	  while(datalen > 0) {
-	    // possible special case - if the first span is too big to fit at
-	    //   all, chop it up and send it
-	    assert(it != spans.end());
-	    if(it->second > max_xfer_size) {
-              const char *pos = (const char *)(it->first);
-              size_t left = it->second;
-              while(left > max_xfer_size) {
-		RemoteWriteMessage::ActiveMessage::request(ID(mem).node(), args,
-						     pos, max_xfer_size,
-						     make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP);
-		args.offset += max_xfer_size;
-		pos += max_xfer_size;
-		left -= max_xfer_size;
-		count++;
-	      }
-	      RemoteWriteMessage::ActiveMessage::request(ID(mem).node(), args,
-						   pos, left,
-						   make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP);
-	      args.offset += left;
-	      count++;
-	      datalen -= it->second;
-	      it++;
-	      continue;
-	    }
-
-	    // take spans in order until we run out of space or spans
-	    SpanList subspans;
-	    size_t xfer_size = 0;
-	    while(it != spans.end()) {
-	      // can we fit the next one?
-	      if((xfer_size + it->second) > max_xfer_size) break;
-
-	      subspans.push_back(*it);
-	      xfer_size += it->second;
-	      it++;
-	    }
-	    // if we didn't get at least one span, we won't make forward progress
-	    assert(!subspans.empty());
-
-	    RemoteWriteMessage::ActiveMessage::request(ID(mem).node(), args,
-						 subspans, xfer_size,
-						 make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP);
-	    args.offset += xfer_size;
-	    datalen -= xfer_size;
-	    count++;
-	  }
-
-	  return count;
-	}
-      }
-
-      // we get here with either a valid destination pointer (so no size limit)
-      //  or a write smaller than the LMB
-      {
-	RemoteWriteMessage::RequestArgs args;
-	args.mem = mem;
-	args.offset = offset;
-        args.sender = gasnet_mynode();
-	args.sequence_id = sequence_id;
-
-	RemoteWriteMessage::ActiveMessage::request(ID(mem).node(), args,
-					     spans, datalen,
-					     make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP,
-					     dstptr);
+    RemoteWriteMessageType::RequestArgs* args = new RemoteWriteMessageType::RequestArgs();
+    args->mem = mem;
+    args->offset = offset;
+    args->sender = fabric->get_id();
+    args->sequence_id = sequence_id;
 	
-	return 1;
+    FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
+						 FAB_PAYLOAD_COPY : FAB_PAYLOAD_KEEP,
+						 pos,
+						 datalen, 
+						 max_lines_per_xfer,
+						 stride);						       
+
+    fabric->send(new RemoteWriteMessage(dest, args, payload));
+    return count;
+      
+  }
+
+  unsigned do_remote_write(Memory mem, off_t offset,
+			   const SpanList &spans, size_t datalen,
+			   unsigned sequence_id,
+			   bool make_copy /*= false*/) {
+    log_copy.debug("sending remote write request: mem=" IDFMT ", offset=%zd, size=%zd(%zd spans)",
+		   mem.id, offset, datalen, spans.size());
+
+    MemoryImpl *m_impl = get_runtime()->get_memory_impl(mem);
+    /* 
+       char *dstptr;
+       if(m_impl->kind == MemoryImpl::MKIND_RDMA) {
+       dstptr = ((char *)(((RemoteMemory *)m_impl)->regbase)) + offset;
+       //printf("remote mem write to rdma'able memory: dstptr = %p\n", dstptr);
+       } else
+       dstptr = 0;
+    */
+      
+    // if we don't have a destination pointer, we need to use the LMB, which
+    //  may require chopping this request into pieces
+    NodeId dest = ID(mem).node();
+    size_t max_xfer_size = fabric->get_max_send();
+      
+    if(datalen > max_xfer_size) {
+      log_copy.info("breaking large send into pieces");
+    } 
+	
+    int count = 0;
+    // this is trickier because we don't actually know how much will fit
+    //  in each transfer
+    SpanList::const_iterator it = spans.begin();
+    while(datalen > 0) {
+	  
+      // possible special case - if the first span is too big to fit at
+      //   all, chop it up and send it
+      assert(it != spans.end());
+      if(it->second > max_xfer_size) {
+	char *pos = (char *)(it->first);
+	size_t left = it->second;
+	while(left > max_xfer_size) {
+
+	  RemoteWriteMessageType::RequestArgs* args
+	    = new RemoteWriteMessageType::RequestArgs();
+	  args->mem = mem;
+	  args->offset = offset;
+	  args->sender = fabric->get_id();
+	  args->sequence_id = sequence_id;
+
+	  FabContiguousPayload* payload = new FabContiguousPayload(make_copy ?
+								   PAYLOAD_COPY : PAYLOAD_KEEP,
+								   pos,
+								   max_xfer_size);
+		  
+	  fabric->send(new RemoteWriteMessage(dest, args, payload));
+	  pos += max_xfer_size;
+	  offset += max_xfer_size;
+	  left -= max_xfer_size;
+	  count++;
+	}
+
+	RemoteWriteMessageType::RequestArgs* args
+	  = new RemoteWriteMessageType::RequestArgs();
+	args->mem = mem;
+	args->offset = offset;
+	args->sender = fabric->get_id();
+	args->sequence_id = sequence_id;
+	    
+	FabContiguousPayload* payload = new FabContiguousPayload(make_copy ?
+								 PAYLOAD_COPY : PAYLOAD_KEEP,
+								 pos,
+								 max_xfer_size);
+	    
+	fabric->send(new RemoteWriteMessage(dest, args, payload));
+	    
+	offset += left;
+	count++;
+	datalen -= it->second;
+	it++;
+	continue;
       }
+
+      // take spans in order until we run out of space or spans
+      SpanList subspans;
+      size_t xfer_size = 0;
+      while(it != spans.end()) {
+	// can we fit the next one?
+	if((xfer_size + it->second) > max_xfer_size) break;
+
+	subspans.push_back(*it);
+	xfer_size += it->second;
+	it++;
+      }
+      // if we didn't get at least one span, we won't make forward progress
+      assert(!subspans.empty());
+	  
+
+      RemoteWriteMessageType::RequestArgs* args
+	= new RemoteWriteMessageType::RequestArgs();
+      args->mem = mem;
+      args->offset = offset;
+      args->sender = fabric->get_id();
+      args->sequence_id = sequence_id;
+
+      FabSpanPayload* payload = new FabSpanPayload(make_copy ?
+						   PAYLOAD_COPY : PAYLOAD_KEEP,
+						   subspans, xfer_size);
+	  
+      fabric->send(new RemoteWriteMessage(dest, args, payload));
+	  
+      offset += xfer_size;
+      datalen -= xfer_size;
+      count++;
     }
+    return count;
+  }
 
     unsigned do_remote_serdez(Memory mem, off_t offset,
                              CustomSerdezID serdez_id,

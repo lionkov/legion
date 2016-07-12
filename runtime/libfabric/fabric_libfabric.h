@@ -117,6 +117,7 @@ class FabMessage : public Message {
     static std::string fi_cq_error_str(const int ret, fid_cq* cq);
     static std::string fi_error_str(const int ret, const std::string call,
 				    const std::string file, const int line);
+    int get_max_send(); 
 
   protected:
     NodeId	id;
