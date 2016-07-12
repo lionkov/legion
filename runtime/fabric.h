@@ -12,7 +12,7 @@
 #include <cstring>
 
 #define NELEM(x) (sizeof(x) / sizeof(x[0]))
-#define MAX_MESSAGE_TYPES 128
+#define MAX_MESSAGE_TYPES 256
 
 
 enum MessageIds {
@@ -138,7 +138,6 @@ struct FabContiguousPayload : public FabPayload {
   FabContiguousPayload(int mode, void *data, size_t s);
   virtual ~FabContiguousPayload(void);
   
-
   virtual ssize_t size(void);
   virtual void* ptr(void);
   virtual ssize_t copy(void *dest, size_t destsz);
