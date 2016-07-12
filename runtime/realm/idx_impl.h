@@ -107,23 +107,33 @@ namespace Realm {
     };
 
     // active messages
+    
+    class ValidMaskRequestMessageType : public MessageType {
+    public:
+      ValidMaskRequestMessageType()
+	: MessageType(VALID_MASK_REQ_MSGID, sizeof(RequestArgs), false, true) { }
 
-    struct ValidMaskRequestMessage {
       struct RequestArgs {
 	IndexSpace is;
 	int sender;
       };
 
-      static void handle_request(RequestArgs args);
+      void request(Message* m);
       
-      typedef ActiveMessageShortNoReply<VALID_MASK_REQ_MSGID,
- 				        RequestArgs,
-				        handle_request> ActiveMessage;
-
-      static void send_request(gasnet_node_t target, IndexSpace is);
+      static void send_request(NodeId target, IndexSpace is);      
     };
 
-    struct ValidMaskDataMessage {
+    class ValidMaskRequestMessage : public FabMessage {
+    public:
+      ValidMaskRequestMessage(NodeId dest, void* args)
+	: FabMessage(dest, VALID_MASK_REQ_MSGID, args, NULL, true) { }
+    };
+
+    class ValidMaskDataMessageType : public MessageType {
+    public:
+      ValidMaskDataMessageType()
+	: MessageType(VALID_MASK_DATA_MSGID, sizeof(RequestArgs), true, true) { }
+
       struct RequestArgs : public BaseMedium {
 	IndexSpace is;
 	unsigned block_id;
@@ -133,18 +143,20 @@ namespace Realm {
 	coord_t last_enabled_elmt;
       };
 
-      static void handle_request(RequestArgs args, const void *data, size_t datalen);
+      void request(Message* m);
 
-      typedef ActiveMessageMediumNoReply<VALID_MASK_DATA_MSGID,
-				         RequestArgs,
-				         handle_request> ActiveMessage;
-      
-      static void send_request(gasnet_node_t target, IndexSpace is, unsigned block_id,
+      static void send_request(NodeId target, IndexSpace is, unsigned block_id,
 			       coord_t first_element, size_t num_elements,
 			       coord_t first_enabled_elmt, coord_t last_enabled_elmt,
 			       const void *data, size_t datalen, int payload_mode);
     };
 
+    class ValidMaskDataMessage : public FabMessage {
+    public:
+      ValidMaskDataMessage(NodeId dest, void* args, FabPayload* payload)
+	: FabMessage(dest, VALID_MASK_DATA_MSGID, args, payload, true) { }
+    };
+   
 }; // namespace Realm
 
 #endif // ifndef REALM_IDX_IMPL_H

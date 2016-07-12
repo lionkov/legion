@@ -1716,7 +1716,7 @@ namespace Realm {
         e = valid_mask_event;
       }
 
-      ValidMaskRequestMessage::send_request(valid_mask_owner, me);
+      ValidMaskRequestMessageType::send_request(valid_mask_owner, me);
 
       return e;
     }
@@ -1775,16 +1775,11 @@ namespace Realm {
       }
     }
 
-  
-  ////////////////////////////////////////////////////////////////////////
-  //
-  // class ValidMaskRequestMessage
-  //
-
-  /*static*/ void ValidMaskRequestMessage::handle_request(RequestArgs args)
-  {
+  void ValidMaskRequestMessageType::request(Message* m) {
+    RequestArgs* args = (RequestArgs*) m->args;
+    
     DetailedTimer::ScopedPush sp(TIME_LOW_LEVEL);
-    IndexSpaceImpl *r_impl = get_runtime()->get_index_space_impl(args.is);
+    IndexSpaceImpl *r_impl = get_runtime()->get_index_space_impl(args->is);
 
     const ElementMask *mask = r_impl->valid_mask;
     assert(mask);
@@ -1796,84 +1791,77 @@ namespace Realm {
     // send data in 2KB blocks
     unsigned block_id = 0;
     while(mask_len >= (1 << 11)) {
-      ValidMaskDataMessage::send_request(args.sender, args.is, block_id,
-					 mask->first_element,
-					 mask->num_elements,
-					 mask->first_enabled_elmt,
-					 mask->last_enabled_elmt,
-					 mask_data,
-					 1 << 11,
-					 PAYLOAD_KEEP);
+      ValidMaskDataMessageType::send_request(args->sender, args->is, block_id,
+					     mask->first_element,
+					     mask->num_elements,
+					     mask->first_enabled_elmt,
+					     mask->last_enabled_elmt,
+					     mask_data,
+					     1 << 11,
+					     PAYLOAD_KEEP);
       mask_data += 1 << 11;
       mask_len -= 1 << 11;
       block_id++;
     }
     if(mask_len) {
-      ValidMaskDataMessage::send_request(args.sender, args.is, block_id,
-					 mask->first_element,
-					 mask->num_elements,
-					 mask->first_enabled_elmt,
-					 mask->last_enabled_elmt,
-					 mask_data,
-					 mask_len,
-					 PAYLOAD_KEEP);
+      ValidMaskDataMessageType::send_request(args->sender, args->is, block_id,
+					     mask->first_element,
+					     mask->num_elements,
+					     mask->first_enabled_elmt,
+					     mask->last_enabled_elmt,
+					     mask_data,
+					     mask_len,
+					     PAYLOAD_KEEP);
     }
   }
 
-  /*static*/ void ValidMaskRequestMessage::send_request(gasnet_node_t target,
-							IndexSpace is)
-  {
-    RequestArgs args;
-
-    args.sender = gasnet_mynode();
-    args.is = is;
-    ActiveMessage::request(target, args);
+  /*static*/ void ValidMaskRequestMessageType::send_request(NodeId target,
+							    IndexSpace is) {
+    RequestArgs* args = new RequestArgs();
+    args->sender = fabric->get_id();
+    args->is = is;
+    fabric->send(new ValidMaskRequestMessage(target, args));
   }
   
-
-  ////////////////////////////////////////////////////////////////////////
-  //
-  // class IndexSpaceAllocatorImpl
-  //
-
-  /*static*/ void ValidMaskDataMessage::handle_request(RequestArgs args,
-						       const void *data,
-						       size_t datalen)
-  {
+  void ValidMaskDataMessageType::request(Message* m) {
+    RequestArgs* args = (RequestArgs*) m->args;
+    void* data = m->payload->ptr();
+    size_t datalen = m->payload->size();
+    
     DetailedTimer::ScopedPush sp(TIME_LOW_LEVEL);
-    IndexSpaceImpl *r_impl = get_runtime()->get_index_space_impl(args.is);
+    IndexSpaceImpl *r_impl = get_runtime()->get_index_space_impl(args->is);
 
     Event to_trigger = Event::NO_EVENT;
     {
       AutoHSLLock a(r_impl->valid_mask_mutex);
-      log_meta.info() << "received valid mask data for " << args.is << ", " << datalen << " bytes (" << r_impl->valid_mask_count << " blocks expected)";
+      log_meta.info() << "received valid mask data for " << args->is << ", " << datalen << " bytes (" << r_impl->valid_mask_count << " blocks expected)";
 
       ElementMask *mask = r_impl->valid_mask;
       assert(mask);
 
       // make sure parameters match
-      if((mask->first_element != args.first_element) ||
-	 (mask->num_elements != args.num_elements) ||
-	 (mask->first_enabled_elmt != args.first_enabled_elmt) ||
-	 (mask->last_enabled_elmt != args.last_enabled_elmt)) {
-	log_meta.info() << "resizing valid mask for " << args.is << " (first=" << args.first_element << " num=" << args.num_elements << ")";
+      if((mask->first_element != args->first_element) ||
+	 (mask->num_elements != args->num_elements) ||
+	 (mask->first_enabled_elmt != args->first_enabled_elmt) ||
+	 (mask->last_enabled_elmt != args->last_enabled_elmt)) {
+	log_meta.info() << "resizing valid mask for " << args->is << " (first=" << args->first_element << " num=" << args->num_elements << ")";
 
-	mask->first_element = args.first_element;
-	mask->num_elements = args.num_elements;
-	mask->first_enabled_elmt = args.first_enabled_elmt;
-	mask->last_enabled_elmt = args.last_enabled_elmt;
+	mask->first_element = args->first_element;
+	mask->num_elements = args->num_elements;
+	mask->first_enabled_elmt = args->first_enabled_elmt;
+	mask->last_enabled_elmt = args->last_enabled_elmt;
 	free(mask->raw_data);
-	size_t bytes_needed = ElementMaskImpl::bytes_needed(args.first_element, args.num_elements);
+	size_t bytes_needed = ElementMaskImpl::bytes_needed(args->first_element, args->num_elements);
 	mask->raw_data = (char *)calloc(1, bytes_needed);  // sets initial values to 0
 	r_impl->valid_mask_count = (mask->raw_size() + 2047) >> 11;
       }
 
-      assert((args.block_id << 11) < mask->raw_size());
+      assert((args->block_id << 11) < mask->raw_size());
 
-      memcpy(mask->raw_data + (args.block_id << 11), data, datalen);
+      memcpy(mask->raw_data + (args->block_id << 11), data, datalen);
 
       //printf("got piece of valid mask data for region " IDFMT " (%d expected)\n",
-      //       args.region.id, r_impl->valid_mask_count);
+      //       args->region.id, r_impl->valid_mask_count);
       r_impl->valid_mask_count--;
       if(r_impl->valid_mask_count == 0) {
 	r_impl->valid_mask_complete = true;
@@ -1889,25 +1877,28 @@ namespace Realm {
     }
   }
 
-  /*static*/ void ValidMaskDataMessage::send_request(gasnet_node_t target,
-						     IndexSpace is, unsigned block_id,
-						     coord_t first_element,
-						     size_t num_elements,
-						     coord_t first_enabled_elmt,
-						     coord_t last_enabled_elmt,
-						     const void *data,
-						     size_t datalen,
-						     int payload_mode)
-  {
-    RequestArgs args;
+  /*static*/ void ValidMaskDataMessageType::send_request(NodeId target,
+							 IndexSpace is, unsigned block_id,
+							 coord_t first_element,
+							 size_t num_elements,
+							 coord_t first_enabled_elmt,
+							 coord_t last_enabled_elmt,
+							 const void *data,
+							 size_t datalen,
+							 int payload_mode) { 
+    RequestArgs* args = new RequestArgs();
+    args->is = is;
+    args->block_id = block_id;
+    args->first_element = first_element;
+    args->num_elements = num_elements;
+    args->first_enabled_elmt = first_enabled_elmt;
+    args->last_enabled_elmt = last_enabled_elmt;
 
-    args.is = is;
-    args.block_id = block_id;
-    args.first_element = first_element;
-    args.num_elements = num_elements;
-    args.first_enabled_elmt = first_enabled_elmt;
-    args.last_enabled_elmt = last_enabled_elmt;
-    ActiveMessage::request(target, args, data, datalen, payload_mode);
+    FabContiguousPayload* payload = new FabContiguousPayload(payload_mode,
+							     (void*) data,
+							     datalen); 
+
+    fabric->send(new ValidMaskDataMessage(target, args, payload));
   }
   
 }; // namespace Realm
