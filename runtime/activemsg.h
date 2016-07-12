@@ -27,7 +27,7 @@
 #include <sys/types.h>
 
     enum ActiveMessageIDs {
-      FIRST_AVAILABLE = 140,
+      //FIRST_AVAILABLE = 140,
       //NODE_ANNOUNCE_MSGID,
       //SPAWN_TASK_MSGID,
       //LOCK_REQUEST_MSGID,

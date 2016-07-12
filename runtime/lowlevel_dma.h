@@ -47,15 +47,36 @@ namespace LegionRuntime {
       REMOTE_COPY_MSGID = 200,
       REMOTE_FILL_MSGID = 201,
     };
+    
+    // Message types
+    class RemoteCopyMessageType : public MessageType {
+    public:
+      RemoteCopyMessageType()
+	: MessageType(REMOTE_COPY_MSGID, sizeof(RemoteCopyArgs), true, true) { }
+      
+      void request(Message* m);
+    };
 
-    typedef ActiveMessageMediumNoReply<REMOTE_COPY_MSGID,
-				       RemoteCopyArgs,
-				       handle_remote_copy> RemoteCopyMessage;
+    class RemoteCopyMessage : public FabMessage {
+    public: 
+      RemoteCopyMessage(NodeId dest, void* args, FabPayload* payload)
+	: FabMessage(dest, REMOTE_COPY_MSGID, args, payload, true) { }
+    };
+    
+    class RemoteFillMessageType : public MessageType {
+    public:
+      RemoteFillMessageType()
+	: MessageType(REMOTE_FILL_MSGID, sizeof(RemoteFillArgs), true, true) { }
+      
+      void request(Message* m);
+    };
 
-    typedef ActiveMessageMediumNoReply<REMOTE_FILL_MSGID,
-                                       RemoteFillArgs,
-                                       handle_remote_fill> RemoteFillMessage;
-
+    class RemoteFillMessage : public FabMessage {
+    public: 
+      RemoteFillMessage(NodeId dest, void* args, FabPayload* payload)
+	: FabMessage(dest, REMOTE_FILL_MSGID, args, payload, true) { }
+    };
+   
     extern void init_dma_handler(void);
 
     extern void start_dma_worker_threads(int count, Realm::CoreReservationSet& crs);

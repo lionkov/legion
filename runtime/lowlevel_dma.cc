@@ -96,6 +96,25 @@ namespace LegionRuntime {
       std::vector<Thread *> worker_threads;
     };
 
+    
+    void RemoteCopyMessageType::request(Message* m) {
+      RemoteCopyArgs* args = (RemoteCopyArgs*) m->args;
+      void* data = m->payload->ptr();
+      size_t datalen = m->payload->size();
+      
+      handle_remote_copy(*args, data, datalen);
+    }
+    
+    
+    void RemoteFillMessageType::request(Message* m) {
+      RemoteFillArgs* args = (RemoteFillArgs*) m->args;
+      void* data = m->payload->ptr();
+      size_t datalen = m->payload->size();
+      
+      handle_remote_fill(*args, data, datalen);
+    }
+
+
   ////////////////////////////////////////////////////////////////////////
   //
   // class DmaRequest
@@ -4333,7 +4352,7 @@ namespace LegionRuntime {
 namespace Realm {
 
   using namespace LegionRuntime::LowLevel;
-
+  
     Event Domain::fill(const std::vector<CopySrcDstField> &dsts,
                        const void *fill_value, size_t fill_value_size,
                        Event wait_on /*= Event::NO_EVENT*/) const
@@ -4361,13 +4380,13 @@ namespace Realm {
 	  get_runtime()->optable.add_local_operation(ev, r);
           r->check_readiness(false, dma_queue);
         } else {
-          RemoteFillArgs args;
-          args.inst = it->inst;
-          args.offset = it->offset;
-          args.size = it->size;
-          args.before_fill = wait_on;
-          args.after_fill = ev;
-          //args.priority = 0;
+	  RemoteFillArgs* args = new RemoteFillArgs();       
+          args->inst = it->inst;
+          args->offset = it->offset;
+          args->size = it->size;
+          args->before_fill = wait_on;
+          args->after_fill = ev;
+          //args->priority = 0;
 
           size_t msglen = r->compute_size();
           void *msgdata = malloc(msglen);
@@ -4375,8 +4394,12 @@ namespace Realm {
           r->serialize(msgdata);
 
 	  get_runtime()->optable.add_remote_operation(ev, node);
-
-          RemoteFillMessage::request(node, args, msgdata, msglen, PAYLOAD_FREE);
+	  
+	  FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_FREE,
+								   msgdata,
+								   msglen);
+	  
+	  fabric->send(new RemoteFillMessage(node, args, payload));
 
 	  // release local copy of operation
 	  r->remove_reference();
@@ -4542,22 +4565,24 @@ namespace Realm {
               r->check_readiness(false, dma_queue);
               finish_events.insert(ev);
             } else {
-              RemoteCopyArgs args;
-              args.redop_id = 0;
-              args.red_fold = false;
-              args.before_copy = wait_on;
-              args.after_copy = ev;
-              args.priority = priority;
+              RemoteCopyArgs* args = new RemoteCopyArgs();
+	      args->redop_id = 0;
+              args->red_fold = false;
+              args->before_copy = wait_on;
+              args->after_copy = ev;
+              args->priority = priority;
 
               size_t msglen = r->compute_size();
               void *msgdata = malloc(msglen);
 
               r->serialize(msgdata);
 
-              log_dma.debug("performing serdez on remote node (%d), event=" IDFMT "/%d", dma_node, args.after_copy.id, args.after_copy.gen);
+              log_dma.debug("performing serdez on remote node (%d), event=" IDFMT "/%d",
+			    dma_node, args->after_copy.id, args->after_copy.gen);
 	      get_runtime()->optable.add_remote_operation(ev, dma_node);
-              RemoteCopyMessage::request(dma_node, args, msgdata, msglen, PAYLOAD_FREE);
-
+	      FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_FREE, msgdata, msglen);
+	      fabric->send(new RemoteCopyMessage(dma_node, args, payload));
+     
               finish_events.insert(ev);
               // done with the local copy of the request
 	      r->remove_reference();
@@ -4633,22 +4658,29 @@ namespace Realm {
 
 	    finish_events.insert(ev);
 	  } else {
-	    RemoteCopyArgs args;
-	    args.redop_id = 0;
-	    args.red_fold = false;
-	    args.before_copy = wait_on;
-	    args.after_copy = ev;
-	    args.priority = priority;
+	    LegionRuntime::LowLevel::RemoteCopyArgs* args =
+	      new LegionRuntime::LowLevel::RemoteCopyArgs();
+ 	    args->redop_id = 0;
+	    args->red_fold = false;
+	    args->before_copy = wait_on;
+	    args->after_copy = ev;
+	    args->priority = priority;
 
             size_t msglen = r->compute_size();
             void *msgdata = malloc(msglen);
 
             r->serialize(msgdata);
 
-	    log_dma.debug("performing copy on remote node (%d), event=" IDFMT "/%d", dma_node, args.after_copy.id, args.after_copy.gen);
+	    log_dma.debug("performing copy on remote node (%d), event=" IDFMT "/%d",
+			  dma_node, args->after_copy.id, args->after_copy.gen);
 	    get_runtime()->optable.add_remote_operation(ev, dma_node);
-	    RemoteCopyMessage::request(dma_node, args, msgdata, msglen, PAYLOAD_FREE);
-	  
+	    
+	    FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_FREE,
+								     msgdata,
+								     msglen);
+	    
+	    fabric->send(new RemoteCopyMessage(dma_node, args, payload));
+	    
 	    finish_events.insert(ev);
 
 	    // done with the local copy of the request
@@ -4700,21 +4732,29 @@ namespace Realm {
 	  
 	  r->check_readiness(false, dma_queue);
 	} else {
-	  RemoteCopyArgs args;
-	  args.redop_id = redop_id;
-	  args.red_fold = red_fold;
-	  args.before_copy = wait_on;
-	  args.after_copy = ev;
-	  args.priority = 0 /*priority*/;
+	  LegionRuntime::LowLevel::RemoteCopyArgs* args =
+	    new LegionRuntime::LowLevel::RemoteCopyArgs();
+
+	  args->redop_id = redop_id;
+	  args->red_fold = red_fold;
+	  args->before_copy = wait_on;
+	  args->after_copy = ev;
+	  args->priority = 0 /*priority*/;
 
           size_t msglen = r->compute_size();
           void *msgdata = malloc(msglen);
           r->serialize(msgdata);
 
 	  log_dma.debug("performing reduction on remote node (%d), event=" IDFMT "/%d",
-		       src_node, args.after_copy.id, args.after_copy.gen);
+		       src_node, args->after_copy.id, args->after_copy.gen);
 	  get_runtime()->optable.add_remote_operation(ev, src_node);
-	  RemoteCopyMessage::request(src_node, args, msgdata, msglen, PAYLOAD_FREE);
+
+	  FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_FREE,
+								   msgdata,
+								   msglen);
+
+	  fabric->send(new RemoteCopyMessage(src_node, args, payload));
+	 
 	  // done with the local copy of the request
 	  r->remove_reference();
 	}

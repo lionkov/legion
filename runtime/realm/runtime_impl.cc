@@ -775,6 +775,8 @@ namespace Realm {
       fabric->add_message_type(new RuntimeShutdownMessageType(), "Machine Shutdown");
       fabric->add_message_type(new ValidMaskRequestMessageType(), "Valid Mask Request");
       fabric->add_message_type(new ValidMaskDataMessageType(), "Valid Mask Data Request");
+      fabric->add_message_type(new LegionRuntime::LowLevel::RemoteCopyMessageType(), "Remote Copy");
+      fabric->add_message_type(new LegionRuntime::LowLevel::RemoteFillMessageType(), "Remote Fill");
             
       gasnet_handlerentry_t handlers[128];
       int hcount = 0;
@@ -790,13 +792,13 @@ namespace Realm {
       //hcount += RemoteMemAllocRequest::Response::add_handler_entries(&handlers[hcount], "Remote Memory Allocation Response AM");
       //hcount += CreateInstanceRequest::Request::add_handler_entries(&handlers[hcount], "Create Instance Request AM");
       //hcount += CreateInstanceRequest::Response::add_handler_entries(&handlers[hcount], "Create Instance Response AM");
-      hcount += RemoteCopyMessage::add_handler_entries(&handlers[hcount], "Remote Copy AM");
-      hcount += RemoteFillMessage::add_handler_entries(&handlers[hcount], "Remote Fill AM");
+      //hcount += RemoteCopyMessage::add_handler_entries(&handlers[hcount], "Remote Copy AM");
+      //hcount += RemoteFillMessage::add_handler_entries(&handlers[hcount], "Remote Fill AM");
       //hcount += ValidMaskRequestMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Valid Mask Request AM");
       //hcount += ValidMaskDataMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Valid Mask Data AM");
 #ifdef DETAILED_TIMING
       // hcount += TimerDataRequestMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Roll-up Request AM");
-      hcount += TimerDataResponseMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Roll-up Data AM");
+      //hcount += TimerDataResponseMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Roll-up Data AM");
       //hcount += ClearTimersMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Clear Timer Request AM");
 #endif
       //hcount += DestroyInstanceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Destroy Instance AM");
