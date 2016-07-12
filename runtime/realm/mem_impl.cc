@@ -907,7 +907,7 @@ namespace Realm {
   void CreateInstanceRequestType::request(Message* m) { 
     RequestArgs* args = (RequestArgs*) m->args;
     void* msgdata = m->payload->ptr();
-    size_t msglen = m->payload->size();
+    //size_t msglen = m->payload->size();
     
     DetailedTimer::ScopedPush sp(TIME_LOW_LEVEL);
 
@@ -1160,19 +1160,20 @@ namespace Realm {
   //
   // class RemoteSerdezMessage
   //
-  /*static*/ void RemoteSerdezMessage::handle_request(RequestArgs args,
-                                                      const void *data,
-                                                      size_t datalen)
-  {
-    log_copy.debug() << "received remote serdez request: mem=" << args.mem
-		     << ", offset=" << args.offset << ", size=" << datalen
-		     << ", seq=" << args.sender << '/' << args.sequence_id;
+  void RemoteSerdezMessageType::request(Message* m) {
+    RequestArgs* args = (RequestArgs*) m->args;
+    void* data = m->payload->ptr();
+    size_t datalen = m->payload->size();
+    
+    log_copy.debug() << "received remote serdez request: mem=" << args->mem
+		     << ", offset=" << args->offset << ", size=" << datalen
+		     << ", seq=" << args->sender << '/' << args->sequence_id;
 
-    const CustomSerdezUntyped *serdez_op = get_runtime()->custom_serdez_table[args.serdez_id];
+    const CustomSerdezUntyped *serdez_op = get_runtime()->custom_serdez_table[args->serdez_id];
     size_t field_size = serdez_op->sizeof_field_type;
-    char* pos = (char*)get_runtime()->get_memory_impl(args.mem)->get_direct_ptr(args.offset, args.count * serdez_op->sizeof_field_type);
+    char* pos = (char*)get_runtime()->get_memory_impl(args->mem)->get_direct_ptr(args->offset, args->count * serdez_op->sizeof_field_type);
     const char* buffer = (const char*) data;
-    for(size_t i = 0; i < args.count; i++) {
+    for(size_t i = 0; i < args->count; i++) {
       size_t elemnt_size = serdez_op->deserialize(pos, buffer);
       buffer += elemnt_size;
       pos+= field_size;
@@ -1181,10 +1182,10 @@ namespace Realm {
     assert(datalen == 0);
 
     // track the sequence ID to know when the full RDMA is done
-    if(args.sequence_id > 0) {
+    if(args->sequence_id > 0) {
       PartialWriteKey key;
-      key.sender = args.sender;
-      key.sequence_id = args.sequence_id;
+      key.sender = args->sender;
+      key.sequence_id = args->sequence_id;
       partial_remote_writes_lock.lock();
       PartialWriteMap::iterator it = partial_remote_writes.find(key);
       if(it == partial_remote_writes.end()) {
@@ -1211,7 +1212,7 @@ namespace Realm {
 	if(entry.remaining_count == 0) {
 	  // we're the last write, and we've already got the fence, so
 	  //  respond
-          RemoteWriteFenceAckMessage::send_request(args.sender,
+          RemoteWriteFenceAckMessage::send_request(args->sender,
                                                    entry.fence);
 	  partial_remote_writes.erase(it);
 	  partial_remote_writes_lock.unlock();
@@ -1227,47 +1228,52 @@ namespace Realm {
   // class RemoteReduceMessage
   //
 
-  /*static*/ void RemoteReduceMessage::handle_request(RequestArgs args,
-						      const void *data,
-						      size_t datalen)
-  {
+
+
+  
+
+  void RemoteReduceMessageType::request(Message* m) { 
+    RequestArgs* args = (RequestArgs*) m->args;
+    void* data = m->payload->ptr();
+    size_t datalen = m->payload->size();
+    
     ReductionOpID redop_id;
     bool red_fold;
-    if(args.redop_id > 0) {
-      redop_id = args.redop_id;
+    if(args->redop_id > 0) {
+      redop_id = args->redop_id;
       red_fold = false;
-    } else if(args.redop_id < 0) {
-      redop_id = -args.redop_id;
+    } else if(args->redop_id < 0) {
+      redop_id = -args->redop_id;
       red_fold = true;
     } else {
-      assert(args.redop_id != 0);
+      assert(args->redop_id != 0);
       return;
     }
 
     log_copy.debug("received remote reduce request: mem=" IDFMT ", offset=%zd+%d, size=%zd, redop=%d(%s), seq=%d/%d",
-		   args.mem.id, args.offset, args.stride, datalen,
+		   args->mem.id, args->offset, args->stride, datalen,
 		   redop_id, (red_fold ? "fold" : "apply"),
-		   args.sender, args.sequence_id);
+		   args->sender, args->sequence_id);
 
     const ReductionOpUntyped *redop = get_runtime()->reduce_op_table[redop_id];
 
     size_t count = datalen / redop->sizeof_rhs;
 
-    void *lhs = get_runtime()->get_memory_impl(args.mem)->get_direct_ptr(args.offset, args.stride * count);
+    void *lhs = get_runtime()->get_memory_impl(args->mem)->get_direct_ptr(args->offset, args->stride * count);
     assert(lhs);
 
     if(red_fold)
       redop->fold_strided(lhs, data,
-			  args.stride, redop->sizeof_rhs, count, false /*not exclusive*/);
+			  args->stride, redop->sizeof_rhs, count, false /*not exclusive*/);
     else
       redop->apply_strided(lhs, data, 
-			   args.stride, redop->sizeof_rhs, count, false /*not exclusive*/);
+			   args->stride, redop->sizeof_rhs, count, false /*not exclusive*/);
 
     // track the sequence ID to know when the full RDMA is done
-    if(args.sequence_id > 0) {
+    if(args->sequence_id > 0) {
       PartialWriteKey key;
-      key.sender = args.sender;
-      key.sequence_id = args.sequence_id;
+      key.sender = args->sender;
+      key.sequence_id = args->sequence_id;
       partial_remote_writes_lock.lock();
       PartialWriteMap::iterator it = partial_remote_writes.find(key);
       if(it == partial_remote_writes.end()) {
@@ -1278,7 +1284,7 @@ namespace Realm {
 	partial_remote_writes[key] = entry;
 #ifdef DEBUG_PWT
 	printf("PWT: %d: new entry for %d/%d: %p, %d\n",
-	       gasnet_mynode(), key.sender, key.sequence_id,
+	       fabric->get_id(), key.sender, key.sequence_id,
 	       entry.fence, entry.remaining_count);
 #endif
       } else {
@@ -1286,7 +1292,7 @@ namespace Realm {
 	PartialWriteEntry& entry = it->second;
 #ifdef DEBUG_PWT
 	printf("PWT: %d: have entry for %d/%d: %p, %d -> %d\n",
-	       gasnet_mynode(), key.sender, key.sequence_id,
+	       fabric->get_id(), key.sender, key.sequence_id,
 	       entry.fence,
 	       entry.remaining_count, entry.remaining_count - 1);
 #endif
@@ -1294,7 +1300,7 @@ namespace Realm {
 	if(entry.remaining_count == 0) {
 	  // we're the last write, and we've already got the fence, so 
 	  //  respond
-          RemoteWriteFenceAckMessage::send_request(args.sender,
+          RemoteWriteFenceAckMessage::send_request(args->sender,
                                                    entry.fence);
 	  partial_remote_writes.erase(it);
 	  partial_remote_writes_lock.unlock();
@@ -1485,11 +1491,11 @@ namespace Realm {
     log_copy.debug("sending remote write request: mem=" IDFMT ", offset=%zd, size=%zd",
 		   mem.id, offset, datalen);
 
-    MemoryImpl *m_impl = get_runtime()->get_memory_impl(mem);
+    // MemoryImpl *m_impl = get_runtime()->get_memory_impl(mem);
 
     NodeId dest = ID(mem).node();
       
-    /*
+    /* 
       char *dstptr;
       if(m_impl->kind == MemoryImpl::MKIND_RDMA) {
       dstptr = ((char *)(((RemoteMemory *)m_impl)->regbase)) + offset;
@@ -1560,7 +1566,7 @@ namespace Realm {
     log_copy.debug("sending remote write request: mem=" IDFMT ", offset=%zd, size=%zdx%zd",
 		   mem.id, offset, datalen, lines);
 
-    MemoryImpl *m_impl = get_runtime()->get_memory_impl(mem);
+    //MemoryImpl *m_impl = get_runtime()->get_memory_impl(mem);
     NodeId dest = ID(mem).node();
       
     /* CHECK -- I believe fabric is always constrained by posted buffer size 
@@ -1635,7 +1641,7 @@ namespace Realm {
     log_copy.debug("sending remote write request: mem=" IDFMT ", offset=%zd, size=%zd(%zd spans)",
 		   mem.id, offset, datalen, spans.size());
 
-    MemoryImpl *m_impl = get_runtime()->get_memory_impl(mem);
+    //MemoryImpl *m_impl = get_runtime()->get_memory_impl(mem);
     /* 
        char *dstptr;
        if(m_impl->kind == MemoryImpl::MKIND_RDMA) {
@@ -1776,16 +1782,21 @@ namespace Realm {
           cur_size += elemnt_size;
         }
         assert(cur_size > 0);
-        RemoteSerdezMessage::RequestArgs args;
-        args.mem = mem;
-        args.offset = offset;
+	RemoteSerdezMessageType::RequestArgs* args =
+	  new RemoteSerdezMessageType::RequestArgs() ;
+        args->mem = mem;
+        args->offset = offset;
         offset = new_offset;
-        args.count = cur_count;
-        args.serdez_id = serdez_id;
-        args.sender = gasnet_mynode();
-        args.sequence_id = sequence_id;
-        RemoteSerdezMessage::ActiveMessage::request(ID(mem).node(), args,
-                                              buffer_start, cur_size, PAYLOAD_COPY);
+        args->count = cur_count;
+        args->serdez_id = serdez_id;
+        args->sender = gasnet_mynode();
+        args->sequence_id = sequence_id;
+	
+	FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_COPY,
+								 buffer_start,
+								 cur_size);
+	fabric->send(new RemoteSerdezMessage(ID(mem).node(), args, payload));
+	
         xfers ++;
       }
       free(buffer_start);
@@ -1797,8 +1808,8 @@ namespace Realm {
 			      const void *data, size_t count,
 			      off_t src_stride, off_t dst_stride,
 			      unsigned sequence_id,
-			      bool make_copy /*= false*/)
-    {
+			      bool make_copy /*= false*/) {
+      
       const ReductionOpUntyped *redop = get_runtime()->reduce_op_table[redop_id];
       size_t rhs_size = redop->sizeof_rhs;
 
@@ -1808,64 +1819,70 @@ namespace Realm {
 
       // reductions always have to bounce off an intermediate buffer, so are subject to
       //  LMB limits
-      {
-	size_t max_xfer_size = get_lmb_size(ID(mem).node());
-	size_t max_elmts_per_xfer = max_xfer_size / rhs_size;
-	assert(max_elmts_per_xfer > 0);
 
-	if(count > max_elmts_per_xfer) {
-	  log_copy.info("breaking large reduction into pieces");
-	  const char *pos = (const char *)data;
-	  RemoteReduceMessage::RequestArgs args;
-	  args.mem = mem;
-	  args.offset = offset;
-	  args.stride = dst_stride;
-	  assert(((off_t)(args.stride)) == dst_stride); // did it fit?
-	  // fold encoded as a negation of the redop_id
-	  args.redop_id = red_fold ? -redop_id : redop_id;
-	  //args.red_fold = red_fold;
-	  args.sender = gasnet_mynode();
-	  args.sequence_id = sequence_id;
-
-	  int xfers = 1;
-	  while(count > max_elmts_per_xfer) {
-	    RemoteReduceMessage::ActiveMessage::request(ID(mem).node(), args,
-						  pos, rhs_size,
-						  src_stride, max_elmts_per_xfer,
-						  make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP);
-	    args.offset += dst_stride * max_elmts_per_xfer;
-	    pos += src_stride * max_elmts_per_xfer;
-	    count -= max_elmts_per_xfer;
-	    xfers++;
-	  }
-
-	  // last send includes whatever's left
-	  RemoteReduceMessage::ActiveMessage::request(ID(mem).node(), args,
-						pos, rhs_size, src_stride, count,
-						make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP);
-	  return xfers;
-	}
+      // TODO -- fabric should get destination transfer size
+      NodeId dest = ID(mem).node();
+      size_t max_xfer_size = fabric->get_max_send();
+      size_t max_elmts_per_xfer = max_xfer_size / rhs_size;
+      assert(max_elmts_per_xfer > 0);
+      
+      if(count > max_elmts_per_xfer) {
+	log_copy.info("breaking large reduction into pieces");
       }
-
-      // we get here with a write smaller than the LMB
-      {
-	RemoteReduceMessage::RequestArgs args;
-	args.mem = mem;
-	args.offset = offset;
-	args.stride = dst_stride;
-	assert(((off_t)(args.stride)) == dst_stride); // did it fit?
+      
+      char *pos = (char *)data;
+      int xfers = 1;
+      
+      while(count > max_elmts_per_xfer) {	    
+	RemoteReduceMessageType::RequestArgs* args = 
+	  new RemoteReduceMessageType::RequestArgs(); 
+	args->mem = mem;
+	args->offset = offset;
+	args->stride = dst_stride;
+	assert(((off_t)(args->stride)) == dst_stride); // did it fit?
 	// fold encoded as a negation of the redop_id
-	args.redop_id = red_fold ? -redop_id : redop_id;
-	//args.red_fold = red_fold;
-	args.sender = gasnet_mynode();
-	args.sequence_id = sequence_id;
+	args->redop_id = red_fold ? -redop_id : redop_id;
+	//args->red_fold = red_fold;
+	args->sender = fabric->get_id();
+	args->sequence_id = sequence_id;
 
-	RemoteReduceMessage::ActiveMessage::request(ID(mem).node(), args,
-						    data, rhs_size, src_stride, count,
-						    make_copy ? PAYLOAD_COPY : PAYLOAD_KEEP);
-
-	return 1;
+	FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
+						     PAYLOAD_COPY : PAYLOAD_KEEP,
+						     pos,
+						     rhs_size,
+						     max_elmts_per_xfer,
+						     src_stride);
+	  
+	fabric->send(new RemoteReduceMessage(dest, args, payload));
+	  
+	offset += dst_stride * max_elmts_per_xfer;
+	pos += src_stride * max_elmts_per_xfer;
+	count -= max_elmts_per_xfer;
+	xfers++;
       }
+      // Last chunck sends whatever is left
+      RemoteReduceMessageType::RequestArgs* args = 
+	new RemoteReduceMessageType::RequestArgs(); 
+      args->mem = mem;
+      args->offset = offset;
+      args->stride = dst_stride;
+      assert(((off_t)(args->stride)) == dst_stride); // did it fit?
+      // fold encoded as a negation of the redop_id
+      args->redop_id = red_fold ? -redop_id : redop_id;
+      //args->red_fold = red_fold;
+      args->sender = fabric->get_id();
+      args->sequence_id = sequence_id;
+      
+      FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
+						   PAYLOAD_COPY : PAYLOAD_KEEP,
+						   pos,
+						   rhs_size,
+						   max_elmts_per_xfer,
+						   src_stride);
+      
+      fabric->send(new RemoteReduceMessage(dest, args, payload));
+      
+      return xfers;	
     }
 
     void do_remote_apply_red_list(int node, Memory mem, off_t offset,

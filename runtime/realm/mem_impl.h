@@ -580,7 +580,11 @@ namespace Realm {
       : FabMessage(dest, REMOTE_WRITE_MSGID, args, payload, true) { }
     };
     
-    struct RemoteSerdezMessage {
+    class RemoteSerdezMessageType : public MessageType {
+    public: 
+      RemoteSerdezMessageType()
+	: MessageType(REMOTE_SERDEZ_MSGID, sizeof(RequestArgs), true, true) { }
+
       struct RequestArgs : public BaseMedium {
         Memory mem;
         off_t offset;
@@ -590,16 +594,21 @@ namespace Realm {
         unsigned sequence_id;
       };
 
-      static void handle_request(RequestArgs args, const void *data, size_t datalen);
-
-      typedef ActiveMessageMediumNoReply<REMOTE_SERDEZ_MSGID,
-                                         RequestArgs,
-                                         handle_request> ActiveMessage;
-
-      // no simple send_request method here - see below
+      void request(Message* m);
+      // no simple send_request method here - see below      
     };
 
-    struct RemoteReduceMessage {
+    class RemoteSerdezMessage : public FabMessage {
+    public:
+      RemoteSerdezMessage(NodeId dest, void* args, FabPayload* payload)
+	: FabMessage(dest, REMOTE_SERDEZ_MSGID, args, payload, true) { }
+    };
+
+    class RemoteReduceMessageType : public MessageType {
+    public:
+      RemoteReduceMessageType()
+	: MessageType(REMOTE_REDUCE_MSGID, sizeof(RequestArgs), true, true) { }
+
       struct RequestArgs : public BaseMedium {
 	Memory mem;
 	off_t offset;
@@ -609,16 +618,17 @@ namespace Realm {
 	unsigned sender;
 	unsigned sequence_id;
       };
-      
-      static void handle_request(RequestArgs args, const void *data, size_t datalen);
 
-      typedef ActiveMessageMediumNoReply<REMOTE_REDUCE_MSGID,
-				         RequestArgs,
-				         handle_request> ActiveMessage;
-
-      // no simple send_request method here - see below
+      void request(Message* m);
+      // no simple send_request method here - see below      
     };
-
+    
+    class RemoteReduceMessage : public FabMessage {
+    public:
+      RemoteReduceMessage(NodeId dest, void* args, FabPayload* payload)
+	: FabMessage(dest, REMOTE_REDUCE_MSGID, args, payload, true) { }
+    };
+    
     struct RemoteReduceListMessage {
       struct RequestArgs : public BaseMedium {
 	Memory mem;
