@@ -1687,16 +1687,9 @@ namespace Realm {
     args->wait_on = wait_on;
     args->sender = forwarded ? (-1 - sender) : sender;
 
-    void* data_copy = malloc(datalen);
-    if (!data_copy) {
-      log_barrier.error("Message send failed. Type: BarrierAdjustMessageType Cause: malloc failed");
-      return;
-    }
-    memcpy(data_copy, data, datalen);
 
-    // We now have our own copy of the payload
     FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_KEEP,
-							     data_copy,
+							     (void*) data,
 							     datalen);
 
     fabric->send(new BarrierAdjustMessage(target, args, payload));
@@ -2364,16 +2357,8 @@ static void *bytedup(const void *data, size_t datalen)
     args->migration_target = migration_target;
     args->base_arrival_count = base_arrival_count;
 
-    void* data_copy = malloc(datalen);
-    if (!data_copy) {
-      log_barrier.error("Message send failed. Type: BarrierAdjustMessageType Cause: malloc failed");
-      return;
-    }
-    memcpy(data_copy, data, datalen);
-
-    // We now have our own copy of the payload
     FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_KEEP,
-							     data_copy,
+							     (void*) data,
 							     datalen);
 
     fabric->send(new BarrierTriggerMessage(target, args, payload));

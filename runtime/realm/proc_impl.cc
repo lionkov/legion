@@ -574,12 +574,8 @@ namespace Realm {
     
     if(!prs || prs->empty()) {
       // no profiling, so task args are the only payload
-      
-      // Create a copy of the args, since we do not own them
-      void* arg_copy = malloc(arglen);
-      memcpy(arg_copy, args, arglen);
       FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_FREE,
-							       arg_copy,
+							       (void*) args,
 							       arglen);
       fabric->send(new SpawnTaskMessage(target, (void*) r_args, payload));
     } else {
