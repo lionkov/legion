@@ -1145,8 +1145,8 @@ namespace Realm {
 	if(entry.remaining_count == 0) {
 	  // we're the last write, and we've already got the fence, so 
 	  //  respond
-          RemoteWriteFenceAckMessage::send_request(args->sender,
-                                                   entry.fence);
+          RemoteWriteFenceAckMessageType::send_request(args->sender,
+						       entry.fence);
 	  partial_remote_writes.erase(it);
 	  partial_remote_writes_lock.unlock();
 	  return;
@@ -1212,8 +1212,8 @@ namespace Realm {
 	if(entry.remaining_count == 0) {
 	  // we're the last write, and we've already got the fence, so
 	  //  respond
-          RemoteWriteFenceAckMessage::send_request(args->sender,
-                                                   entry.fence);
+          RemoteWriteFenceAckMessageType::send_request(args->sender,
+						       entry.fence);
 	  partial_remote_writes.erase(it);
 	  partial_remote_writes_lock.unlock();
 	  return;
@@ -1300,8 +1300,8 @@ namespace Realm {
 	if(entry.remaining_count == 0) {
 	  // we're the last write, and we've already got the fence, so 
 	  //  respond
-          RemoteWriteFenceAckMessage::send_request(args->sender,
-                                                   entry.fence);
+          RemoteWriteFenceAckMessageType::send_request(args->sender,
+						       entry.fence);
 	  partial_remote_writes.erase(it);
 	  partial_remote_writes_lock.unlock();
 	  return;
@@ -1380,34 +1380,29 @@ namespace Realm {
     os << "RemoteWriteFence";
   }
   
+  void RemoteWriteFenceMessageType::request(Message* m) {
+    RequestArgs* args = (RequestArgs*) m->args;
 
-  ////////////////////////////////////////////////////////////////////////
-  //
-  // class RemoteWriteFenceMessage
-  //
-
-  /*static*/ void RemoteWriteFenceMessage::handle_request(RequestArgs args)
-  {
     log_copy.debug("remote write fence (mem = " IDFMT ", seq = %d/%d, count = %d, fence = %p",
-		   args.mem.id, args.sender, args.sequence_id, args.num_writes, args.fence);
+		   args->mem.id, args->sender, args->sequence_id, args->num_writes, args->fence);
     
-    assert(args.sequence_id != 0);
+    assert(args->sequence_id != 0);
     // track the sequence ID to know when the full RDMA is done
-    if(args.sequence_id > 0) {
+    if(args->sequence_id > 0) {
       PartialWriteKey key;
-      key.sender = args.sender;
-      key.sequence_id = args.sequence_id;
+      key.sender = args->sender;
+      key.sequence_id = args->sequence_id;
       partial_remote_writes_lock.lock();
       PartialWriteMap::iterator it = partial_remote_writes.find(key);
       if(it == partial_remote_writes.end()) {
 	// first reference to this one
 	PartialWriteEntry entry;
-	entry.fence = args.fence;
-	entry.remaining_count = args.num_writes;
+	entry.fence = args->fence;
+	entry.remaining_count = args->num_writes;
 	partial_remote_writes[key] = entry;
 #ifdef DEBUG_PWT
 	printf("PWT: %d: new entry for %d/%d: %p, %d\n",
-	       gasnet_mynode(), key.sender, key.sequence_id,
+	       fabric->get_id(), key.sender, key.sequence_id,
 	       entry.fence, entry.remaining_count);
 #endif
       } else {
@@ -1415,19 +1410,19 @@ namespace Realm {
 	PartialWriteEntry& entry = it->second;
 #ifdef DEBUG_PWT
 	printf("PWT: %d: have entry for %d/%d: %p -> %p, %d -> %d\n",
-	       gasnet_mynode(), key.sender, key.sequence_id,
-	       entry.fence, args.fence,
-	       entry.remaining_count, entry.remaining_count + args.num_writes);
+	       fabric->get_id(), key.sender, key.sequence_id,
+	       entry.fence, args->fence,
+	       entry.remaining_count, entry.remaining_count + args->num_writes);
 #endif
         assert(entry.fence == 0);
-	entry.fence = args.fence;
-	entry.remaining_count += args.num_writes;
+	entry.fence = args->fence;
+	entry.remaining_count += args->num_writes;
 	// a negative remaining count means we got too many writes!
 	assert(entry.remaining_count >= 0);
 	if(entry.remaining_count == 0) {
 	  // this fence came after all the writes, so respond
-          RemoteWriteFenceAckMessage::send_request(args.sender,
-                                                   entry.fence);
+          RemoteWriteFenceAckMessageType::send_request(args->sender,
+						       entry.fence);
 	  partial_remote_writes.erase(it);
 	  partial_remote_writes_lock.unlock();
 	  return;
@@ -1437,43 +1432,35 @@ namespace Realm {
     }
   }
 
-  /*static*/ void RemoteWriteFenceMessage::send_request(gasnet_node_t target,
-							Memory memory,
-							unsigned sequence_id,
-							unsigned num_writes,
-                                                        RemoteWriteFence *fence)
-  {
-    RequestArgs args;
+  /*static*/ void RemoteWriteFenceMessageType::send_request(NodeId target,
+							    Memory memory,
+							    unsigned sequence_id,
+							    unsigned num_writes,
+							    RemoteWriteFence *fence) { 
+    RequestArgs* args = new RequestArgs();
 
-    args.mem = memory;
-    args.sender = gasnet_mynode();
-    args.sequence_id = sequence_id;
-    args.num_writes = num_writes;
-    args.fence = fence;
-    ActiveMessage::request(target, args);
+    args->mem = memory;
+    args->sender = gasnet_mynode();
+    args->sequence_id = sequence_id;
+    args->num_writes = num_writes;
+    args->fence = fence;
+    fabric->send(new RemoteWriteFenceMessage(target, args));
   }
   
-
-  ////////////////////////////////////////////////////////////////////////
-  //
-  // class RemoteWriteFenceAckMessage
-  //
-
-  /*static*/ void RemoteWriteFenceAckMessage::handle_request(RequestArgs args)
-  {
+  void RemoteWriteFenceAckMessageType::request(Message* m) {
+    RequestArgs* args = (RequestArgs*) m->args;
     log_copy.debug("remote write fence ack: fence = %p",
-		   args.fence);
+		   args->fence);
 
-    args.fence->mark_finished(true /*successful*/);
+    args->fence->mark_finished(true /*successful*/);
   }
 
-  /*static*/ void RemoteWriteFenceAckMessage::send_request(gasnet_node_t target,
-                                                           RemoteWriteFence *fence)
-  {
-    RequestArgs args;
+  /*static*/ void RemoteWriteFenceAckMessageType::send_request(NodeId target,
+							       RemoteWriteFence *fence) { 
+    RequestArgs* args = new RequestArgs(); 
 
-    args.fence = fence;
-    ActiveMessage::request(target, args);
+    args->fence = fence;
+    fabric->send(new RemoteWriteFenceAckMessage(target, args));
   }
   
 
@@ -1892,14 +1879,13 @@ namespace Realm {
     }
 
     void do_remote_fence(Memory mem, unsigned sequence_id, unsigned num_writes,
-                         RemoteWriteFence *fence)
-    {
+                         RemoteWriteFence *fence) { 
       // technically we could handle a num_writes == 0 case, but since it's
       //  probably indicative of badness elsewhere, barf on it for now
       assert(num_writes > 0);
 
-      RemoteWriteFenceMessage::send_request(ID(mem).node(), mem, sequence_id,
-					    num_writes, fence);
+      RemoteWriteFenceMessageType::send_request(ID(mem).node(), mem, sequence_id,
+						num_writes, fence);
     }
   
 }; // namespace Realm

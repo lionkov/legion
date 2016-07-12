@@ -770,6 +770,9 @@ namespace Realm {
       fabric->add_message_type(new RemoteSerdezMessageType(), "Remote Serdez");
       fabric->add_message_type(new RemoteReduceMessageType(), "Remote Reduce");
       fabric->add_message_type(new RemoteReduceListMessageType(), "Remote Reduce List");
+      fabric->add_message_type(new RemoteWriteFenceMessageType(), "Remote Write Fence");
+      fabric->add_message_type(new RemoteWriteFenceAckMessageType(), "Remote Write Fence Ack");
+      fabric->add_message_type(new RuntimeShutdownMessageType(), "Machine Shutdown");
             
       gasnet_handlerentry_t handlers[128];
       int hcount = 0;
@@ -798,11 +801,11 @@ namespace Realm {
       //hcount += RemoteWriteMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Write AM");
       //hcount += RemoteReduceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Reduce AM");
       //hcount += RemoteSerdezMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Serdez AM");
-      hcount += RemoteWriteFenceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Write Fence AM");
-      hcount += RemoteWriteFenceAckMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Write Fence Ack AM");
+      //hcount += RemoteWriteFenceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Write Fence AM");
+      //hcount += RemoteWriteFenceAckMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Write Fence Ack AM");
       //hcount += DestroyLockMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Destroy Lock AM");
       //hcount += RemoteReduceListMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Reduction List AM");
-      hcount += RuntimeShutdownMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Machine Shutdown AM");
+      //hcount += RuntimeShutdownMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Machine Shutdown AM");
       //hcount += BarrierAdjustMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Adjust AM");
       //hcount += BarrierSubscribeMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Subscribe AM");
       //      hcount += BarrierTriggerMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Trigger AM");
@@ -1547,7 +1550,7 @@ namespace Realm {
 	log_runtime.info("shutdown request - notifying other nodes");
 	for(unsigned i = 0; i < gasnet_nodes(); i++)
 	  if(i != gasnet_mynode())
-	    RuntimeShutdownMessage::send_request(i);
+	    RuntimeShutdownMessageType::send_request(i);
       }
 
       log_runtime.info("shutdown request - cleaning up local processors");
@@ -1921,26 +1924,17 @@ namespace Realm {
     {
     }
 
-
-  ////////////////////////////////////////////////////////////////////////
-  //
-  // class RuntimeShutdownMessage
-  //
-
-  /*static*/ void RuntimeShutdownMessage::handle_request(RequestArgs args)
-  {
-    log_runtime.info("received shutdown request from node %d", args.initiating_node);
-
+  void RuntimeShutdownMessageType::request(Message* m) {
+    RequestArgs* args = (RequestArgs*) m->args;
+    log_runtime.info("received shutdown request from node %d", args->initiating_node);
     get_runtime()->shutdown(false);
   }
 
-  /*static*/ void RuntimeShutdownMessage::send_request(gasnet_node_t target)
-  {
-    RequestArgs args;
-
-    args.initiating_node = gasnet_mynode();
-    args.dummy = 0;
-    ActiveMessage::request(target, args);
+  /*static*/ void RuntimeShutdownMessageType::send_request(NodeId target) {
+    RequestArgs* args = new RequestArgs();
+    args->initiating_node = fabric->get_id();
+    args->dummy = 0;
+    fabric->send(new RuntimeShutdownMessage(target, args));
   }
 
   

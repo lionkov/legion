@@ -281,22 +281,26 @@ namespace Realm {
     inline BarrierImpl *get_barrier_impl(Event e) { return get_runtime()->get_barrier_impl(e); }
 
     // active messages
-
-    struct RuntimeShutdownMessage {
+    class RuntimeShutdownMessageType : public MessageType {
+    public:
+      RuntimeShutdownMessageType()
+	: MessageType(MACHINE_SHUTDOWN_MSGID, sizeof(RequestArgs), false, true) { }
+      
       struct RequestArgs {
 	int initiating_node;
 	int dummy; // needed to get sizeof() >= 8
       };
 
-      static void handle_request(RequestArgs args);
-
-      typedef ActiveMessageShortNoReply<MACHINE_SHUTDOWN_MSGID,
-				        RequestArgs,
-				        handle_request> ActiveMessage;
-
-      static void send_request(gasnet_node_t target);
+      void request(Message* m);
+      static void send_request(NodeId target);
     };
-      
+
+    class RuntimeShutdownMessage : public FabMessage {
+    public:
+      RuntimeShutdownMessage(NodeId dest, void* args)
+	: FabMessage(dest, MACHINE_SHUTDOWN_MSGID, args, NULL, true) { }
+    };
+    
 }; // namespace Realm
 
 #endif // ifndef REALM_RUNTIME_IMPL_H

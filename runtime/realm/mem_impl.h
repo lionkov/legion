@@ -663,7 +663,11 @@ namespace Realm {
       virtual void print(std::ostream& os) const;
     };
 
-    struct RemoteWriteFenceMessage {
+    class RemoteWriteFenceMessageType : public MessageType {
+    public:
+      RemoteWriteFenceMessageType()
+	: MessageType(REMOTE_WRITE_FENCE_MSGID, sizeof(RequestArgs), false, true) { }
+
       struct RequestArgs {
 	Memory mem;
 	unsigned sender;
@@ -671,32 +675,40 @@ namespace Realm {
 	unsigned num_writes;
 	RemoteWriteFence *fence;
       };
-       
-      static void handle_request(RequestArgs args);
 
-      typedef ActiveMessageShortNoReply<REMOTE_WRITE_FENCE_MSGID,
-				        RequestArgs,
-				        handle_request> ActiveMessage;
+      void request(Message* m);
 
-      static void send_request(gasnet_node_t target, Memory memory,
+      static void send_request(NodeId target, Memory memory,
 			       unsigned sequence_id, unsigned num_writes,
 			       RemoteWriteFence *fence);
     };
-    
-    struct RemoteWriteFenceAckMessage {
+
+    class RemoteWriteFenceMessage : public FabMessage {
+    public:
+      RemoteWriteFenceMessage(NodeId dest, void* args)
+	: FabMessage(dest, REMOTE_WRITE_FENCE_MSGID, args, NULL, true) { }
+    };
+
+
+    class RemoteWriteFenceAckMessageType : public MessageType {
+    public:
+      RemoteWriteFenceAckMessageType()
+	: MessageType(REMOTE_WRITE_FENCE_ACK_MSGID, sizeof(RequestArgs), false, true) { }
+      
       struct RequestArgs {
 	RemoteWriteFence *fence;
         // TODO: success/failure
       };
-       
-      static void handle_request(RequestArgs args);
 
-      typedef ActiveMessageShortNoReply<REMOTE_WRITE_FENCE_ACK_MSGID,
-				        RequestArgs,
-				        handle_request> ActiveMessage;
-
-      static void send_request(gasnet_node_t target,
+      void request(Message* m);
+      static void send_request(NodeId target,
 			       RemoteWriteFence *fence);
+    };
+
+    class RemoteWriteFenceAckMessage : public FabMessage {
+    public:
+      RemoteWriteFenceAckMessage(NodeId dest, void* args)
+	: FabMessage(dest, REMOTE_WRITE_FENCE_ACK_MSGID, args, NULL, true) { }
     };
     
     // remote memory writes
