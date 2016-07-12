@@ -628,25 +628,32 @@ namespace Realm {
       RemoteReduceMessage(NodeId dest, void* args, FabPayload* payload)
 	: FabMessage(dest, REMOTE_REDUCE_MSGID, args, payload, true) { }
     };
-    
-    struct RemoteReduceListMessage {
+
+    class RemoteReduceListMessageType : public MessageType {
+    public:
+      RemoteReduceListMessageType()
+	: MessageType(REMOTE_REDLIST_MSGID, sizeof(RequestArgs), true, true) { }
+      
       struct RequestArgs : public BaseMedium {
 	Memory mem;
 	off_t offset;
 	ReductionOpID redopid;
       };
 
-      static void handle_request(RequestArgs args, const void *data, size_t datalen);
-      
-      typedef ActiveMessageMediumNoReply<REMOTE_REDLIST_MSGID,
-				         RequestArgs,
-				         handle_request> ActiveMessage;
+      void request(Message* m);
 
-      static void send_request(gasnet_node_t target, Memory mem, off_t offset,
+      static void send_request(NodeId target, Memory mem, off_t offset,
 			       ReductionOpID redopid,
-			       const void *data, size_t datalen, int payload_mode);
+			       const void *data, size_t datalen,
+			       int payload_mode);
     };
-    
+
+    class RemoteReduceListMessage : public FabMessage {
+    public:
+      RemoteReduceListMessage(NodeId dest, void* args, FabPayload* payload)
+	: FabMessage(dest, REMOTE_REDLIST_MSGID, args, payload, true) {  }      
+    };
+        
     class RemoteWriteFence : public Operation::AsyncWorkItem {
     public:
       RemoteWriteFence(Operation *op);

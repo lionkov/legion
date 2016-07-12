@@ -1311,20 +1311,15 @@ namespace Realm {
     }
   }
 
-  
-  ////////////////////////////////////////////////////////////////////////
-  //
-  // class RemoteReduceListMessage
-  //
-
-  /*static*/ void RemoteReduceListMessage::handle_request(RequestArgs args,
-							  const void *data,
-							  size_t datalen)
-  {
-    MemoryImpl *impl = get_runtime()->get_memory_impl(args.mem);
+  void RemoteReduceListMessageType::request(Message* m) {
+    RequestArgs* args = (RequestArgs*) m->args;
+    void* data = m->payload->ptr();
+    size_t datalen = m->payload->size();
+    
+    MemoryImpl *impl = get_runtime()->get_memory_impl(args->mem);
     
     log_copy.debug("received remote reduction list request: mem=" IDFMT ", offset=%zd, size=%zd, redopid=%d",
-		   args.mem.id, args.offset, datalen, args.redopid);
+		   args->mem.id, args->offset, datalen, args->redopid);
 
     switch(impl->kind) {
     case MemoryImpl::MKIND_SYSMEM:
@@ -1335,9 +1330,9 @@ namespace Realm {
 
     case MemoryImpl::MKIND_GLOBAL:
       {
-	const ReductionOpUntyped *redop = get_runtime()->reduce_op_table[args.redopid];
+	const ReductionOpUntyped *redop = get_runtime()->reduce_op_table[args->redopid];
 	assert((datalen % redop->sizeof_list_entry) == 0);
-	impl->apply_reduction_list(args.offset,
+	impl->apply_reduction_list(args->offset,
 				   redop,
 				   datalen / redop->sizeof_list_entry,
 				   data);
@@ -1345,20 +1340,24 @@ namespace Realm {
     }
   }
 
-  /*static*/ void RemoteReduceListMessage::send_request(gasnet_node_t target,
-							Memory mem,
-							off_t offset,
-							ReductionOpID redopid,
-							const void *data,
-							size_t datalen,
-							int payload_mode)
-  {
-    RequestArgs args;
+  /*static*/ void RemoteReduceListMessageType::send_request(NodeId target,
+							    Memory mem,
+							    off_t offset,
+							    ReductionOpID redopid,
+							    const void *data,
+							    size_t datalen,
+							    int payload_mode) { 
+    RequestArgs* args = new RequestArgs();
 
-    args.mem = mem;
-    args.offset = offset;
-    args.redopid = redopid;
-    ActiveMessage::request(target, args, data, datalen, payload_mode);
+    args->mem = mem;
+    args->offset = offset;
+    args->redopid = redopid;
+
+    FabContiguousPayload* payload = new FabContiguousPayload(payload_mode,
+							     (void*) data,
+							     datalen);
+
+    fabric->send(new RemoteReduceListMessage(target, args, payload));
   }
   
 
@@ -1887,9 +1886,8 @@ namespace Realm {
 
     void do_remote_apply_red_list(int node, Memory mem, off_t offset,
 				  ReductionOpID redopid,
-				  const void *data, size_t datalen)
-    {
-      RemoteReduceListMessage::send_request(node, mem, offset, redopid,
+				  const void *data, size_t datalen) { 
+      RemoteReduceListMessageType::send_request(node, mem, offset, redopid,
 					    data, datalen, PAYLOAD_COPY);
     }
 

@@ -769,6 +769,7 @@ namespace Realm {
       fabric->add_message_type(new RemoteWriteMessageType(), "Remote Write");
       fabric->add_message_type(new RemoteSerdezMessageType(), "Remote Serdez");
       fabric->add_message_type(new RemoteReduceMessageType(), "Remote Reduce");
+      fabric->add_message_type(new RemoteReduceListMessageType(), "Remote Reduce List");
             
       gasnet_handlerentry_t handlers[128];
       int hcount = 0;
@@ -800,7 +801,7 @@ namespace Realm {
       hcount += RemoteWriteFenceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Write Fence AM");
       hcount += RemoteWriteFenceAckMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Write Fence Ack AM");
       //hcount += DestroyLockMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Destroy Lock AM");
-      hcount += RemoteReduceListMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Reduction List AM");
+      //hcount += RemoteReduceListMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Reduction List AM");
       hcount += RuntimeShutdownMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Machine Shutdown AM");
       //hcount += BarrierAdjustMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Adjust AM");
       //hcount += BarrierSubscribeMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Subscribe AM");
