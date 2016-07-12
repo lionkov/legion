@@ -29,8 +29,6 @@ namespace Realm {
   extern Logger log_copy; // in idx_impl.cc
   extern Logger log_inst; // in inst_impl.cc
 
-
-
   ////////////////////////////////////////////////////////////////////////
   //
   // class Memory

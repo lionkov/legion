@@ -224,13 +224,12 @@ FabSpanPayload::FabSpanPayload(int m, SpanList &sl, size_t s) : FabPayload(m), s
 }
 
 FabSpanPayload::~FabSpanPayload(void)
-{
-  
-     if (mode == FAB_PAYLOAD_FREE) {
-       for(SpanList::const_iterator it = spans.begin(); it != spans.end(); it++) {
-	 free((void*) it->first);
-       }
-     } 
+{  
+  if (mode == FAB_PAYLOAD_FREE) {
+    for(SpanList::const_iterator it = spans.begin(); it != spans.end(); it++) {
+      free((void*) it->first);
+    }
+  } 
 }
 
 ssize_t FabSpanPayload::size(void)
