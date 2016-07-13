@@ -439,7 +439,7 @@ namespace Realm {
     class RemoteMemAllocRequestMessage : public FabMessage {
     public: 
       RemoteMemAllocRequestMessage(NodeId target, void* args)
-	: FabMessage(target, REMOTE_MALLOC_MSGID, args, NULL, true) { }
+	: FabMessage(target, REMOTE_MALLOC_MSGID, args, NULL) { }
     };
 
     class RemoteMemAllocResponseType : public MessageType {
@@ -458,7 +458,7 @@ namespace Realm {
     class RemoteMemAllocResponse : public FabMessage {
     public:
       RemoteMemAllocResponse(NodeId dest, void* args)
-	: FabMessage(dest, REMOTE_MALLOC_RPLID, args, NULL, true) { }      
+	: FabMessage(dest, REMOTE_MALLOC_RPLID, args, NULL) { }      
     };
 
     class CreateInstanceRequestType : public MessageType {
@@ -510,7 +510,7 @@ namespace Realm {
     class CreateInstanceRequest : public FabMessage {
     public:
       CreateInstanceRequest(NodeId dest, void* args, FabPayload* payload) 
-	: FabMessage(dest, CREATE_INST_MSGID, args, payload, true) { }
+	: FabMessage(dest, CREATE_INST_MSGID, args, payload) { }
     };
 
     class CreateInstanceResponseType : public MessageType {
@@ -531,7 +531,7 @@ namespace Realm {
     class CreateInstanceResponse : public FabMessage {
     public:
       CreateInstanceResponse(NodeId dest, void* args)
-	: FabMessage(dest, CREATE_INST_RPLID, args, NULL, true) { }
+	: FabMessage(dest, CREATE_INST_RPLID, args, NULL) { }
     };
 
     class DestroyInstanceMessageType : public MessageType {
@@ -554,7 +554,7 @@ namespace Realm {
     class DestroyInstanceMessage : public FabMessage {
     public: 
       DestroyInstanceMessage(NodeId dest, void* args)
-	: FabMessage(dest, DESTROY_INST_MSGID, args, NULL, true) { }
+	: FabMessage(dest, DESTROY_INST_MSGID, args, NULL) { }
     }; 
 
     class RemoteWriteMessageType : public MessageType {
@@ -577,7 +577,7 @@ namespace Realm {
     class RemoteWriteMessage : public FabMessage {
     public:
     RemoteWriteMessage(NodeId dest, void* args, FabPayload* payload)
-      : FabMessage(dest, REMOTE_WRITE_MSGID, args, payload, true) { }
+      : FabMessage(dest, REMOTE_WRITE_MSGID, args, payload) { }
     };
     
     class RemoteSerdezMessageType : public MessageType {
@@ -601,7 +601,7 @@ namespace Realm {
     class RemoteSerdezMessage : public FabMessage {
     public:
       RemoteSerdezMessage(NodeId dest, void* args, FabPayload* payload)
-	: FabMessage(dest, REMOTE_SERDEZ_MSGID, args, payload, true) { }
+	: FabMessage(dest, REMOTE_SERDEZ_MSGID, args, payload) { }
     };
 
     class RemoteReduceMessageType : public MessageType {
@@ -626,7 +626,7 @@ namespace Realm {
     class RemoteReduceMessage : public FabMessage {
     public:
       RemoteReduceMessage(NodeId dest, void* args, FabPayload* payload)
-	: FabMessage(dest, REMOTE_REDUCE_MSGID, args, payload, true) { }
+	: FabMessage(dest, REMOTE_REDUCE_MSGID, args, payload) { }
     };
 
     class RemoteReduceListMessageType : public MessageType {
@@ -651,7 +651,7 @@ namespace Realm {
     class RemoteReduceListMessage : public FabMessage {
     public:
       RemoteReduceListMessage(NodeId dest, void* args, FabPayload* payload)
-	: FabMessage(dest, REMOTE_REDLIST_MSGID, args, payload, true) {  }      
+	: FabMessage(dest, REMOTE_REDLIST_MSGID, args, payload) {  }      
     };
         
     class RemoteWriteFence : public Operation::AsyncWorkItem {
@@ -686,7 +686,7 @@ namespace Realm {
     class RemoteWriteFenceMessage : public FabMessage {
     public:
       RemoteWriteFenceMessage(NodeId dest, void* args)
-	: FabMessage(dest, REMOTE_WRITE_FENCE_MSGID, args, NULL, true) { }
+	: FabMessage(dest, REMOTE_WRITE_FENCE_MSGID, args, NULL) { }
     };
 
 
@@ -708,7 +708,7 @@ namespace Realm {
     class RemoteWriteFenceAckMessage : public FabMessage {
     public:
       RemoteWriteFenceAckMessage(NodeId dest, void* args)
-	: FabMessage(dest, REMOTE_WRITE_FENCE_ACK_MSGID, args, NULL, true) { }
+	: FabMessage(dest, REMOTE_WRITE_FENCE_ACK_MSGID, args, NULL) { }
     };
     
     // remote memory writes

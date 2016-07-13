@@ -42,8 +42,8 @@ ssize_t FabPayload::checkiovec(struct iovec *iov, size_t iovnum)
     return -1;
 
   if (iovnum >= 1) {
-    iov->iov_base = buf;
-    iov->iov_len = bufsz;
+    iov[0].iov_base = buf;
+    iov[0].iov_len = bufsz;
   }
 
   return 1;
@@ -125,10 +125,14 @@ ssize_t FabContiguousPayload::iovec(struct iovec *iov, size_t iovnum)
     return -1;
 
   // check if FAB_PAYLOAD_COPY
+  // If FAB_PAYLOAD_COPY, this call will assign the iovs to point
+  // to buf and return 1.
   ret = checkiovec(iov, iovnum);
   if (ret >= 0)
     return ret;
-		
+
+  // Otherwise, we don't have our own copy of the data --
+  // so assign iovs to point to data.
   if (iovnum >= 1) {
     iov[0].iov_base = data;
     iov[0].iov_len = sz;

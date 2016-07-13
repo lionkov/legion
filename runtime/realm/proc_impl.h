@@ -288,7 +288,7 @@ namespace Realm {
     class SpawnTaskMessage : public FabMessage {
     public: 
       SpawnTaskMessage(NodeId dest, void* args, FabPayload* payload)
-	: FabMessage(dest, SPAWN_TASK_MSGID, args, payload, true) { }
+	: FabMessage(dest, SPAWN_TASK_MSGID, args, payload) { }
     };
 
     class RegisterTaskMessageType : public MessageType {
@@ -317,7 +317,7 @@ namespace Realm {
     class RegisterTaskMessage : public FabMessage {
     public:
       RegisterTaskMessage(NodeId dest, void* args, FabPayload* payload)
-	: FabMessage(dest, REGISTER_TASK_MSGID, args, payload, true) { }
+	: FabMessage(dest, REGISTER_TASK_MSGID, args, payload) { }
     };
 
     class RegisterTaskCompleteMessageType : public MessageType {
@@ -341,7 +341,7 @@ namespace Realm {
     class RegisterTaskCompleteMessage : public FabMessage {
     public:
       RegisterTaskCompleteMessage(NodeId dest, void* args)
-	: FabMessage(dest, REGISTER_TASK_COMPLETE_MSGID, args, NULL, true) { }
+	: FabMessage(dest, REGISTER_TASK_COMPLETE_MSGID, args, NULL) { }
     };
 
 }; // namespace Realm

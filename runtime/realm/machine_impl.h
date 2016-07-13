@@ -295,7 +295,7 @@ namespace Realm {
   class NodeAnnounceMessage : public FabMessage {
   public:
     NodeAnnounceMessage(NodeId dest, void* args, FabPayload* payload)
-      : FabMessage(dest, NODE_ANNOUNCE_MSGID, args, payload, true) { }
+      : FabMessage(dest, NODE_ANNOUNCE_MSGID, args, payload) { }
   };
 
 }; // namespace Realm

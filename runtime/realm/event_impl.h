@@ -262,7 +262,7 @@ namespace Realm {
   class EventSubscribeMessage : public FabMessage {
   public:
     EventSubscribeMessage(NodeId dest, void* args)
-      : FabMessage(dest, EVENT_SUBSCRIBE_MSGID, args, NULL, true) { }
+      : FabMessage(dest, EVENT_SUBSCRIBE_MSGID, args, NULL) { }
   };
 
   // EventTriggerMessage is used by non-owner nodes to trigger an event
@@ -287,7 +287,7 @@ namespace Realm {
   class EventTriggerMessage : public FabMessage {
   public:
     EventTriggerMessage(NodeId dest, void* args)
-      : FabMessage(dest, EVENT_TRIGGER_MSGID, args, NULL, true) { }    
+      : FabMessage(dest, EVENT_TRIGGER_MSGID, args, NULL) { }    
   };
   
   class EventUpdateMessageType : public MessageType {
@@ -311,7 +311,7 @@ namespace Realm {
   class EventUpdateMessage : public FabMessage {
   public:
     EventUpdateMessage(NodeId dest, void* args, FabPayload* payload)
-      : FabMessage(dest, EVENT_UPDATE_MSGID, args, payload, true) { }
+      : FabMessage(dest, EVENT_UPDATE_MSGID, args, payload) { }
   };
 
   class BarrierAdjustMessageType : public MessageType {
@@ -337,7 +337,7 @@ namespace Realm {
   class BarrierAdjustMessage : public FabMessage {
   public:
     BarrierAdjustMessage(NodeId dest, void* args, FabPayload* payload)
-      : FabMessage(dest, BARRIER_ADJUST_MSGID, args, payload, true) { }
+      : FabMessage(dest, BARRIER_ADJUST_MSGID, args, payload) { }
   };
 
 
@@ -362,7 +362,7 @@ namespace Realm {
   class BarrierSubscribeMessage : public FabMessage {
   public:
     BarrierSubscribeMessage(NodeId dest, void* args)
-      : FabMessage(dest, BARRIER_SUBSCRIBE_MSGID, args, NULL, true) { }
+      : FabMessage(dest, BARRIER_SUBSCRIBE_MSGID, args, NULL) { }
   };
 
   
@@ -394,7 +394,7 @@ namespace Realm {
   class BarrierTriggerMessage : public FabMessage {
   public:
   BarrierTriggerMessage(NodeId dest, void* args, FabPayload* payload)
-    : FabMessage(dest, BARRIER_TRIGGER_MSGID, args, payload, true) { }
+    : FabMessage(dest, BARRIER_TRIGGER_MSGID, args, payload) { }
   };
 
   class BarrierMigrationMessageType : public MessageType {
@@ -414,7 +414,7 @@ namespace Realm {
   class BarrierMigrationMessage : public FabMessage {
   public:
   BarrierMigrationMessage(NodeId dest, void* args)
-    : FabMessage(dest, BARRIER_MIGRATE_MSGID, args, NULL, true) { }	
+    : FabMessage(dest, BARRIER_MIGRATE_MSGID, args, NULL) { }	
   };
     
 }; // namespace Realm

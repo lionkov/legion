@@ -79,7 +79,7 @@ namespace Realm {
     class MetadataRequestMessage : public FabMessage {
     public:
       MetadataRequestMessage(NodeId target, void* args)
-	: FabMessage(target, METADATA_REQUEST_MSGID, args, NULL, true) { }
+	: FabMessage(target, METADATA_REQUEST_MSGID, args, NULL) { }
     };
     
     class MetadataResponseMessageType : public MessageType {
@@ -99,7 +99,7 @@ namespace Realm {
     class MetadataResponseMessage : public FabMessage {
     public: 
       MetadataResponseMessage(NodeId target, void* args, FabPayload* payload)
-	: FabMessage(target, METADATA_RESPONSE_MSGID, args, payload, true) { }
+	: FabMessage(target, METADATA_RESPONSE_MSGID, args, payload) { }
     };
     
     class MetadataInvalidateMessageType : public MessageType {
@@ -121,7 +121,7 @@ namespace Realm {
     class MetadataInvalidateMessage : public FabMessage {
     public:
       MetadataInvalidateMessage(NodeId dest, void* args)
-	: FabMessage(dest, METADATA_INVALIDATE_MSGID, args, NULL, true) { }
+	: FabMessage(dest, METADATA_INVALIDATE_MSGID, args, NULL) { }
     };
     
     class MetadataInvalidateAckMessageType : public MessageType {
@@ -141,7 +141,7 @@ namespace Realm {
     class MetadataInvalidateAckMessage : public FabMessage {
     public:
       MetadataInvalidateAckMessage(NodeId dest, void* args)
-	: FabMessage(dest, METADATA_INVALIDATE_ACK_MSGID, args, NULL, true) { }      
+	: FabMessage(dest, METADATA_INVALIDATE_ACK_MSGID, args, NULL) { }      
     };
     
 }; // namespace Realm

@@ -146,7 +146,7 @@ namespace Realm {
   class ClearTimersMessage : public FabMessage {
   public: 
   ClearTimersMessage(NodeId dest)
-    : FabMessage(dest, CLEAR_TIMER_MSGID, NULL, NULL, false) { } 
+    : FabMessage(dest, CLEAR_TIMER_MSGID, NULL, NULL) { } 
   };
   
   	
@@ -165,7 +165,7 @@ namespace Realm {
   class TimerDataRequestMessage : public FabMessage {
   public:
   TimerDataRequestMessage(NodeId dest, void* args)
-    : FabMessage(dest, ROLL_UP_TIMER_MSGID, args, NULL, false) { }
+    : FabMessage(dest, ROLL_UP_TIMER_MSGID, args, NULL) { }
   };
 
   class TimerDataResponseMessageType : public MessageType {
@@ -183,7 +183,7 @@ namespace Realm {
   class TimerDataResponseMessage : public FabMessage {
   public:
   TimerDataResponseMessage(NodeId dest, void* args, FabPayload* payload)
-    : FabMessage(dest, ROLL_UP_TIMER_RPLID, args, payload, false) { }
+    : FabMessage(dest, ROLL_UP_TIMER_RPLID, args, payload) { }
   };
   
 }; // namespace Realm

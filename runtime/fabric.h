@@ -93,7 +93,7 @@ class FabPayload {
   int	mode;
 
   // when mode is PAYLOAD_COPY
-  void*	buf;
+  void*	        buf;
   size_t	bufsz;
 	
 
@@ -197,7 +197,6 @@ class Message {
   struct iovec* iov;
   struct iovec siov[6];
 
-
  protected:
   Message(MessageId id, void *a, FabPayload *p):args(a), payload(p) { }  
 };
@@ -215,7 +214,7 @@ class Fabric {
   virtual NodeId get_id() = 0;
   virtual NodeId get_max_id() = 0;
   virtual int send(NodeId dest, MessageId id, void *args,
-		   FabPayload *payload, bool inOrder) = 0;
+		   FabPayload *payload) = 0;
   virtual int send(Message* m) = 0;
   virtual bool progress(bool wait) = 0;
   // virtual bool incoming(Message *) = 0;
