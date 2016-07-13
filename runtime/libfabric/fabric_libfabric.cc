@@ -321,7 +321,6 @@ bool FabFabric::init_fail(fi_info* hints, fi_info* fi, const std::string message
 
 FabFabric::~FabFabric()
 {
-  free_progress_threads();
   shutdown();
 }
 
@@ -337,6 +336,7 @@ bool FabFabric::add_message_type(MessageType *mt, const std::string tag)
 
 void FabFabric::shutdown()
 {
+  free_progress_threads();
   fi_close(&(ep->fid));
   fi_close(&(av->fid));
   fi_close(&(tx_cq->fid));

@@ -1587,12 +1587,16 @@ namespace Realm {
       args->sender = fabric->get_id();
       args->sequence_id = sequence_id;
 
-      FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
-						   FAB_PAYLOAD_COPY : FAB_PAYLOAD_KEEP,
-						   pos,
-						   datalen, 
-						   max_lines_per_xfer,
-						   stride);						       
+
+      // TODO -- reenable when fixed
+      // FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
+      // 						   FAB_PAYLOAD_COPY : FAB_PAYLOAD_KEEP,
+      // 						   pos,
+      // 						   datalen, 
+      // 						   max_lines_per_xfer,
+      // 						   stride);
+      
+      FabContiguousPayload* payload = NULL;
 	    
       fabric->send(new RemoteWriteMessage(ID(mem).node(), args, payload));
 	    
@@ -1608,12 +1612,14 @@ namespace Realm {
     args->sender = fabric->get_id();
     args->sequence_id = sequence_id;
 	
-    FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
-						 FAB_PAYLOAD_COPY : FAB_PAYLOAD_KEEP,
-						 pos,
-						 datalen, 
-						 max_lines_per_xfer,
-						 stride);						       
+    // FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
+    // 						 FAB_PAYLOAD_COPY : FAB_PAYLOAD_KEEP,
+    // 						 pos,
+    // 						 datalen, 
+    // 						 max_lines_per_xfer,
+    // 						 stride);
+
+    FabContiguousPayload* payload = NULL;
 
     fabric->send(new RemoteWriteMessage(dest, args, payload));
     return count;
@@ -1722,10 +1728,12 @@ namespace Realm {
       args->sender = fabric->get_id();
       args->sequence_id = sequence_id;
 
-      FabSpanPayload* payload = new FabSpanPayload(make_copy ?
-						   PAYLOAD_COPY : PAYLOAD_KEEP,
-						   subspans, xfer_size);
-	  
+      // FabSpanPayload* payload = new FabSpanPayload(make_copy ?
+      // 						   PAYLOAD_COPY : PAYLOAD_KEEP,
+      // 						   subspans, xfer_size);
+
+      FabContiguousPayload* payload = NULL;
+      
       fabric->send(new RemoteWriteMessage(dest, args, payload));
 	  
       offset += xfer_size;
@@ -1832,12 +1840,14 @@ namespace Realm {
 	args->sender = fabric->get_id();
 	args->sequence_id = sequence_id;
 
-	FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
-						     PAYLOAD_COPY : PAYLOAD_KEEP,
-						     pos,
-						     rhs_size,
-						     max_elmts_per_xfer,
-						     src_stride);
+	// FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
+	// 					     PAYLOAD_COPY : PAYLOAD_KEEP,
+	// 					     pos,
+	// 					     rhs_size,
+	// 					     max_elmts_per_xfer,
+	// 					     src_stride);
+
+	FabContiguousPayload* payload = NULL;
 	  
 	fabric->send(new RemoteReduceMessage(dest, args, payload));
 	  
@@ -1859,12 +1869,14 @@ namespace Realm {
       args->sender = fabric->get_id();
       args->sequence_id = sequence_id;
       
-      FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
-						   PAYLOAD_COPY : PAYLOAD_KEEP,
-						   pos,
-						   rhs_size,
-						   max_elmts_per_xfer,
-						   src_stride);
+      // FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
+      // 						   PAYLOAD_COPY : PAYLOAD_KEEP,
+      // 						   pos,
+      // 						   rhs_size,
+      // 						   max_elmts_per_xfer,
+      // 						   src_stride);
+
+      FabContiguousPayload* payload = NULL;
       
       fabric->send(new RemoteReduceMessage(dest, args, payload));
       

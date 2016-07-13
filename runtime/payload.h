@@ -20,79 +20,78 @@ enum {
 
 class FabPayload {
  protected:
-  int	mode;
-
-  // Internal buffer used if mode if FAB_PAYLOAD_COPY
-  void*	        buf;
-  size_t	bufsz;
-	
-  // Determine mode, copy data into buf if necessary
-  int checkmode();
-  // Transfer data into the target iovect
-  ssize_t checkiovec(struct iovec* iov, size_t iovnum);
-  // Copy data from buf into dest only if mode is FAB_PAYLOAD_COPY
-  // Should this be here?
-  ssize_t checkcopy(void *dest, size_t destsz);
+  int  mode;
+  
+  // Determine mode, copy data into internal buffer if necessary
+  virtual int checkmode() = 0;
 	
  public:
-  FabPayload(int m) : mode(m), buf(NULL), bufsz(0) {}
-  virtual ~FabPayload(void);
+  FabPayload(int m) : mode(m) { }
+  virtual ~FabPayload(void) { }
 
+  // Return payload size 
   virtual ssize_t size(void) = 0;
+  
+  // Return direct pointer to payload
   virtual void* ptr(void) = 0;
 
-  // Copy 
+  // Copy data into dest
   virtual ssize_t copy(void *dest, size_t destsz) = 0;
+
+  // Assigns iovec iov to point to this payload's data
   virtual ssize_t iovec(struct iovec *iov, size_t iovnum) = 0;
 };
 
-struct FabContiguousPayload : public FabPayload {
+class FabContiguousPayload : public FabPayload {
  protected:
-  size_t sz;
-  void* data;
+  size_t sz; // size of data
+  void* data; // pointer to data -- may point to external or internal buffer
+  void* internal_buffer; // internal buffer used if mode is PAYLOAD_COPY
+  virtual int checkmode();
+  
 
  public:
   FabContiguousPayload(int mode, void *data, size_t s);
   virtual ~FabContiguousPayload(void);
   
-  virtual ssize_t size(void);
-  virtual void* ptr(void);
+  virtual ssize_t size(void) { return sz; };
+  virtual void* ptr(void) { return (mode == FAB_PAYLOAD_ERROR) ? NULL : data; } 
   virtual ssize_t copy(void *dest, size_t destsz);
   virtual ssize_t iovec(struct iovec *iov, size_t iovnum);
 };
 
-struct FabTwoDPayload : public FabPayload {
- protected:
-  size_t		linesz;
-  size_t		linecnt;
-  ptrdiff_t	stride;
-  void*		data;
+/* class FabTwoDPayload : public FabPayload { */
+/*  protected: */
+/*   size_t		linesz; */
+/*   size_t		linecnt; */
+/*   ptrdiff_t	stride; */
+/*   void*		data; */
 
- public:
-  FabTwoDPayload(int m, void *data, size_t line_size, size_t line_count, ptrdiff_t line_stride);
-  virtual ~FabTwoDPayload(void);
+/*  public: */
+/*   FabTwoDPayload(int m, void *data, size_t line_size, size_t line_count, ptrdiff_t line_stride); */
+/*   virtual ~FabTwoDPayload(void); */
 
-  virtual ssize_t size(void);
-  virtual void* ptr(void);
-  virtual ssize_t copy(void *dest, size_t destsz);
-  virtual ssize_t iovec(struct iovec *iov, size_t iovnum);
-};
+/*   virtual ssize_t size(void); */
+/*   virtual void* ptr(void); */
+/*   virtual ssize_t copy(void *dest, size_t destsz); */
+/*   virtual ssize_t iovec(struct iovec *iov, size_t iovnum); */
+/* }; */
 
-typedef std::pair<void *, size_t> FabSpanListEntry;
-typedef std::vector<FabSpanListEntry> FabSpanList;
+/* typedef std::pair<void *, size_t> FabSpanListEntry; */
+/* typedef std::vector<FabSpanListEntry> FabSpanList; */
 
-struct FabSpanPayload : public FabPayload {
- protected:
-  SpanList	spans;
-  size_t		sz;
- public:
-  FabSpanPayload(int m, SpanList &sl, size_t s);
-  virtual ~FabSpanPayload(void);
+/* class FabSpanPayload : public FabPayload { */
+/*  protected: */
+/*   SpanList	spans; */
+/*   size_t		sz; */
+/*  public: */
+/*   FabSpanPayload(int m, SpanList &sl, size_t s); */
+/*   virtual ~FabSpanPayload(void); */
 
-  virtual ssize_t size(void);
-  virtual void* ptr(void);
-  virtual ssize_t copy(void *dest, size_t destsz);
-  virtual ssize_t iovec(struct iovec *iov, size_t iovnum);
-};
+/*   virtual ssize_t size(void); */
+/*   virtual void* ptr(void); */
+/*   virtual ssize_t copy(void *dest, size_t destsz); */
+/*   virtual ssize_t iovec(struct iovec *iov, size_t iovnum); */
+/* }; */
 
 #endif // PAYLOAD_H
