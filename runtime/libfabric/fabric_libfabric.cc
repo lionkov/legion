@@ -1,21 +1,5 @@
 #include "fabric_libfabric.h"
 
-FabMessage::FabMessage(NodeId dest, MessageId id, void *args, FabPayload *payload, bool inOrder)
-  : Message(id, args, payload)
-{
-  mtype = fabric->mts[id];
-  rcvid = dest;
-  sndid = fabric->get_id();
-  iov = new iovec;
-}
-
-FabMessage::~FabMessage()
-{
-  if (iov != siov && iov)
-    delete iov;
-  if (payload)
-    delete payload;
-}
 // run
 /*
 int FabMessage::reply(MessageId id, void *args, Payload *payload, bool inOrder)
@@ -49,6 +33,7 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
 
    Currently PMI isn't working, so just hard code these values.
 */
+
 /*
 int FabFabric::setup_pmi() {
   
@@ -56,6 +41,7 @@ int FabFabric::setup_pmi() {
   int ret, spawned;
   
   ret = PMI_Init(&spawned);
+
   
   if (ret != PMI_SUCCESS) {
     std::cerr << "ERROR -- PMI_Init failed with error code " << ret << std::endl;
@@ -370,11 +356,11 @@ NodeId FabFabric::get_max_id()
   return max_id;
 }
 
-int FabFabric::send(NodeId dest, MessageId id, void *args, FabPayload *payload, bool inOrder)
+int FabFabric::send(NodeId dest, MessageId id, void *args, FabPayload *payload)
 {
   FabMessage *m;
 
-  m = new FabMessage(dest, id, args, payload, inOrder);
+  m = new FabMessage(dest, id, args, payload);
   m->sndid = id;
   m->rcvid = dest;
 
@@ -482,7 +468,7 @@ bool FabFabric::progress(bool wait)
     m = (FabMessage *) ce.op_context;
     if (m->rcvid == get_id()) {
       // the message was received
-      m->iov[0].iov_len = ce.len;
+      m->siov[0].iov_len = ce.len;
       incoming(m);
       // TODO
     } else {
@@ -515,6 +501,7 @@ bool FabFabric::incoming(FabMessage *m)
 
     // untagged message
     post_untagged();
+
     data = (char *) m->siov[0].iov_base;
     len = m->siov[0].iov_len;
     std::cout << "len: " << len << std::endl;
@@ -535,8 +522,7 @@ bool FabFabric::incoming(FabMessage *m)
       len -= mtype->argsz;
     }
     
-    // Is this correct? Seems like this will copy arguments as well as payload
-    // TODO -- will need to respect other payload types
+    // TODO -- will need to respect other payload modes
     m->payload = new FabContiguousPayload(PAYLOAD_KEEP, data, len);
   }
 
@@ -562,7 +548,7 @@ int FabFabric::post_tagged(MessageType* mt)
   void *args;
 
   args = malloc(mt->argsz);
-  m = new FabMessage(get_id(), mt->id, args, NULL, false);
+  m = new FabMessage(get_id(), mt->id, args, NULL);
   return fi_trecv(ep, args, mt->argsz, NULL, FI_ADDR_UNSPEC, mt->id, 0, m);
 }
 
@@ -571,7 +557,7 @@ int FabFabric::post_untagged()
   void *buf = malloc(max_send);
   memset(buf, 0, sizeof(buf));
 
-  FabMessage* m = new FabMessage(get_id(), 0, NULL, NULL, false);
+  FabMessage* m = new FabMessage(get_id(), 0, NULL, NULL);
   m->siov[0].iov_base = buf;
   m->siov[0].iov_len = max_send;
   return fi_recv(ep, buf, max_send, NULL, FI_ADDR_UNSPEC, m);

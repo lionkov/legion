@@ -92,13 +92,16 @@ class FabPayload {
  protected:
   int	mode;
 
-  // when mode is PAYLOAD_COPY
+  // Internal buffer used if mode if FAB_PAYLOAD_COPY
   void*	        buf;
   size_t	bufsz;
 	
-
+  // Determine mode, copy data into buf if necessary
   int checkmode();
+  // Transfer data into the target iovect
   ssize_t checkiovec(struct iovec* iov, size_t iovnum);
+  // Copy data from buf into dest only if mode is FAB_PAYLOAD_COPY
+  // Should this be here?
   ssize_t checkcopy(void *dest, size_t destsz);
 	
  public:
@@ -107,26 +110,10 @@ class FabPayload {
 
   virtual ssize_t size(void) = 0;
   virtual void* ptr(void) = 0;
+
+  // Copy 
   virtual ssize_t copy(void *dest, size_t destsz) = 0;
   virtual ssize_t iovec(struct iovec *iov, size_t iovnum) = 0;
-};
-
-class MessageType {
- public:
-  MessageId	id;		// message id
-  size_t	argsz;		// argument size
-  bool		payload;	// true if the message can have payload
-  bool		inorder;	// true if the message has to be delivered in order
-
- MessageType(MessageId msgid, size_t asz, bool hasPayload, bool inOrder)
-   : id(msgid), argsz(asz), payload(hasPayload), inorder(inOrder) { }
-
-  // called when a message of this type is received
-  virtual void request(Message *m) = 0;
-
-  int send(NodeId target);
-  int send(NodeId target, void *args);
-  int send(NodeId target, void *args, FabPayload *payload);
 };
 
 struct FabContiguousPayload : public FabPayload {
@@ -178,27 +165,22 @@ struct FabSpanPayload : public FabPayload {
   virtual ssize_t iovec(struct iovec *iov, size_t iovnum);
 };
 
-class Message {
+class MessageType {
  public:
-  MessageType	*mtype;		// message type
-  NodeId	sndid;		// sender id
-  NodeId	rcvid;		// receiver id
-  void*		args;
-  FabPayload*	payload;
+  MessageId	id;		// message id
+  size_t	argsz;		// argument size
+  bool		payload;	// true if the message can have payload
+  bool		inorder;	// true if the message has to be delivered in order
 
-  virtual ~Message() {
-    if (payload) delete payload;
-    if (args) free(args);
-  }
-  
-  // can be called by the request handler to send a reply
-  // Commented out for now, I'm not sure yet if legion will actually use this
-  //virtual int reply(MessageId id, void *args, Payload *payload, bool inOrder) = 0;
-  struct iovec* iov;
-  struct iovec siov[6];
+ MessageType(MessageId msgid, size_t asz, bool hasPayload, bool inOrder)
+   : id(msgid), argsz(asz), payload(hasPayload), inorder(inOrder) { }
 
- protected:
-  Message(MessageId id, void *a, FabPayload *p):args(a), payload(p) { }  
+  // called when a message of this type is received
+  virtual void request(Message *m) = 0;
+
+  int send(NodeId target);
+  int send(NodeId target, void *args);
+  int send(NodeId target, void *args, FabPayload *payload);
 };
 
 class Fabric {
@@ -223,10 +205,46 @@ class Fabric {
   virtual void register_options(Realm::CommandLineParser& cp) = 0;
   virtual void wait_for_shutdown() = 0;
   virtual int get_max_send() = 0;
-
 };
 
 extern Fabric* fabric;
+
+
+class Message {
+ public:
+  MessageType	*mtype;		// message type
+  NodeId	sndid;		// sender id
+  NodeId	rcvid;		// receiver id
+  MessageId     id; 
+  void*		args;
+  FabPayload*	payload;
+
+  virtual ~Message() {
+    if (payload)
+      delete payload;
+    if (args)
+      free(args);
+    if (iov != siov && iov)
+      delete iov;
+  }
+  
+  // can be called by the request handler to send a reply
+  // Commented out for now, I'm not sure yet if legion will actually use this
+  //virtual int reply(MessageId id, void *args, Payload *payload, bool inOrder) = 0;
+  struct iovec* iov;
+  struct iovec siov[6];
+
+ protected:
+  Message(NodeId dest, MessageId _id, void *a, FabPayload *p)
+     : rcvid(dest), id(_id), args(a), payload(p) {
+    mtype = fabric->mts[id];
+    rcvid = dest;
+    sndid = fabric->get_id();
+    iov = NULL;
+  }
+  
+};
+
 
 // extern FabricMemory *fabric_memory;
 

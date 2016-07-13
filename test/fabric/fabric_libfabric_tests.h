@@ -33,7 +33,7 @@ class TestMessageType : public MessageType {
    : MessageType(1, /* msgId */
 		 64, /* arg size */
 		 false, /* has payload */
-		 false /*in order */ ){ }
+		 true /*in order */ ){ }
 
   void request(Message* m);
 };
@@ -41,7 +41,7 @@ class TestMessageType : public MessageType {
 class TestMessage : public FabMessage {
  public:
  TestMessage(NodeId dest, void* args)
-   : FabMessage(dest, 1, args, NULL, false) { }
+   : FabMessage(dest, 1, args, NULL) { }
 };
 
 
@@ -51,7 +51,7 @@ class TestPayloadMessageType : public MessageType {
    : MessageType(2, /* msgId */
 		 64, /* arg size */
 		 true, /* has payload */
-		 false /*in order */ ){ }
+		 true /*in order */ ){ }
 
   void request(Message* m);
 };
@@ -59,10 +59,5 @@ class TestPayloadMessageType : public MessageType {
 class TestPayloadMessage : public FabMessage {
  public:
  TestPayloadMessage(NodeId dest, void* args, FabPayload* payload)
-   : FabMessage(dest, 2, args, payload, false) { }
+   : FabMessage(dest, 2, args, payload) { }
 };
-
-
-
-
-

@@ -162,10 +162,10 @@ namespace Realm {
     virtual void request(Message *m);
   };
 
-  class TimerDataRequestMessage : public FabMessage {
+  class TimerDataRequestMessage : public Message {
   public:
   TimerDataRequestMessage(NodeId dest, void* args)
-    : FabMessage(dest, ROLL_UP_TIMER_MSGID, args, NULL) { }
+    : Message(dest, ROLL_UP_TIMER_MSGID, args, NULL) { }
   };
 
   class TimerDataResponseMessageType : public MessageType {
