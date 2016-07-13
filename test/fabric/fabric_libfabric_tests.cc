@@ -96,7 +96,7 @@ void TestMessageType::request(Message* m) {
 void TestPayloadMessageType::request(Message* m) {
   std::cout << "TestPayloadMessageType::request called" << std::endl;
   std::cout << "Args: " << (char*) m->args << std::endl;
-  std::cout << "Payload: " << (char*) m->payload->iov[0].iov_base
+  std::cout << "Payload: " << (char*) m->payload->ptr()
 	    << std::endl;
 }
 
