@@ -1,15 +1,16 @@
 #include "payload.h"
 
 FabContiguousPayload::FabContiguousPayload(int m, void *d, size_t s)
-  : FabPayload(m), sz(s), data((void*) d) {
+  : FabPayload(m), sz(s), data((void*) d), internal_buffer(NULL) {
   checkmode();
 }
 
 FabContiguousPayload::~FabContiguousPayload(void) {
+  std::cout << "DESTRUCTING PAYLOAD -- data: " << (char*) data << std::endl;
   if (mode == FAB_PAYLOAD_FREE && data) 
     free(data);
-
-  if (internal_buffer)
+  
+  if (mode == FAB_PAYLOAD_COPY && internal_buffer)
     free(internal_buffer);
 }
 
@@ -20,9 +21,6 @@ FabContiguousPayload::~FabContiguousPayload(void) {
 // Returns 0 on success, -1 on failure (in which case this payload object
 // is invalid.)
 int FabContiguousPayload::checkmode() {
-  int ret;
-
-  ret = 0;
   switch (mode) {
   default:
     // just refuse to do anything, return an error later
@@ -33,42 +31,38 @@ int FabContiguousPayload::checkmode() {
     return -1;
     
   case FAB_PAYLOAD_NONE:
-    break;
+    return 0;
     
   case FAB_PAYLOAD_KEEP:
-    break;
+    return 0;
     
   case FAB_PAYLOAD_FREE:
-    break;
+    return 0;
 
   case FAB_PAYLOAD_COPY:
-    int bufsz = size();
-    internal_buffer = malloc(bufsz);
+    internal_buffer = malloc(sz);
     
     if (!internal_buffer) {
-      ret = -1;
-      break;
+      mode = FAB_PAYLOAD_ERROR;
+      return -1;
     }
 
-    if (copy(internal_buffer, bufsz) != bufsz) {
+    if (copy(internal_buffer, sz) != sz) {
       mode = FAB_PAYLOAD_ERROR;
-      ret = -1;
+      return -1;
     }
     
     data = internal_buffer; // Update data pointer to point to internal data
-    break;
+    return 0;
   }
-  return ret;
 }
-	
-
-ssize_t FabContiguousPayload::copy(void *dptr, size_t dsz)
-{
+// Copy data to dptr. Returns number of bytes copied, or -1 if the
+// copy fails.
+ssize_t FabContiguousPayload::copy(void *dptr, size_t dsz) {
   int ret;
 
   if (mode == FAB_PAYLOAD_ERROR)
     return -1;
-
   ret = dsz;
   if (ret > sz)
     ret = sz;
@@ -77,25 +71,37 @@ ssize_t FabContiguousPayload::copy(void *dptr, size_t dsz)
   return ret;
 }
 
-ssize_t FabContiguousPayload::iovec(struct iovec *iov, size_t iovnum)
-{
+// Assign iovecs at iov to point to this payload's data.
+// Since this paylad is contiguous, all data will be assigned
+// to iov[0]. Returns -1 on failure, otherwise returns the number of
+// iovs assigned. If not enough iovs were available, will assign as many
+// as possible.
+ssize_t FabContiguousPayload::iovec(struct iovec *iov, size_t iovnum) {
   if (mode == FAB_PAYLOAD_ERROR)
     return -1;
-
-  // check if FAB_PAYLOAD_COPY
-  // If FAB_PAYLOAD_COPY, this call will assign the iovs to point
-  // to buf and return 1.
-
-  // Otherwise, we don't have our own copy of the data --
-  // so assign iovs to point to data.
+  if (mode == FAB_PAYLOAD_NONE)
+    return 0;
   if (iovnum >= 1) {
     iov[0].iov_base = data;
     iov[0].iov_len = sz;
+    return 1;
   }
 
-  return 1;
+  // Error, there were not enough iovs to assign to.
+  return 0;
 }
 
+// Returns the number of iov entries required to transfer
+// this payload's data.
+//
+// Returns -1 on error.
+ssize_t FabContiguousPayload::get_iovs_required() {
+  if (mode == FAB_PAYLOAD_ERROR)
+    return -1;
+  if (mode == FAB_PAYLOAD_NONE)
+    return 0;
+  return 1;  
+}
 
 // FabTwoDPayload::FabTwoDPayload(int m, void *d, size_t line_size, size_t line_count, ptrdiff_t line_stride)
 //   : FabPayload(m), linesz(line_size), linecnt(line_count), stride(line_stride), data((void*) d)

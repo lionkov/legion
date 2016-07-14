@@ -7,6 +7,7 @@
 #include "cmdline.h"
 #include "activemsg.h"
 #include "payload.h"
+#include "logging.h"
 #include <cstdlib>
 #include <sys/uio.h>
 #include <stdint.h>
@@ -14,7 +15,6 @@
 
 #define NELEM(x) (sizeof(x) / sizeof(x[0]))
 #define MAX_MESSAGE_TYPES 256
-
 
 enum MessageIds {
       FIRST_AVAILABLE = 140,
@@ -114,7 +114,7 @@ class Fabric {
   virtual int send(NodeId dest, MessageId id, void *args,
 		   FabPayload *payload) = 0;
   virtual int send(Message* m) = 0;
-  virtual bool progress(bool wait) = 0;
+  virtual void progress(bool wait) = 0;
   // virtual bool incoming(Message *) = 0;
   virtual void *memalloc(size_t size) = 0;
   virtual void memfree(void *) = 0;

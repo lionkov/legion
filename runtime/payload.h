@@ -11,7 +11,7 @@
 #include "activemsg.h"
 
 enum {
-  FAB_PAYLOAD_ERROR,
+  FAB_PAYLOAD_ERROR, // an error occured, this paylod is invalid
   FAB_PAYLOAD_NONE, // no payload in packet
   FAB_PAYLOAD_KEEP, // use payload pointer, guaranteed to be stable
   FAB_PAYLOAD_FREE, // take ownership of payload, free when done
@@ -38,7 +38,11 @@ class FabPayload {
   // Copy data into dest
   virtual ssize_t copy(void *dest, size_t destsz) = 0;
 
-  // Assigns iovec iov to point to this payload's data
+  // Return the number of iovs required to transfer data out
+  virtual ssize_t get_iovs_required() = 0;
+
+  // Assigns iovecs at iov to point to this payload's data.
+  // Returns the numer of iovecs assigned, or -1 on failure.
   virtual ssize_t iovec(struct iovec *iov, size_t iovnum) = 0;
 };
 
@@ -57,6 +61,7 @@ class FabContiguousPayload : public FabPayload {
   virtual ssize_t size(void) { return sz; };
   virtual void* ptr(void) { return (mode == FAB_PAYLOAD_ERROR) ? NULL : data; } 
   virtual ssize_t copy(void *dest, size_t destsz);
+  virtual ssize_t get_iovs_required();
   virtual ssize_t iovec(struct iovec *iov, size_t iovnum);
 };
 

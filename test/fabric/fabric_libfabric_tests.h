@@ -49,7 +49,7 @@ class TestPayloadMessageType : public MessageType {
  public: 
  TestPayloadMessageType()
    : MessageType(2, /* msgId */
-		 64, /* arg size */
+		 64, 
 		 true, /* has payload */
 		 true /*in order */ ){ }
 

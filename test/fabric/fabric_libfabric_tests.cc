@@ -60,28 +60,45 @@ int FabTester::run() {
   int st = 0;
   int count = 0;
   
-  while (count < 1) {
+  while (count < 10) {
     char buf[64];
     strcpy(buf, "I'm an arg.");
 
-    char paybuf[64];
-    strcpy(paybuf, "This is a payload.");
-    FabContiguousPayload payload(FAB_PAYLOAD_COPY, &paybuf, sizeof(paybuf));
+    void* paybuf = malloc(64);
+    strcpy((char*) paybuf, "This is a payload.");
+    int mode = FAB_PAYLOAD_FREE;
+    switch (mode) { 
+    case FAB_PAYLOAD_KEEP:
+      std::cout << "MODE: KEEP" << std::endl;
+      break;
+    case FAB_PAYLOAD_COPY:
+      std::cout << "MODE: COPY" << std::endl;
+      break;
+    case FAB_PAYLOAD_FREE:
+      std::cout << "MODE: FREE" << std::endl;
+      break;
+    }
+    
+    FabContiguousPayload* payload
+      = new FabContiguousPayload(mode, (void*) paybuf, 64);
+
+    //FabContiguousPayload payload (mode, (void*) paybuf, 64);
+
     
     std::cout << "Sending payload message..." << std::endl;
-    ret = fabric->send(new TestPayloadMessage(fabric->get_id(), &buf, &payload));
+    ret = fabric->send(new TestPayloadMessage(fabric->get_id(), &buf, payload));
     std::cout << "retcode: " << ret << std::endl;
     sleep(st);
-    
+    /*
     std::cout << "Sending test message... " << std::endl;
     ret = fabric->send(new TestMessage(fabric->get_id(), &buf));
     std::cout << "retcode: " << ret << std::endl;
     sleep(st);
-
+    */
     ++count;
   }
 
-  fabric->shutdown();
+  //fabric->shutdown();
   fabric->wait_for_shutdown();
   
   std::cout << std::endl << std::endl << "Done." << std::endl;
