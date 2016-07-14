@@ -87,7 +87,7 @@ class FabMessage : public Message {
   FabMessage(NodeId dest, MessageId id, void *args, FabPayload *payload)
     : Message(dest, id, args, payload) { }
  
-  // virtual ~FabMessage();
+  virtual ~FabMessage() { if (payload) delete payload; };
   //virtual int reply(MessageId id, void *args, Payload *Apayload, bool inOrder);
   
   //protected:
@@ -108,7 +108,6 @@ class FabMessage : public Message {
     NodeId get_max_id();
     int send(Message* m);
     int send(NodeId dest, MessageId id, void* args, FabPayload* payload);
-    bool progress(bool wait);
     bool incoming(FabMessage *);
     void *memalloc(size_t size);
     void memfree(void *);
@@ -141,8 +140,11 @@ class FabMessage : public Message {
     int num_progress_threads;
 
     pthread_t* progress_threads;
+    pthread_t* tx_handler_thread;
     bool stop_flag;
-	
+
+    static int check_cq(fid_cq* cq, fi_cq_tagged_entry* ce, int timeout);
+    
     int post_tagged(MessageType* mt);
     int post_untagged();
     
@@ -151,7 +153,11 @@ class FabMessage : public Message {
 
     void start_progress_threads(const int count, const size_t stack_size);
     void free_progress_threads();
+    void progress(bool wait);
+    void handle_tx(bool wait);
+
     static void* bootstrap_progress(void* context);
+    static void* bootstrap_handle_tx(void* context);
     static int av_create_address_list(char *first_address, int base, int num_addr,
 				      void *addr_array, int offset, int len, int addrlen);
     static int add_address(char* first_address, int index, void* addr);

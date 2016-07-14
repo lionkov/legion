@@ -97,7 +97,7 @@ bool FabFabric::init() {
   // Setting max_id to 1 for now, since PMI isn't setting up properly
   max_id = 1;
   id = 0; // Again, temporary since PMI is down
-
+  
   std::cout << "Initializing fabric... " << std::endl;
   
   struct fi_info *hints, *fi;
@@ -395,13 +395,14 @@ int FabFabric::send(Message* m)
       void *buf;
 
       e = NELEM(m->siov) - pidx;
-      n = m->payload->iovec(&m->iov[pidx], e);
-      if (n >= 0 && n > e) {
-	// the payload needs more elements
+      n = m->payload->get_iovs_required();
+      if (n < 0)
+	return n; 
+      
+      if (n >= 0 && n > e) 
 	m->iov = (struct iovec *) malloc((n + pidx) * sizeof(struct iovec));
-	n = m->payload->iovec(&m->iov[pidx], n);
-      }
-
+      
+      n = m->payload->iovec(&m->iov[pidx], n);
       if (n < 0)
 	return n;
     }
@@ -418,7 +419,6 @@ int FabFabric::send(Message* m)
       sz += m->iov[1].iov_len;
     }
     
-    // Should this send sz, or n?
     ret = fi_sendv(ep, m->iov, NULL, n, fi_addrs[m->rcvid], m);
     if (ret != 0)
       return ret;
@@ -427,63 +427,125 @@ int FabFabric::send(Message* m)
   return 0;
 }
 
-bool FabFabric::progress(bool wait)
-{
-  fprintf(stderr, "made a progress thread... \n");
-  int ret, timeout;
+// Poll the specified completion queue; return completion event in ce.
+// Only one ce will be retrieved.
+
+// Timeout is the number of milliseconds to wait.
+
+// Returns error code of the cq read call. If a message was successfully received,
+// this will be greated than 0. A code of 0 indicates no message recieved, while
+// a negative code is an error.
+
+int FabFabric::check_cq(fid_cq* cq, fi_cq_tagged_entry* ce, int timeout) {
+  int ret;
   fi_addr_t src;
+
+    
+  ret = fi_cq_sreadfrom(cq, ce, 1, &src, NULL, timeout);
+  if (ret >= 0)
+    return ret;
+  
+  // else, an error occured
+
+  if (ret == -FI_EAGAIN)
+    return ret; // We need to try again, let caller decide how to handle this
+
+  // A more serious error occured -- print it
+  else if (ret == -FI_EAVAIL) {
+    struct fi_cq_err_entry cqerr;
+    const char *errstr;
+    
+    ret = fi_cq_readerr(cq, &cqerr, 0);
+    if (ret != 0) {
+      // TODO: fix
+      fprintf(stderr, "unknown error: %d\n", ret);
+    }
+    
+    // TODO: fix
+    errstr = fi_cq_strerror(cq, cqerr.prov_errno, cqerr.err_data, NULL, 0);
+    fprintf(stderr, "%d %s\n", cqerr.err, fi_strerror(cqerr.err));
+    fprintf(stderr, "prov_err: %s (%d)\n", errstr, cqerr.prov_errno);
+  } else {
+    // TODO: fix
+    fprintf(stderr, "unknown error: %d\n", ret);
+  }
+ 
+  return ret;
+}
+
+// Receive messages one at a time from the receive queue
+void FabFabric::progress(bool wait) {
   fi_cq_tagged_entry ce;
   FabMessage *m;
+  int ret;
 
-  timeout = wait ? 1000 : 0;
-  while (stop_flag == false) {
-    ret = fi_cq_sreadfrom(rx_cq, &ce, 1, &src, NULL /* is this correct??? */, timeout);
-    if (ret == 0 && !wait)
-      break;
+  int timeout = wait ? 1000 : 0;
 
-    if (ret < 0) {
-      if (ret == -FI_EAGAIN && wait)
-	continue;
-      else if (ret == -FI_EAVAIL) {
-	struct fi_cq_err_entry cqerr;
-	const char *errstr;
-
-	ret = fi_cq_readerr(rx_cq, &cqerr, 0);
-	if (ret != 0) {
-	  // TODO: fix
-	  fprintf(stderr, "unknown error: %d\n", ret);
-	}
-
-	// TODO: fix
-	errstr = fi_cq_strerror(rx_cq, cqerr.prov_errno, cqerr.err_data, NULL, 0);
-	fprintf(stderr, "%d %s\n", cqerr.err, fi_strerror(cqerr.err));
-	fprintf(stderr, "prov_err: %s (%d)\n", errstr, cqerr.prov_errno);
-      } else {
-	// TODO: fix
-	fprintf(stderr, "unknown error: %d\n", ret);
-      }
-      break;
-    }
-
-    m = (FabMessage *) ce.op_context;
-    if (m->rcvid == get_id()) {
-      // the message was received
+  while (stop_flag == false) { 
+    ret = check_cq(rx_cq, &ce, timeout);
+    if (ret > 0) {
+      // Received a message
+      m = (FabMessage *) ce.op_context;
       m->siov[0].iov_len = ce.len;
       incoming(m);
-      // TODO
-    } else {
-      // the message was sent
-      delete m;
+      continue;
+    }
+
+    if (ret == 0) { // Nothing to recieve
+      if(!wait)
+	return; 
+    }
+    
+    if (ret < 0) {   // An error occured
+      if (ret == -FI_EAGAIN && !wait) 
+	return; // Try again only if we do not wait
+      else
+	return; // Return on all other errors
     }
   }
-
-  std::cout << "Progress thread shutting down. " << std::endl;
-  return true;
 }
+
+// Clean up completed message sends
+void FabFabric::handle_tx(bool wait) {
+  fi_cq_tagged_entry ce;
+  FabMessage *m;
+  int ret;
+
+  int timeout = wait ? 1000 : 0;
+
+  while (stop_flag == false) { 
+    ret = check_cq(tx_cq, &ce, timeout);
+    
+    if (ret > 0) {
+      // Received a message
+      m = (FabMessage *) ce.op_context;
+      if (m->rcvid != get_id()) // TODO : is this correct?
+	delete m; // Ok to delete m now, as it's been successfully send
+    }
+
+    if (ret == 0) { // Nothing to recieve
+      if(!wait)
+	return; 
+    }
+    else {   // An error occured
+      if (ret == -FI_EAGAIN && !wait) 
+	return; // Try again only if we do not wait
+      else
+	return; // Return on all other errors
+    }
+  }
+}
+
+
 
 // For launching progress from Pthreads
 void* FabFabric::bootstrap_progress(void* context) {
   ((FabFabric*) context)->progress(true);
+  return 0;
+}
+
+void* FabFabric::bootstrap_handle_tx(void* context) {
+  ((FabFabric*) context)->handle_tx(true);
   return 0;
 }
 
@@ -504,13 +566,13 @@ bool FabFabric::incoming(FabMessage *m)
 
     data = (char *) m->siov[0].iov_base;
     len = m->siov[0].iov_len;
-    std::cout << "len: " << len << std::endl;
     
     msgid = *(MessageId *) data;
     mtype = fabric->mts[msgid];
     m->mtype = mtype;
     data += sizeof(mtype);
     len -= sizeof(mtype);
+    
     if (mtype == NULL) {
       fprintf(stderr, "invalid message type: %d\n", msgid);
       return false;
@@ -563,7 +625,6 @@ int FabFabric::post_untagged()
   return fi_recv(ep, buf, max_send, NULL, FI_ADDR_UNSPEC, m);
 }
 
-
 FabAutoLock::~FabAutoLock()
 {
   if (held)
@@ -608,14 +669,21 @@ void FabFabric::start_progress_threads(const int count, const size_t stack_size)
   for (int i = 0; i < count; ++i) {
     pthread_create(&progress_threads[i], NULL, &FabFabric::bootstrap_progress, this);
   }
+  // tx handler thread will clean up messages that have been sent
+  tx_handler_thread = new pthread_t;
+  pthread_create(tx_handler_thread, NULL, &FabFabric::bootstrap_handle_tx, this);
 }
 
 void FabFabric::free_progress_threads() {
   stop_flag = true;
   for (int i = 0; i < num_progress_threads; ++i) 
     pthread_join(progress_threads[i], NULL);
+  pthread_join(*tx_handler_thread, NULL);
   if (progress_threads)
     delete[] progress_threads;
+  if(tx_handler_thread)
+    delete(tx_handler_thread);
+  
 }
 
 // For testing purposes -- just wait for the progress threads to complete.
