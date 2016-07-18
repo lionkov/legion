@@ -1546,12 +1546,12 @@ namespace Realm {
 
 
   unsigned do_remote_write(Memory mem, off_t offset,
-			   const void *data, size_t datalen,
+			   const void *data, size_t line_len,
 			   off_t stride, size_t lines,
 			   unsigned sequence_id,
 			   bool make_copy /*= false*/) {
     log_copy.debug("sending remote write request: mem=" IDFMT ", offset=%zd, size=%zdx%zd",
-		   mem.id, offset, datalen, lines);
+		   mem.id, offset, line_len, lines);
 
     //MemoryImpl *m_impl = get_runtime()->get_memory_impl(mem);
     NodeId dest = ID(mem).node();
@@ -1570,8 +1570,9 @@ namespace Realm {
       
     //TODO -- get info from destination node
     size_t max_xfer_size = fabric->get_max_send();
-    size_t max_lines_per_xfer = max_xfer_size / datalen;
-				    ;
+    size_t max_lines_per_xfer = std::min(max_xfer_size / line_len,
+					 fabric->get_iov_limit(REMOTE_WRITE_MSGID));
+    
     assert(max_lines_per_xfer > 0);
 
     if(lines > max_lines_per_xfer) {
@@ -1589,20 +1590,16 @@ namespace Realm {
       args->sender = fabric->get_id();
       args->sequence_id = sequence_id;
 
-
-      // TODO -- reenable when fixed
-      // FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
-      // 						   FAB_PAYLOAD_COPY : FAB_PAYLOAD_KEEP,
-      // 						   pos,
-      // 						   datalen, 
-      // 						   max_lines_per_xfer,
-      // 						   stride);
-      
-      FabContiguousPayload* payload = NULL;
-	    
+      FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
+      						   FAB_PAYLOAD_COPY : FAB_PAYLOAD_KEEP,
+      						   pos,
+      						   line_len, 
+      						   max_lines_per_xfer,
+      						   stride);
+   	    
       fabric->send(new RemoteWriteMessage(ID(mem).node(), args, payload));
 	    
-      offset += datalen * max_lines_per_xfer;
+      offset += line_len * max_lines_per_xfer;
       pos += stride * max_lines_per_xfer;
       lines -= max_lines_per_xfer;
       count++;
@@ -1614,14 +1611,12 @@ namespace Realm {
     args->sender = fabric->get_id();
     args->sequence_id = sequence_id;
 	
-    // FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
-    // 						 FAB_PAYLOAD_COPY : FAB_PAYLOAD_KEEP,
-    // 						 pos,
-    // 						 datalen, 
-    // 						 max_lines_per_xfer,
-    // 						 stride);
-
-    FabContiguousPayload* payload = NULL;
+    FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
+    						 FAB_PAYLOAD_COPY : FAB_PAYLOAD_KEEP,
+    						 pos,
+    						 line_len, 
+    						 max_lines_per_xfer,
+    						 stride);
 
     fabric->send(new RemoteWriteMessage(dest, args, payload));
     return count;
@@ -1819,7 +1814,9 @@ namespace Realm {
       // TODO -- fabric should get destination transfer size
       NodeId dest = ID(mem).node();
       size_t max_xfer_size = fabric->get_max_send();
-      size_t max_elmts_per_xfer = max_xfer_size / rhs_size;
+      size_t max_elmts_per_xfer = std::min(max_xfer_size / rhs_size,
+					   fabric->get_iov_limit(REMOTE_WRITE_MSGID));
+      
       assert(max_elmts_per_xfer > 0);
       
       if(count > max_elmts_per_xfer) {
@@ -1842,14 +1839,12 @@ namespace Realm {
 	args->sender = fabric->get_id();
 	args->sequence_id = sequence_id;
 
-	// FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
-	// 					     PAYLOAD_COPY : PAYLOAD_KEEP,
-	// 					     pos,
-	// 					     rhs_size,
-	// 					     max_elmts_per_xfer,
-	// 					     src_stride);
-
-	FabContiguousPayload* payload = NULL;
+ 	FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
+						     PAYLOAD_COPY : PAYLOAD_KEEP,
+						     pos,
+						     rhs_size,
+						     max_elmts_per_xfer,
+						     src_stride);
 	  
 	fabric->send(new RemoteReduceMessage(dest, args, payload));
 	  
@@ -1871,14 +1866,12 @@ namespace Realm {
       args->sender = fabric->get_id();
       args->sequence_id = sequence_id;
       
-      // FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
-      // 						   PAYLOAD_COPY : PAYLOAD_KEEP,
-      // 						   pos,
-      // 						   rhs_size,
-      // 						   max_elmts_per_xfer,
-      // 						   src_stride);
-
-      FabContiguousPayload* payload = NULL;
+      FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
+      						   PAYLOAD_COPY : PAYLOAD_KEEP,
+      						   pos,
+      						   rhs_size,
+      						   max_elmts_per_xfer,
+      						   src_stride);
       
       fabric->send(new RemoteReduceMessage(dest, args, payload));
       

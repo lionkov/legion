@@ -100,6 +100,7 @@ class FabTwoDPayload : public FabPayload {
   virtual size_t get_linesz() { return linesz; }
   virtual size_t get_linecnt() { return linecnt; }
   virtual size_t get_stride() { return stride; }
+  virtual ssize_t copy_strided(void* dest, size_t destsz);
 };
 
 /* typedef std::pair<void *, size_t> FabSpanListEntry; */

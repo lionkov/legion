@@ -140,7 +140,7 @@ int FabTwoDPayload::checkmode() {
     return 0;
 
   case FAB_PAYLOAD_COPY:
-    int sz = linesz*linecnt*stride;
+    int sz = linesz*linecnt;
     internal_buffer = malloc(sz);
     
     if (!internal_buffer) {
@@ -158,11 +158,12 @@ int FabTwoDPayload::checkmode() {
   }
 }
 
-// Copy data to buffer at dest. The buffer size should be
-// large enough to accomodate skipped lines. Returns number of
-// bytes copied, or -1 on error.
-ssize_t FabTwoDPayload::copy(void *dest, size_t destsz)
-{
+// Copy data to buffer at dest. The stride of the payload will
+// be maintained, i.e., the buffer must contain stride lines
+// which will be skipped over.
+// Returns the number of bytes copied (NOT including strides)
+// or -1 on error.
+ssize_t FabTwoDPayload::copy_strided(void *dest, size_t destsz) {
   int ret = 0;
   int remaining = destsz;
   char* p = (char*) data;
@@ -188,6 +189,40 @@ ssize_t FabTwoDPayload::copy(void *dest, size_t destsz)
   }
   return ret;
 }
+
+// Copies payload data to the buffer at dest, ignoring all
+// stride lines. Data in the resulting buffer will be
+// fully contiguous.
+
+// Returns the number of bytes copied, or -1 on error.
+ssize_t FabTwoDPayload::copy(void *dest, size_t destsz) {
+  int ret = 0;
+  int remaining = destsz;
+  char* p = (char*) data;
+  char* dest_p = (char*) dest;
+  
+  if (mode == FAB_PAYLOAD_ERROR)
+    return -1;
+
+  for (int i=0; i<linecnt; ++i) {
+    
+    if(remaining < linesz) {  // out of space to copy into
+      memcpy(dest_p, p, remaining);
+      ret += remaining;
+      return ret;
+    }
+    
+    memcpy(dest_p, p, linesz);
+    ret += linesz;
+    remaining -= linesz;
+    p += linesz*stride;
+    dest_p += linesz;
+  }
+  return ret;
+}
+
+
+
 
 ssize_t FabTwoDPayload::get_iovs_required() {
   return linecnt; 

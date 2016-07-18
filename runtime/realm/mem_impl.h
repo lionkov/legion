@@ -28,6 +28,7 @@
 
 #include "event_impl.h"
 #include "rsrv_impl.h"
+#include <algorithm>
 
 namespace Realm {
 
@@ -719,7 +720,7 @@ namespace Realm {
 				    bool make_copy = false);
 
     extern unsigned do_remote_write(Memory mem, off_t offset,
-				    const void *data, size_t datalen,
+				    const void *data, size_t line_len,
 				    off_t stride, size_t lines,
 				    unsigned sequence_id,
 				    bool make_copy = false);
