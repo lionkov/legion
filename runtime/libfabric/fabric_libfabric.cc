@@ -792,9 +792,23 @@ int FabFabric::get_max_send() {
   return max_send;
 }
 
+// Return the number of iovecs that can be used for payload data
+// for a single non-RMA send operation. This call is valid for any
+// message type. However, it is conservative -- messages that do not
+// have arguments can potentially send one extra iovec.
+size_t FabFabric::get_iov_limit() {
+  size_t limit = fi->tx_attr->iov_limit;
+  return limit-2; // Subtract two to account for message id and arguments
+}
 
-// Return the maximum number of iovecs that can be sent in a
-// single posted/non-RMA operation. 
-size_t FabFabric::get_iov_limit() { 
-  return fi->tx_attr->iov_limit;
+// Return the number of iovecs that can be used for payload
+// data for a message of a given type. This call takes into
+// account whether the message type has arguments, so it may allow
+// you to send and extra iovec.
+size_t FabFabric::get_iov_limit(MessageType* mtype) {
+  size_t limit = fi->tx_attr->iov_limit;
+  if (mtype->argsz == 0)
+    return limit-1; // make space for msgid only
+  else
+    return limit-2; // make space for msgid, args
 }

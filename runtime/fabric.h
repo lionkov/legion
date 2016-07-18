@@ -122,6 +122,7 @@ class Fabric {
   virtual void wait_for_shutdown() = 0;
   virtual int get_max_send() = 0;
   virtual size_t get_iov_limit() = 0;
+  virtual size_t get_iov_limit(MessageType* mtype) = 0;
 };
 
 extern Fabric* fabric;
