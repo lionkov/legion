@@ -72,7 +72,7 @@ int FabTester::run() {
   int ret;
   std::cout << "Attempting to send a message. You should see some output. " << std::endl << std::endl;
   std::cout << "iov_limit: " << fabric->get_iov_limit() << std::endl;
-  std::cout << "iov_limit: " << fabric->get_iov_limit(fabric->mts[4]) << std::endl;
+  std::cout << "iov_limit: " << fabric->get_iov_limit(4) << std::endl;
 
   int st = 0;
   int count = 0;
@@ -95,7 +95,7 @@ int FabTester::run() {
       = new TestTwoDPayloadMessageType::RequestArgs();
     
     twodargs->linesz = 4;
-    twodargs->linecnt = 6;
+    twodargs->linecnt = 6 ;
     twodargs->stride = 1;
     
     int mode = FAB_PAYLOAD_FREE;

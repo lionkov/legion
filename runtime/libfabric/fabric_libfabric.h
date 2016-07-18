@@ -119,7 +119,7 @@ class FabMessage : public Message {
 				    const std::string file, const int line);
     int get_max_send(); 
     size_t get_iov_limit();
-    virtual size_t get_iov_limit(MessageType* mtype);
+    virtual size_t get_iov_limit(MessageId id);
 
   protected:
     NodeId	id;

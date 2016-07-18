@@ -1571,6 +1571,7 @@ namespace Realm {
     //TODO -- get info from destination node
     size_t max_xfer_size = fabric->get_max_send();
     size_t max_lines_per_xfer = max_xfer_size / datalen;
+				    ;
     assert(max_lines_per_xfer > 0);
 
     if(lines > max_lines_per_xfer) {

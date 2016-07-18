@@ -805,8 +805,16 @@ size_t FabFabric::get_iov_limit() {
 // data for a message of a given type. This call takes into
 // account whether the message type has arguments, so it may allow
 // you to send and extra iovec.
-size_t FabFabric::get_iov_limit(MessageType* mtype) {
+
+// Returns -1 if an invalid message type queried.
+
+size_t FabFabric::get_iov_limit(MessageId id) {
   size_t limit = fi->tx_attr->iov_limit;
+  MessageType* mtype = mts[id];
+ 
+  if (mtype == NULL)
+    return -1;
+  
   if (mtype->argsz == 0)
     return limit-1; // make space for msgid only
   else
