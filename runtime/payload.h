@@ -30,7 +30,7 @@ class FabPayload {
   virtual ~FabPayload(void) { }
 
   // Return payload size 
-  virtual ssize_t size(void) = 0;
+  virtual size_t size(void) = 0;
   
   // Return direct pointer to payload
   virtual void* ptr(void) = 0;
@@ -46,6 +46,7 @@ class FabPayload {
   virtual ssize_t iovec(struct iovec *iov, size_t iovnum) = 0;
 };
 
+// A contiguous payload is just a congituous buffer with some length, sz.
 class FabContiguousPayload : public FabPayload {
  protected:
   size_t sz; // size of data
@@ -58,29 +59,48 @@ class FabContiguousPayload : public FabPayload {
   FabContiguousPayload(int mode, void *data, size_t s);
   virtual ~FabContiguousPayload(void);
   
-  virtual ssize_t size(void) { return sz; };
+  virtual size_t size(void) { return sz; };
   virtual void* ptr(void) { return (mode == FAB_PAYLOAD_ERROR) ? NULL : data; } 
   virtual ssize_t copy(void *dest, size_t destsz);
   virtual ssize_t get_iovs_required();
   virtual ssize_t iovec(struct iovec *iov, size_t iovnum);
 };
 
-/* class FabTwoDPayload : public FabPayload { */
-/*  protected: */
-/*   size_t		linesz; */
-/*   size_t		linecnt; */
-/*   ptrdiff_t	stride; */
-/*   void*		data; */
 
-/*  public: */
-/*   FabTwoDPayload(int m, void *data, size_t line_size, size_t line_count, ptrdiff_t line_stride); */
-/*   virtual ~FabTwoDPayload(void); */
+// A TwoDPayload is intended to hold a two-dimensional, strided array.
+// A FabTwoDPayload is defined as follows: a set of linecnt lines, in contiguous
+// memory, each of length linesz. Each line is separated by stride lines, each of
+// length linesz, that are not guaranteed to hold valid data.
 
-/*   virtual ssize_t size(void); */
-/*   virtual void* ptr(void); */
-/*   virtual ssize_t copy(void *dest, size_t destsz); */
-/*   virtual ssize_t iovec(struct iovec *iov, size_t iovnum); */
-/* }; */
+// The 'size' of a FabTwoDPayload is the ammount of memory held in the valid lines,
+// not including the stride lines. However, if FAB_PAYLOAD_COPY is used, more memory
+// will be allocated than necessary to accommodate the stride lines.
+
+// The ptr() method will return a pointer to the first line in the 2d array. The lines will
+// be separated by some stride, so use the get_linesz and get_stride methods to traverse the
+// array.
+class FabTwoDPayload : public FabPayload {
+ protected:
+  size_t	linesz;
+  size_t	linecnt;
+  ptrdiff_t	stride;
+  void*		data;
+  void*         internal_buffer;
+
+ public:
+  FabTwoDPayload(int m, void *data, size_t line_size, size_t line_count, ptrdiff_t line_stride);
+  virtual ~FabTwoDPayload(void);
+
+  virtual int checkmode();
+  virtual size_t size(void) { return linecnt*linesz; };
+  virtual void* ptr(void) { return data; };
+  virtual ssize_t copy(void *dest, size_t destsz);
+  virtual ssize_t get_iovs_required();
+  virtual ssize_t iovec(struct iovec *iov, size_t iovnum);
+  virtual size_t get_linesz() { return linesz; }
+  virtual size_t get_linecnt() { return linecnt; }
+  virtual size_t get_stride() { return stride; }
+};
 
 /* typedef std::pair<void *, size_t> FabSpanListEntry; */
 /* typedef std::vector<FabSpanListEntry> FabSpanList; */

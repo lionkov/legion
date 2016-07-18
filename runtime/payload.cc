@@ -92,9 +92,7 @@ ssize_t FabContiguousPayload::iovec(struct iovec *iov, size_t iovnum) {
 }
 
 // Returns the number of iov entries required to transfer
-// this payload's data.
-//
-// Returns -1 on error.
+// this payload's data. Returns -1 on error.
 ssize_t FabContiguousPayload::get_iovs_required() {
   if (mode == FAB_PAYLOAD_ERROR)
     return -1;
@@ -103,79 +101,117 @@ ssize_t FabContiguousPayload::get_iovs_required() {
   return 1;  
 }
 
-// FabTwoDPayload::FabTwoDPayload(int m, void *d, size_t line_size, size_t line_count, ptrdiff_t line_stride)
-//   : FabPayload(m), linesz(line_size), linecnt(line_count), stride(line_stride), data((void*) d)
-// {
-//   checkmode();
-// }
 
-// FabTwoDPayload::~FabTwoDPayload(void)
-// {
-//   if (mode == FAB_PAYLOAD_FREE)
-//     free(data);
-// }
+FabTwoDPayload::FabTwoDPayload(int m, void *d, size_t line_size, size_t line_count, ptrdiff_t line_stride)
+  : FabPayload(m), linesz(line_size), linecnt(line_count), stride(line_stride), data((void*) d) {
+  checkmode();
+}
 
-// ssize_t FabTwoDPayload::size(void)
-// {
-//   return (linecnt/stride + (linecnt%stride?1:0)) * linesz;
-// }
+FabTwoDPayload::~FabTwoDPayload(void) {
+  std::cout << "DESTRUCTING PAYLOAD -- data: " << (char*) data << std::endl;
+  if (mode == FAB_PAYLOAD_FREE && data) 
+    free(data);
+  
+  if (mode == FAB_PAYLOAD_COPY && internal_buffer)
+    free(internal_buffer);
+}
 
-// void* FabTwoDPayload::ptr(void)
-// {
-//   return NULL;
-// }
 
-// ssize_t FabTwoDPayload::copy(void *dest, size_t destsz)
-// {
-//   ssize_t ret;
-//   uintptr_t p, ep, d;
+// Check mode of payload and copy data into this object if necessary.
+// Only strided data will be copied, but extra space will be allocated
+// to accomodate empty space in between strides.
+int FabTwoDPayload::checkmode() {
+  switch (mode) {
+  default:
+    // just refuse to do anything, return an error later
+    mode = FAB_PAYLOAD_ERROR;
+    return -1;
+    
+  case FAB_PAYLOAD_ERROR:
+    return -1;
+    
+  case FAB_PAYLOAD_NONE:
+    return 0;
+    
+  case FAB_PAYLOAD_KEEP:
+    return 0;
+    
+  case FAB_PAYLOAD_FREE:
+    return 0;
 
-//   if (mode == FAB_PAYLOAD_ERROR)
-//     return -1;
+  case FAB_PAYLOAD_COPY:
+    int sz = linesz*linecnt*stride;
+    internal_buffer = malloc(sz);
+    
+    if (!internal_buffer) {
+      mode = FAB_PAYLOAD_ERROR;
+      return -1;
+    }
 
-//   ret = checkcopy(dest, destsz);
-//   if (ret >= 0)
-//     return ret;
+    if (copy(internal_buffer, sz) != linecnt*linesz) {
+      mode = FAB_PAYLOAD_ERROR;
+      return -1;
+    }
+    
+    data = internal_buffer; // Update data pointer to point to internal data
+    return 0;
+  }
+}
 
-//   ret = 0;
-//   p = (uintptr_t) data;
-//   d = (uintptr_t) data;
-	
-//   ep = p + linecnt * linesz;
-//   for(; (ret < destsz) && (p < d + (linecnt * linesz)); p += stride * linesz) {
-//     size_t sz = linesz;
-//     if (ret + sz > destsz)
-//       sz = destsz - ret;
+// Copy data to buffer at dest. The buffer size should be
+// large enough to accomodate skipped lines. Returns number of
+// bytes copied, or -1 on error.
+ssize_t FabTwoDPayload::copy(void *dest, size_t destsz)
+{
+  int ret = 0;
+  int remaining = destsz;
+  char* p = (char*) data;
+  char* dest_p = (char*) dest;
+  
+  
+  if (mode == FAB_PAYLOAD_ERROR)
+    return -1;
 
-//     memmove((void*) (d + ret), (void*) p, sz);
-//     ret += sz;
-//   }
+  for (int i=0; i<linecnt; ++i) {
+    
+    if(remaining < linesz) {  // out of space to copy into
+      memcpy(dest_p, p, remaining);
+      ret += remaining;
+      return ret;
+    }
+    
+    memcpy(dest_p, p, linesz);
+    ret += linesz;
+    remaining -= linesz;
+    p += linesz*stride;
+    dest_p += linesz*stride;
+  }
+  return ret;
+}
 
-//   return ret;
-// }
+ssize_t FabTwoDPayload::get_iovs_required() {
+  return linecnt; 
+}
 
-// ssize_t FabTwoDPayload::iovec(struct iovec *iov, size_t iovnum)
-// {
-//   ssize_t ret;
 
-//   if (mode == FAB_PAYLOAD_ERROR)
-//     return -1;
+// Loads data into iovecs at iov. Will put one iov in each line.z
+// Will NOT load skipped lines. Returns the number of iov entries assigned,
+// or -1 on error.
+ssize_t FabTwoDPayload::iovec(struct iovec *iov, size_t iovnum) {
+  ssize_t ret;
 
-//   ret = checkiovec(iov, iovnum);
-//   if (ret >= 0)
-//     return ret;
+  if (mode == FAB_PAYLOAD_ERROR)
+    return -1;
+  
+  ret = (iovnum < linecnt) ? iovnum : linecnt;
+  
+  for(ssize_t i = 0; i < ret; ++i) {
+    iov[i].iov_base = (char *)data + i*stride*linesz;
+    iov[i].iov_len = linesz;
+  }
 
-//   ret = linecnt/stride + (linecnt%stride?1:0);
-//   if (iovnum < ret)
-//     return ret;
-
-//   for(ssize_t i = 0; i < ret; i++) {
-//     iov[i].iov_base = (char *)data + i*stride*linesz;
-//     iov[i].iov_len = linesz;
-//   }
-
-//   return ret;
-// }
+  return ret;
+}
 
 // FabSpanPayload::FabSpanPayload(int m, SpanList &sl, size_t s) : FabPayload(m), spans(sl), sz(s)
 // {
@@ -200,7 +236,7 @@ ssize_t FabContiguousPayload::get_iovs_required() {
 // ssize_t FabSpanPayload::size(void)
 // {
 //   return sz;
-// }
+// }nn
 
 // void* FabSpanPayload::ptr(void)
 // {

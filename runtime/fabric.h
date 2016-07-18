@@ -121,6 +121,7 @@ class Fabric {
   virtual void register_options(Realm::CommandLineParser& cp) = 0;
   virtual void wait_for_shutdown() = 0;
   virtual int get_max_send() = 0;
+  virtual size_t get_iov_limit() = 0;
 };
 
 extern Fabric* fabric;

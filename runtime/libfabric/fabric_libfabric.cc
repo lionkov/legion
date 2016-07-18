@@ -100,7 +100,7 @@ bool FabFabric::init() {
   
   std::cout << "Initializing fabric... " << std::endl;
   
-  struct fi_info *hints, *fi;
+  struct fi_info *hints;
   struct fi_cq_attr rx_cqattr; memset(&rx_cqattr, 0, sizeof(rx_cqattr));
   struct fi_cq_attr tx_cqattr; memset(&tx_cqattr, 0, sizeof(tx_cqattr));
   struct fi_eq_attr eqattr; memset(&eqattr, 0, sizeof(eqattr));
@@ -420,8 +420,10 @@ int FabFabric::send(Message* m)
     }
     
     ret = fi_sendv(ep, m->iov, NULL, n, fi_addrs[m->rcvid], m);
-    if (ret != 0)
+    if (ret != 0) {
+      std::cerr << fi_error_str(ret, "fi_sendv", __FILE__, __LINE__) << std::endl;            
       return ret;
+    }
   }
 
   return 0;
@@ -570,8 +572,8 @@ bool FabFabric::incoming(FabMessage *m)
     msgid = *(MessageId *) data;
     mtype = fabric->mts[msgid];
     m->mtype = mtype;
-    data += sizeof(mtype);
-    len -= sizeof(mtype);
+    data += sizeof(msgid);
+    len -= sizeof(msgid);
     
     if (mtype == NULL) {
       fprintf(stderr, "invalid message type: %d\n", msgid);
@@ -788,4 +790,11 @@ int FabFabric::add_address(char* first_address, int index, void* addr) {
 
 int FabFabric::get_max_send() {
   return max_send;
+}
+
+
+// Return the maximum number of iovecs that can be sent in a
+// single posted/non-RMA operation. 
+size_t FabFabric::get_iov_limit() { 
+  return fi->tx_attr->iov_limit;
 }

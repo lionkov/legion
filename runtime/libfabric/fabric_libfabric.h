@@ -113,10 +113,12 @@ class FabMessage : public Message {
     void memfree(void *);
     void print_fi_info(fi_info* fi);
     void wait_for_shutdown();
+    
     static std::string fi_cq_error_str(const int ret, fid_cq* cq);
     static std::string fi_error_str(const int ret, const std::string call,
 				    const std::string file, const int line);
     int get_max_send(); 
+    size_t get_iov_limit();
 
   protected:
     NodeId	id;
@@ -131,6 +133,7 @@ class FabMessage : public Message {
     struct fid_ep* ep;
     struct fid_av* av;
     struct fi_context* avctx;
+    struct fi_info* fi;
 
     fi_addr_t* fi_addrs;
 
@@ -148,7 +151,7 @@ class FabMessage : public Message {
     int post_tagged(MessageType* mt);
     int post_untagged();
     
-    bool init_fail(fi_info* hints, fi_info* fi, const std::string message) const;
+    bool init_fail(fi_info* hints, fi_info* qfi, const std::string message) const;
     int setup_pmi();
 
     void start_progress_threads(const int count, const size_t stack_size);

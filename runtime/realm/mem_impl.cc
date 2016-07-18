@@ -1273,6 +1273,7 @@ namespace Realm {
     if(args->sequence_id > 0) {
       PartialWriteKey key;
       key.sender = args->sender;
+
       key.sequence_id = args->sequence_id;
       partial_remote_writes_lock.lock();
       PartialWriteMap::iterator it = partial_remote_writes.find(key);
