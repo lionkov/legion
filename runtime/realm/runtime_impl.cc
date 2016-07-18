@@ -738,6 +738,9 @@ namespace Realm {
       BarrierImpl::barrier_adjustment_timestamp = (((Barrier::timestamp_t)(gasnet_mynode())) << BarrierImpl::BARRIER_TIMESTAMP_NODEID_SHIFT) + 1;
 
       // Register all message types with fabric before calling fabric->init()
+      std::cout << "ADDING MESSAGES" << std::endl;
+      fabric->log_fabric().debug() << "HI!";
+      
       fabric->add_message_type(new ClearTimersMessageType(), "Clear Timer Request");
       fabric->add_message_type(new TimerDataRequestMessageType(), "Roll-up Request");
       fabric->add_message_type(new TimerDataResponseMessageType(), "Roll-up Response");

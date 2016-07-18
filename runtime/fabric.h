@@ -102,7 +102,7 @@ class MessageType {
 class Fabric {
  public:
   // all message types need to be added before init() is called
-  Fabric() { }
+  Fabric() : log(NULL) { }
   ~Fabric() { }
   MessageType* mts[MAX_MESSAGE_TYPES];
   virtual bool add_message_type(MessageType *mt, const std::string tag) = 0;
@@ -123,6 +123,12 @@ class Fabric {
   virtual int get_max_send() = 0;
   virtual size_t get_iov_limit() = 0;
   virtual size_t get_iov_limit(MessageId id) = 0;
+  Realm::Logger* log;
+  // Get the global Legion logger for fabric
+  Realm::Logger& log_fabric() {
+    static Realm::Logger log("fabric");
+    return log;
+  }
 };
 
 extern Fabric* fabric;
@@ -135,7 +141,7 @@ class Message {
   NodeId	rcvid;		// receiver id
   MessageId     id; 
   void*		args;
-  FabPayload*	payload;
+  FabPayload*	payload;  
 
   virtual ~Message() {
     if (payload)

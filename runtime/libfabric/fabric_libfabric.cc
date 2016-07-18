@@ -326,7 +326,9 @@ FabFabric::~FabFabric()
 
 bool FabFabric::add_message_type(MessageType *mt, const std::string tag)
 {
-  std::cout << "Fabric: registered message type: " << tag << std::endl;
+  log_fabric().debug("registered message type: %s", tag.c_str());
+
+  
   if (mt->id == 0 || mts[mt->id] != NULL)
     return false;
 

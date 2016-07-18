@@ -1704,15 +1704,19 @@ namespace Realm {
       }
 
       // take spans in order until we run out of space or spans
+      size_t max_spans = fabric->get_iov_limit();
       SpanList subspans;
       size_t xfer_size = 0;
+      size_t span_count = 0;
       while(it != spans.end()) {
 	// can we fit the next one?
 	if((xfer_size + it->second) > max_xfer_size) break;
+	if(span_count > max_spans) break;
 
 	subspans.push_back(*it);
 	xfer_size += it->second;
-	it++;
+	++span_count;
+	++it;
       }
       // if we didn't get at least one span, we won't make forward progress
       assert(!subspans.empty());
@@ -1725,11 +1729,9 @@ namespace Realm {
       args->sender = fabric->get_id();
       args->sequence_id = sequence_id;
 
-      // FabSpanPayload* payload = new FabSpanPayload(make_copy ?
-      // 						   PAYLOAD_COPY : PAYLOAD_KEEP,
-      // 						   subspans, xfer_size);
-
-      FabContiguousPayload* payload = NULL;
+      FabSpanPayload* payload = new FabSpanPayload(make_copy ?
+      						   PAYLOAD_COPY : PAYLOAD_KEEP,
+      						   subspans);
       
       fabric->send(new RemoteWriteMessage(dest, args, payload));
 	  
@@ -1786,6 +1788,7 @@ namespace Realm {
 	FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_COPY,
 								 buffer_start,
 								 cur_size);
+	
 	fabric->send(new RemoteSerdezMessage(ID(mem).node(), args, payload));
 	
         xfers ++;
