@@ -18,6 +18,20 @@ enum {
   FAB_PAYLOAD_COPY, // make a copy of the payload
 };
 
+// Payloads hold data which may be in one of several formats.
+
+// Payload objects hold data either internally, or by holding a pointer to the
+// original data source. If FAB_PAYLOAD_COPY is used, data will be copied
+// into internal buffers and freed when the payload object is destroyed. Otherwise,
+// the payload object will hold a pointer to the original data. If FAB_PAYLOAD_FREE
+// is used, the original data object will be deleted when the payload object is destroyed.
+
+// Data in a payload may be accessed directly via the ptr() method, however, this is not
+// preferred unless the format of the data is known. Instead, it is usually preferable to
+// use the iovec() method, which will assign an array of iovecs to point to this payload's
+// data, or the copy() method, which will copy the data out as a contiguous buffer.
+
+
 class FabPayload {
  protected:
   int  mode;
@@ -103,21 +117,34 @@ class FabTwoDPayload : public FabPayload {
   virtual ssize_t copy_strided(void* dest, size_t destsz);
 };
 
-/* typedef std::pair<void *, size_t> FabSpanListEntry; */
-/* typedef std::vector<FabSpanListEntry> FabSpanList; */
+typedef std::pair<void *, size_t> FabSpanListEntry;
+typedef std::vector<FabSpanListEntry> FabSpanList;
 
-/* class FabSpanPayload : public FabPayload { */
-/*  protected: */
-/*   SpanList	spans; */
-/*   size_t		sz; */
-/*  public: */
-/*   FabSpanPayload(int m, SpanList &sl, size_t s); */
-/*   virtual ~FabSpanPayload(void); */
 
-/*   virtual ssize_t size(void); */
-/*   virtual void* ptr(void); */
-/*   virtual ssize_t copy(void *dest, size_t destsz); */
-/*   virtual ssize_t iovec(struct iovec *iov, size_t iovnum); */
-/* }; */
+// A SpanPayload is a list of of pointers to buffers of inconsistent length.
+// If FAB_PAYLOAD_COPY is used, a new buffer will be allocated for each span
+// and the data copied; otherwise, the spans will point directly  to the original
+// data.
+
+// The size of a SpanPayload is the total number of bytes contains in all spans.
+class FabSpanPayload : public FabPayload {
+ protected:
+  SpanList	spans;
+  size_t	sz;
+  SpanList*     data; // Original spanlist
+  virtual int checkmode();
+  virtual ssize_t assign_spans(SpanList* sl);
+  virtual ssize_t copy_spans(SpanList* sl);
+  virtual ssize_t get_iovs_required(); 
+  
+ public:
+  FabSpanPayload(int m, SpanList &sl);
+  virtual ~FabSpanPayload(void);
+
+  virtual size_t size(void);
+  virtual void* ptr(void);
+  virtual ssize_t copy(void *dest, size_t destsz);
+  virtual ssize_t iovec(struct iovec *iov, size_t iovnum);
+};
 
 #endif // PAYLOAD_H

@@ -412,14 +412,13 @@ int FabFabric::send(Message* m)
     m->iov[0].iov_len = sizeof(m->mtype->id);
     sz += m->iov[0].iov_len;
     
-    n += pidx;
     if (m->mtype->argsz != 0) {
       m->iov[1].iov_base = m->args; 
       m->iov[1].iov_len = m->mtype->argsz;
       sz += m->iov[1].iov_len;
     }
     
-    ret = fi_sendv(ep, m->iov, NULL, n, fi_addrs[m->rcvid], m);
+    ret = fi_sendv(ep, m->iov, NULL, n+pidx, fi_addrs[m->rcvid], m);
     if (ret != 0) {
       std::cerr << fi_error_str(ret, "fi_sendv", __FILE__, __LINE__) << std::endl;            
       return ret;

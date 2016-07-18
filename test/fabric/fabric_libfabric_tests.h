@@ -25,6 +25,7 @@ FabTester() {}
 int run();
 int init();
 void testFabTwoDPayload();
+ void fill_spans(SpanList& sl);
 
 private:
 
@@ -105,4 +106,26 @@ class TestArglessTwoDPayloadMessage : public FabMessage {
  public:
  TestArglessTwoDPayloadMessage(NodeId dest, FabPayload* payload)
     : FabMessage(dest, 4, NULL, payload) { }
+};
+
+
+class TestSpanPayloadMessageType : public MessageType {
+ public: 
+ TestSpanPayloadMessageType()
+   : MessageType(5, /* msgId */
+		 sizeof(RequestArgs),
+		 true, /* has payload */
+		 true /*in order */ ){ }
+
+  struct RequestArgs {
+    size_t spans;
+  };
+
+  void request(Message* m);
+};
+
+class TestSpanPayloadMessage : public FabMessage {
+ public:
+ TestSpanPayloadMessage(NodeId dest, void* args, FabPayload* payload)
+   : FabMessage(dest, 5, args, payload) { }
 };

@@ -248,84 +248,153 @@ ssize_t FabTwoDPayload::iovec(struct iovec *iov, size_t iovnum) {
   return ret;
 }
 
-// FabSpanPayload::FabSpanPayload(int m, SpanList &sl, size_t s) : FabPayload(m), spans(sl), sz(s)
-// {
-//   checkmode();
-//   sz = 0;
-	
-//   for(SpanList::const_iterator it = spans.begin(); it != spans.end(); it++) {
-//     sz += it->second;
-//   }
+FabSpanPayload::FabSpanPayload(int m, SpanList &sl)
+  : FabPayload(m), sz(0), data(&sl) {
+  checkmode(); 
+}
 
-// }
+FabSpanPayload::~FabSpanPayload(void) {
+  std::cout << "DESTRUCTING PAYLOAD -- spanlist " << std::endl;
+  
+  if (mode == FAB_PAYLOAD_FREE || mode == FAB_PAYLOAD_COPY) {
+    for(SpanList::const_iterator it = spans.begin(); it != spans.end(); it++) {
+      if (it->first)
+	free((void*) it->first);
+    }
+  } 
+}
 
-// FabSpanPayload::~FabSpanPayload(void)
-// {  
-//   if (mode == FAB_PAYLOAD_FREE) {
-//     for(SpanList::const_iterator it = spans.begin(); it != spans.end(); it++) {
-//       free((void*) it->first);
-//     }
-//   } 
-// }
 
-// ssize_t FabSpanPayload::size(void)
-// {
-//   return sz;
-// }nn
+// Determine the mode of this payload object, and load
+// data accordingly.
+int FabSpanPayload::checkmode() {
+  switch (mode) {
+  default:
+    // just refuse to do anything, return an error later
+    mode = FAB_PAYLOAD_ERROR;
+    return -1;
+    
+  case FAB_PAYLOAD_ERROR:
+    return -1;
+    
+  case FAB_PAYLOAD_NONE:
+    return 0;
+    
+  case FAB_PAYLOAD_KEEP:
+    assign_spans(data);
+    return 0;
+    
+  case FAB_PAYLOAD_FREE:
+    assign_spans(data);
+    return 0;
 
-// void* FabSpanPayload::ptr(void)
-// {
-//   return NULL;
-// }
+  case FAB_PAYLOAD_COPY:
+    copy_spans(data);
+    return 0;
+  }
+}
 
-// ssize_t FabSpanPayload::copy(void *dest, size_t destsz)
-// {
-//   ssize_t ret, n;
-//   char *p;
+// Assign each span to point to the contents of the span list.
+// Returns the number of spans assigned on succes, or -1
+// on error. Error will set the mode of this payload to FAB_PAYLOAD_ERROR.
+ssize_t FabSpanPayload::assign_spans(SpanList* sl) {
+  ssize_t ret = 0;
+  sz = 0;
+  if (mode == FAB_PAYLOAD_ERROR)
+    return -1;
+  
+  for(SpanList::const_iterator i = sl->begin(); i != sl->end(); ++i) {
+    FabSpanListEntry entry((void*) i->first, i->second);
+    spans.push_back(entry);
+    ++ret;
+    sz += i->second; 
+  }
+  
+  return ret;
+}
 
-//   if (mode == FAB_PAYLOAD_ERROR)
-//     return -1;
+// Copies the data pointed to into the span payload.
+// Returns the number of spans assigned on succes, or -1
+// on error. Error will set the mode of this payload to FAB_PAYLOAD_ERROR.
+ssize_t FabSpanPayload::copy_spans(SpanList* sl) {
+  ssize_t ret = 0;
+  sz = 0;
+  if (mode == FAB_PAYLOAD_ERROR)
+    return -1;
+  
+  for(SpanList::const_iterator i = sl->begin(); i != sl->end(); ++i) {
+    void* buf = malloc(i->second);
+    if (!buf) {
+      mode = FAB_PAYLOAD_ERROR;      
+      return -1;
+    }
+    memmove(buf, i->first, i->second);
+ 
+    FabSpanListEntry entry(buf, i->second);
+    spans.push_back(entry);
+    ++ret;
+  }
+  
+  return ret;
+}
 
-//   ret = checkcopy(dest, destsz);
-//   if (ret >= 0)
-//     return ret;
 
-//   ret = 0;
-//   p = (char *) dest;
-//   for(SpanList::const_iterator it = spans.begin(); (destsz > 0) && (it != spans.end()); it++) {
-//     n = destsz > it->second ? it->second : destsz;
-//     memmove(p, it->first, n);
-//     ret += n;
-//     p += n;
-//     destsz -= n;
-//   }
 
-//   return ret;
-// }
 
-// ssize_t FabSpanPayload::iovec(struct iovec *iov, size_t iovnum)
-// {
-//   ssize_t n;
-//   int ret;
+size_t FabSpanPayload::size(void) {
+  return sz;
+}
 
-//   if (mode == FAB_PAYLOAD_ERROR)
-//     return -1;
+void* FabSpanPayload::ptr(void) {
+  return &spans;
+}
 
-//   ret = checkiovec(iov, iovnum);
-//   if (ret >= 0)
-//     return ret;
 
-//   n = spans.size();
-//   if (iovnum < n)
-//     return n;
+// Copies data to a contiguous external buffer.
+// Returns the number of bytes copied, or -1 on error.
+// If not enough space is available, will copy as much as possible.
+ssize_t FabSpanPayload::copy(void *dest, size_t destsz) {
+  ssize_t ret = 0;
+  size_t n;
+  char* dest_p = (char*) dest;
 
-//   SpanList::const_iterator it;
-//   ssize_t i;
-//   for(it = spans.begin(), i = 0; it != spans.end(); it++, i++) {
-//     iov[i].iov_base = (void*) it->first;
-//     iov[i].iov_len = it->second;
-//   }
+  if (mode == FAB_PAYLOAD_ERROR)
+    return -1;
+ 
+  for(SpanList::const_iterator it = spans.begin(); (destsz > 0) && (it != spans.end()); it++) {
+    n = (destsz > it->second) ? it->second : destsz;
+    memmove(dest_p, it->first, n);
+    ret += n;
+    dest_p += n;
+    destsz -= n;
+  }
 
-//   return n;
-// }
+  return ret;
+}
 
+// Fills an array of iovecs at iov to poin to this payload object's
+// data. Returns the number of iovecs assigned, or -1 if on error.
+ssize_t FabSpanPayload::iovec(struct iovec *iov, size_t iovnum) {
+  ssize_t i = 0;
+
+  if (mode == FAB_PAYLOAD_ERROR)
+    return -1;
+
+  SpanList::const_iterator it;
+  for(it = spans.begin(); it != spans.end(); ++it) {
+    if (i >= iovnum)
+      return i;
+    
+    iov[i].iov_base = (void*) it->first;
+    iov[i].iov_len = it->second;
+    ++i;
+  }
+
+  return i;
+}
+
+// Gets the number of iovs required to completely assign this Payload's
+// data.
+ssize_t FabSpanPayload::get_iovs_required() {
+  return spans.size();
+}

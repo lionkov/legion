@@ -44,7 +44,7 @@ int FabTester::init() {
   fabric->add_message_type(new TestPayloadMessageType(), "Test Payload Message");
   fabric->add_message_type(new TestTwoDPayloadMessageType(), "Test 2D Payload Message");
   fabric->add_message_type(new TestArglessTwoDPayloadMessageType(), "Test Argless 2D Payload Message");
-  
+  fabric->add_message_type(new TestSpanPayloadMessageType(), "Test Span Payload Message");
   bool ret;
   ret = fabric->init();
   
@@ -97,8 +97,14 @@ int FabTester::run() {
     twodargs->linesz = 4;
     twodargs->linecnt = 6 ;
     twodargs->stride = 1;
+
     
-    int mode = FAB_PAYLOAD_FREE;
+    TestSpanPayloadMessageType::RequestArgs* spanargs
+      = new TestSpanPayloadMessageType::RequestArgs();
+
+    spanargs->spans = 3;
+    
+    int mode = FAB_PAYLOAD_KEEP;
     switch (mode) { 
     case FAB_PAYLOAD_KEEP:
       std::cout << "MODE: KEEP" << std::endl;
@@ -119,14 +125,29 @@ int FabTester::run() {
 			   twodargs->linesz,
 			   twodargs->linecnt,
 			   twodargs->stride);
-    
-    std::cout << "Sending payload message..." << std::endl;
-    ret = fabric->send(new TestTwoDPayloadMessage(fabric->get_id(), (void*) twodargs, twodpayload));
-    std::cout << "retcode: " << ret << std::endl;
 
-    std::cout << "Sending argless payload message..." << std::endl;
+    SpanList* sl = new SpanList();
+    fill_spans(*sl);
+    FabSpanPayload* spanpayload =
+      new FabSpanPayload(mode, *sl);
+
+    /*
+    std::cout << "Sending Contiguous payload message... " << std:: endl;
+    ret = fabric->send(new TestPayloadMessage(fabric->get_id(), (void*) buf, payload));
+    std::cout << "retcode: " << ret << std::endl << std::endl;
+    
+    std::cout << "Sending 2D payload message..." << std::endl;
+    ret = fabric->send(new TestTwoDPayloadMessage(fabric->get_id(), (void*) twodargs, twodpayload));
+    std::cout << "retcode: " << ret << std::endl << std::endl;
+
+    std::cout << "Sending argless 2D payload message..." << std::endl;
     ret = fabric->send(new TestArglessTwoDPayloadMessage(fabric->get_id(), twodpayload));
-    std::cout << "retcode: " << ret << std::endl;
+    std::cout << "retcode: " << ret << std::endl << std::endl;
+    */
+    std::cout << "Sending spanlist payload message..." << std::endl;
+    ret = fabric->send(new TestSpanPayloadMessage(fabric->get_id(), spanargs, spanpayload));
+    std::cout << "retcode: " << ret << std::endl << std::endl;
+
 
     sleep(st);
     /*
@@ -164,16 +185,31 @@ void FabTester::testFabTwoDPayload() {
     
 }
 
+// Puts some junk in a span list
+void FabTester::fill_spans(SpanList& sl) {
+  char* buf1 = new char[64];
+  char* buf2 = new char[32];
+  char* buf3 = new char[16];
+
+  strcpy(buf1, "This is span 1.");
+  strcpy(buf2, "This is span 2.");
+  strcpy(buf3, "This is span 3.");
+
+  sl.push_back(FabSpanListEntry(buf1, 64));
+  sl.push_back(FabSpanListEntry(buf2, 32));
+  sl.push_back(FabSpanListEntry(buf3, 16));
+}
+
 void TestMessageType::request(Message* m) {
   std::cout << "TestMessageType::request() called" << std::endl;
-  std::cout << "Args: " << (char*) m->args << std::endl;
+  std::cout << "Args: " << (char*) m->args << std::endl << std::endl;
 }
 
 void TestPayloadMessageType::request(Message* m) {
   std::cout << "TestPayloadMessageType::request called" << std::endl;
   std::cout << "Args: " << (char*) m->args << std::endl;
   std::cout << "Payload: " << (char*) m->payload->ptr()
-	    << std::endl;
+	    << std::endl << std::endl;
 }
 
 void TestTwoDPayloadMessageType::request(Message* m) {
@@ -184,11 +220,25 @@ void TestTwoDPayloadMessageType::request(Message* m) {
 	    << "linecnt: " << args->linecnt << "\n"
 	    << "stride: " << args->stride << std::endl;
   std::cout << "Payload: " << (char*) m->payload->ptr()
-	    << std::endl;
+	    << std::endl << std::endl;
 }
 
 void TestArglessTwoDPayloadMessageType::request(Message* m) {
   std::cout << "TestArglessTwoDPayloadMessageType::request called" << std::endl;
   std::cout << "Payload: " << (char*) m->payload->ptr()
-	    << std::endl;
+	    << std::endl << std::endl;
+}
+
+
+void TestSpanPayloadMessageType::request(Message* m) {
+  RequestArgs* args = (RequestArgs*) m->args;
+  
+  std::cout << "TestSpanPayloadMessageType::request called" << std::endl;
+  std::cout << "spans (args): " << args->spans << std::endl;
+  std::cout << "size: " << m->payload->size() << std::endl;
+  std::cout << "Payload:" << std::endl;
+  std::cout << (char*) m->payload->ptr() << std::endl;
+  std::cout << (char*) m->payload->ptr()+64 << std::endl;
+  std::cout << (char*) m->payload->ptr()+96 << std::endl;
+  std::cout << std::endl;
 }
