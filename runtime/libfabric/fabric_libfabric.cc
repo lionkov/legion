@@ -124,6 +124,8 @@ bool FabFabric::init() {
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_fabric", __FILE__, __LINE__));
 
+  std::cout << "Fabric info: " << fi->domain_attr->name << std::endl; 
+
   // SETUP EQ
   //eqattr.size = FI_WAIT_UNSPEC;
   eqattr.size = 64;
