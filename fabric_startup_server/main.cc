@@ -87,14 +87,16 @@ int main(int argc, char* argv[]) {
     for(int i = 0; i < nclients; ++i) {
       zmq_send(sender, addrs, addrlen*nclients, 0);
     }
-
-    if(addrs)
-      free(addrs);
- 
-    zmq_close(sender);
-    zmq_close(receiver);
-    zmq_ctx_destroy(context);
   
-    return 0;
+    if(addrs) {
+      free(addrs);
+      addrs = NULL;
+    }
   }
+ 
+  zmq_close(sender);
+  zmq_close(receiver);
+  zmq_ctx_destroy(context);
+  
+  return 0;  
 }
