@@ -110,7 +110,7 @@ class Fabric {
   virtual void shutdown() = 0;
 
   virtual NodeId get_id() = 0;
-  virtual NodeId get_max_id() = 0;
+  virtual uint32_t get_num_nodes() = 0;
   virtual int send(NodeId dest, MessageId id, void *args,
 		   FabPayload *payload) = 0;
   virtual int send(Message* m) = 0;

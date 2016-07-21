@@ -37,7 +37,7 @@ NVCC_FLAGS	:=
 GASNET_FLAGS	:=
 LD_FLAGS	:= r
 
-CXX := clang++
+CXX := g++
 
 # we're going to include runtime.mk to get variable settings, but then
 #  do our own build steps

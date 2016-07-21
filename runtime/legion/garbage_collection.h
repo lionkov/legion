@@ -156,7 +156,7 @@ namespace LegionRuntime {
       virtual ~DistributedCollectable(void);
     public:
       inline void add_base_gc_ref(ReferenceSource source, unsigned cnt = 1);
-      inline void add_nested_gc_ref(DistributedID source, unsigned cnt = 1);
+      inline void add_nested_gc_ref(DistributedID source, unsigned cnt b= 1);
       inline bool remove_base_gc_ref(ReferenceSource source, unsigned cnt = 1);
       inline bool remove_nested_gc_ref(DistributedID source, unsigned cnt = 1);
     public:

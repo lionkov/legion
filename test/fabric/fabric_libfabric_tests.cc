@@ -6,8 +6,6 @@
    Simple tests for libfabric implementation. Tests fabric only,
    not interaction with Legion. */
 
-
-
 #include "fabric_libfabric_tests.h"
 
 /* Create a fabric object, register messages, run a test.

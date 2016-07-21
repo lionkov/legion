@@ -1192,7 +1192,7 @@ namespace LegionRuntime {
       // take one argument of type IT. This method will map
       // the functor over all the entries in the set.
       template<typename FUNCTOR>
-      inline void map(FUNCTOR &functor) const;
+	inline void map(FUNCTOR &functor) const;
     public:
       inline void serialize(Serializer &rez) const;
       inline void deserialize(Deserializer &derez);

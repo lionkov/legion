@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <zmq.h>
 
 //#include "pmi.h"
 //#include "pmix.h"
@@ -105,7 +106,7 @@ class FabMessage : public Message {
     bool init();
     void shutdown();
     NodeId get_id();
-    NodeId get_max_id();
+    uint32_t get_num_nodes();
     int send(Message* m);
     int send(NodeId dest, MessageId id, void* args, FabPayload* payload);
     bool incoming(FabMessage *);
@@ -123,7 +124,7 @@ class FabMessage : public Message {
 
   protected:
     NodeId	id;
-    NodeId	max_id;
+    uint32_t	num_nodes;
 
     struct fid_fabric* fab;
     struct fid_domain* dom;
@@ -146,6 +147,10 @@ class FabMessage : public Message {
     pthread_t* progress_threads;
     pthread_t* tx_handler_thread;
     bool stop_flag;
+    
+    int exchange_server_send_port;
+    int exchange_server_recv_port;
+    std::string exchange_server_ip;
 
     static int check_cq(fid_cq* cq, fi_cq_tagged_entry* ce, int timeout);
     
@@ -165,7 +170,7 @@ class FabMessage : public Message {
     static int av_create_address_list(char *first_address, int base, int num_addr,
 				      void *addr_array, int offset, int len, int addrlen);
     static int add_address(char* first_address, int index, void* addr);
-    
+    ssize_t exchange_addresses(void* addr, size_t addrlen);     
     friend class FabMessage;
     
   };

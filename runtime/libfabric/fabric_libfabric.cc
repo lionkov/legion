@@ -27,7 +27,7 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
 
    Query PMI to find other nodes othe network. Not currently working. 
    
-   Will set id and max_id. These fields will not be valid if this function fails.
+   Will set id and num_nodes. These fields will not be valid if this function fails.
 
    Returns 0 on success, -1 on failure.
 
@@ -48,8 +48,8 @@ int FabFabric::setup_pmi() {
     return -1;
   }
   
-  // Discover number of nodes, record in max_id
-  ret = PMI_Get_size((int*) &max_id);
+  // Discover number of nodes, record in num_nodes
+  ret = PMI_Get_size((int*) &num_nodes);
   if (ret != PMI_SUCCESS) {
     std::cerr << "ERROR -- PMI_Get_size failed with error code " << ret << std::endl;
     return -1;
@@ -94,8 +94,8 @@ bool FabFabric::init() {
     return false;
     }*/
   
-  // Setting max_id to 1 for now, since PMI isn't setting up properly
-  max_id = 1;
+  // Set manually for now
+  num_nodes = 2;
   id = 0; // Again, temporary since PMI is down
   
   std::cout << "Initializing fabric... " << std::endl;
@@ -143,7 +143,6 @@ bool FabFabric::init() {
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_endpoint", __FILE__, __LINE__));
 
-
   // SETUP CQS FOR TX AND RX
   tx_cqattr.format = FI_CQ_FORMAT_TAGGED;
   tx_cqattr.wait_obj = FI_WAIT_UNSPEC;
@@ -176,7 +175,7 @@ bool FabFabric::init() {
 
   //avattr.type = fi->domain_attr->av_type?fi->domain_attr->av_type : FI_AV_MAP;
   avattr.type = FI_AV_MAP;
-  avattr.count = max_id;
+  avattr.count = num_nodes;
   avattr.ep_per_node = 0; // 'unknown' number of endpoints, may be optimized later
   avattr.name = NULL;
   
@@ -231,22 +230,31 @@ bool FabFabric::init() {
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = 2;
   addr.sin_port = htons(8080);
-  inet_aton("127.0.0.1", &addr.sin_addr);
-  
-			 
+  inet_aton("127.0.0.1", &addr.sin_addr);		 
   fi_setname((fid_t) ep, &addr, addrlen);
   */
   
   // INSERT ADDRESS IN TO AV
-  fi_addrs = (fi_addr_t*) malloc(max_id * sizeof(fi_addr_t));
-  memset(fi_addrs, 0, sizeof(fi_addr_t*)*max_id);
+  fi_addrs = (fi_addr_t*) malloc(num_nodes * sizeof(fi_addr_t));
+  memset(fi_addrs, 0, sizeof(fi_addr_t*)*num_nodes);
   // inserting only this address for now, since PMI_Allgather is not working
-  ret = fi_av_insert(av, &addr, 1, fi_addrs, 0, NULL);
-  if (ret <= 0) 
-    return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));  
+  
+  // Contact the address change server, wait for all other nodes to post
+  // their addresses, and fill results into fi_addrs array:
+  exchange_server_send_port = 8080;
+  exchange_server_recv_port = 8081;
+  exchange_server_ip = "127.0.0.1";
+  
+  ret = exchange_addresses(addr, addrlen);
+  if (ret != num_nodes)
+    return init_fail(hints, fi, "address exchange failed");  
+    
+  //ret = fi_av_insert(av, &addr, 1, fi_addrs, 0, NULL);
+  //if (ret <= 0) 
+  //return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));  
   /*
 
-  // void* addrs = malloc(max_id * addrlen);
+  // void* addrs = malloc(num_nodes * addrlen);
 
   // ASK -- most pmi.h implementations do not have PMI_Allgather,
   // do we really need this?
@@ -257,7 +265,7 @@ bool FabFabric::init() {
   //memcpy(&addrs, &addr, addrlen);
   //std::cout << (unsigned long) addrs[0] << std::endl;
   std::cout << addr << std::endl;
-  std::cout << max_id << std::endl;
+  std::cout << num_nodes << std::endl;
 
   // Temporyary buffer for addresses
   uint8_t addrbuf[4096];
@@ -271,7 +279,7 @@ bool FabFabric::init() {
   if (!fi_addrs)
     return init_fail(hints, fi, "ERROR -- malloc fi_addrs failed");
   
-  ret = fi_av_insert(av, addrbuf, max_id, fi_addrs, 0, &avctx);
+  ret = fi_av_insert(av, addrbuf, num_nodes, fi_addrs, 0, &avctx);
   // Original code checked for number of entries inserted; as far as I can
   // tell fabric does not return this info
   if (ret < 0) 
@@ -355,9 +363,9 @@ NodeId FabFabric::get_id()
   return id;
 }
 
-NodeId FabFabric::get_max_id()
+uint32_t FabFabric::get_num_nodes()
 {
-  return max_id;
+  return num_nodes;
 }
 
 int FabFabric::send(NodeId dest, MessageId id, void *args, FabPayload *payload)
@@ -822,4 +830,82 @@ size_t FabFabric::get_iov_limit(MessageId id) {
     return limit-1; // make space for msgid only
   else
     return limit-2; // make space for msgid, args
+}
+
+
+// Send this node's address to address exchange server;
+// wait until all other nodes have also reported. Must
+// know the total number of nodes before hand. Will assign
+// this node's ID and add all nodes to the address vector.
+
+// Return number of addresses recieved on success, or
+// -1 on failure.
+ssize_t FabFabric::exchange_addresses(void* addr, size_t addrlen) {
+  int ret;
+  void* addrs = (void*) malloc(num_nodes*addrlen);
+  
+  void* context = zmq_ctx_new();
+  void* sender = zmq_socket(context, ZMQ_PUSH);
+  void* receiver = zmq_socket(context, ZMQ_PULL);
+
+  size_t len = 256;
+  char buf[256];
+  std::cout << "My address: " << fi_av_straddr(av, addr, buf, &len) << std::endl;
+
+  // Connect fan-in sender socket
+  std::stringstream sstream;
+  sstream << "tcp://" << exchange_server_ip
+	  << ":" << exchange_server_send_port;
+  ret = zmq_connect(sender, sstream.str().c_str());
+  assert(ret == 0);
+
+  // Connect fan-out receiver socket
+  sstream.str("");
+  sstream.clear();
+  sstream << "tcp://" << exchange_server_ip
+	  << ":" << exchange_server_recv_port;
+  ret = zmq_connect(receiver, sstream.str().c_str());
+  assert(ret == 0);
+  
+  // Send our Fabric address info to the server
+  std::cout << "Sending: "
+	    << *(char*) addr
+	    << *(char*) addr+1
+    	    << *(char*) addr+2
+	    << *(char*) addr+3
+	    << std::endl;
+  std::cout << "Size: " << addrlen << std::endl;
+
+  ret = zmq_send(sender, addr, addrlen, 0);
+  assert(ret == addrlen);
+
+  // Wait for the server to reply with out ID and a list of all
+  // addresses.
+  zmq_recv(receiver, addrs, addrlen*num_nodes, 0);
+  std::cout << "Got addresses: " << std::endl;
+  for(int i = 0; i < num_nodes; ++i) {
+    std::cout << fi_av_straddr(av, ((char*) addrs)+i*addrlen, buf, &len)
+	      << std::endl;
+  }
+
+  // Search the received list of addresses to determine this node's ID.
+  // Is there a better way to do this? Since messages could be sent in any
+  // order, there's no way for ZMQ to associate an incoming reported address with
+  // an outgoing send
+  char* p = (char*) addrs;
+  for(int i = 0; i < num_nodes; ++i) {
+    if (memcmp(addr, p, addrlen) == 0) {
+      id = i;
+      break;
+    }
+    p += addrlen;
+  }
+  
+  std::cout << "OK, my ID is: " << id << std::endl;
+  
+  zmq_close(sender);
+  zmq_close(receiver);
+  zmq_ctx_destroy(context);
+  
+  return 0;
 }
