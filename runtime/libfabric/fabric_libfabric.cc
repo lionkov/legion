@@ -253,7 +253,7 @@ bool FabFabric::init() {
     return init_fail(hints, fi, "address exchange failed");
 
   // Load addresses into AV
-  ret = fi_av_insert(av, &addr, num_nodes, fi_addrs, 0, NULL);
+  ret = fi_av_insert(av, &addrs, num_nodes, fi_addrs, 0, NULL);
   if (ret <= 0) 
     return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));  
   /*
