@@ -153,7 +153,7 @@ class FabMessage : public Message {
     
     int exchange_server_send_port;
     int exchange_server_recv_port;
-    std::string exchange_server_ip;
+    std::string exchange_server_host;
 
     static int check_cq(fid_cq* cq, fi_cq_tagged_entry* ce, int timeout);
     

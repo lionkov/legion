@@ -16,7 +16,7 @@ FabFabric::FabFabric() : num_nodes(1), max_send(1024*1024), pend_num(16),
 			 stop_flag(false),
 			 exchange_server_send_port(8080),
 			 exchange_server_recv_port(8081),
-			 exchange_server_ip("127.0.0.1") {
+			 exchange_server_host("127.0.0.1") {
   for (int i = 0; i < MAX_MESSAGE_TYPES; ++i)
     mts[i] = NULL;
  }
@@ -28,7 +28,7 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
   cp.add_option_int("-ll:num_nodes", num_nodes);
   cp.add_option_int("-ll:exchange_server_send_port", exchange_server_send_port);
   cp.add_option_int("-ll:exchange_server_recv_port", exchange_server_recv_port);
-  cp.add_option_string("-ll:exchange_server_ip", exchange_server_ip);
+  cp.add_option_string("-ll:exchange_server_host", exchange_server_host);
 }
 
 /* 
@@ -856,7 +856,7 @@ ssize_t FabFabric::exchange_addresses() {
 
   // Connect fan-in sender socket
   std::stringstream sstream;
-  sstream << "tcp://" << exchange_server_ip
+  sstream << "tcp://" << exchange_server_host
 	  << ":" << exchange_server_send_port;
   ret = zmq_connect(sender, sstream.str().c_str());
   assert(ret == 0);
@@ -864,7 +864,7 @@ ssize_t FabFabric::exchange_addresses() {
   // Connect fan-out receiver socket
   sstream.str("");
   sstream.clear();
-  sstream << "tcp://" << exchange_server_ip
+  sstream << "tcp://" << exchange_server_host
 	  << ":" << exchange_server_recv_port;
   ret = zmq_connect(receiver, sstream.str().c_str());
   assert(ret == 0);
@@ -921,9 +921,9 @@ std::string FabFabric::tostr() {
 	  << "    max_send: "  << max_send  << "\n"
 	  << "    pend_num: "  << pend_num  << "\n"
 	  << "    num_progress_threads: " << num_progress_threads << "\n"
-	  << "    exhange_server_ip: " << exchange_server_ip << "\n"
-    	  << "    exhange_server_send_port: " << exchange_server_send_port << "\n"
-	  << "    exhange_server_recv_port: " << exchange_server_recv_port << "\n"
+	  << "    exchange_server_host: " << exchange_server_host << "\n"
+    	  << "    exchange_server_send_port: " << exchange_server_send_port << "\n"
+	  << "    exchange_server_recv_port: " << exchange_server_recv_port << "\n"
 	  << "Fabric info: "
 	  << fi_tostr((void*) fi->fabric_attr, FI_TYPE_FABRIC_ATTR) << "\n";
 
