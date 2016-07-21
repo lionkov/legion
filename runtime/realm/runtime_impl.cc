@@ -595,6 +595,7 @@ namespace Realm {
       std::cout << "CREATING FABRIC" << std::endl;
       fabric = new FabFabric();
 
+
       
       CHECK_GASNET( gasnet_init(argc, argv) );
 #ifdef DEBUG_REALM_STARTUP
@@ -683,6 +684,8 @@ namespace Realm {
 	.add_option_int("-ll:lmbsize", dummy)
 	.add_option_int("-ll:forcelong", dummy)
 	.add_option_int("-ll:sdpsize", dummy);
+
+      fabric->register_options(cp);
 
       bool cmdline_ok = cp.parse_command_line(cmdline);
 

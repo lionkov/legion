@@ -9,17 +9,26 @@ int FabMessage::reply(MessageId id, void *args, Payload *payload, bool inOrder)
 }
 */
 
-FabFabric::FabFabric() : max_send(1024*1024), pend_num(16),
-			 num_progress_threads(0), progress_threads(NULL),
-			 stop_flag(false) {
+FabFabric::FabFabric() : num_nodes(1), max_send(1024*1024), pend_num(16),
+			 num_progress_threads(0),
+			 progress_threads(NULL),
+			 tx_handler_thread(NULL),
+			 stop_flag(false),
+			 exchange_server_send_port(8080),
+			 exchange_server_recv_port(8081),
+			 exchange_server_ip("127.0.0.1") {
   for (int i = 0; i < MAX_MESSAGE_TYPES; ++i)
-    mts[i] = NULL;  
-}
+    mts[i] = NULL;
+ }
 
 void FabFabric::register_options(Realm::CommandLineParser &cp)
 {
   cp.add_option_int("-ll:max_send", max_send);
   cp.add_option_int("-ll:pend_num", pend_num);
+  cp.add_option_int("-ll:num_nodes", num_nodes);
+  cp.add_option_int("-ll:exchange_server_send_port", exchange_server_send_port);
+  cp.add_option_int("-ll:exchange_server_recv_port", exchange_server_recv_port);
+  cp.add_option_string("-ll:exchange_server_ip", exchange_server_ip);
 }
 
 /* 
@@ -94,10 +103,6 @@ bool FabFabric::init() {
     return false;
     }*/
   
-  // Set manually for now
-  num_nodes = 2;
-  id = 0; // Again, temporary since PMI is down
-  
   std::cout << "Initializing fabric... " << std::endl;
   
   struct fi_info *hints;
@@ -124,7 +129,8 @@ bool FabFabric::init() {
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_fabric", __FILE__, __LINE__));
 
-  std::cout << "Fabric info: " << fi->domain_attr->name << std::endl; 
+  std::cout << "Creating fabric: \n" << tostr() << std::endl;
+
 
   // SETUP EQ
   //eqattr.size = FI_WAIT_UNSPEC;
@@ -214,11 +220,11 @@ bool FabFabric::init() {
 
  
   // GET ADDRESS FOR THIS NODE
-  char addr[64];
   memset(addr, 0, sizeof(addr));
-  size_t addrlen = sizeof(addr);
+  addrlen = 64;
 
   // getname should be called after fi_enable
+  // this call will set addr, and update addrlen to reflect the true address length
   ret = fi_getname((fid_t) ep, &addr, &addrlen);
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_getname", __FILE__, __LINE__));
@@ -241,12 +247,9 @@ bool FabFabric::init() {
   
   // Contact the address change server, wait for all other nodes to post
   // their addresses, and fill results into fi_addrs array:
-  exchange_server_send_port = 8080;
-  exchange_server_recv_port = 8081;
-  exchange_server_ip = "127.0.0.1";
-  
-  ret = exchange_addresses(addr, addrlen);
-  if (ret != num_nodes)
+   
+  ret = exchange_addresses();
+  if (ret < 0)
     return init_fail(hints, fi, "address exchange failed");  
     
   //ret = fi_av_insert(av, &addr, 1, fi_addrs, 0, NULL);
@@ -302,8 +305,8 @@ bool FabFabric::init() {
     ret = post_untagged();
     if (ret != 0)
       return init_fail(hints, fi, fi_error_str(ret, "post_untagged", __FILE__, __LINE__));
-  }
-
+  }  
+  
   fi_freeinfo(hints);
   fi_freeinfo(fi);
 
@@ -838,9 +841,8 @@ size_t FabFabric::get_iov_limit(MessageId id) {
 // know the total number of nodes before hand. Will assign
 // this node's ID and add all nodes to the address vector.
 
-// Return number of addresses recieved on success, or
-// -1 on failure.
-ssize_t FabFabric::exchange_addresses(void* addr, size_t addrlen) {
+// Return this node's ID on success, or -1 on failure.
+ssize_t FabFabric::exchange_addresses() {
   int ret;
   void* addrs = (void*) malloc(num_nodes*addrlen);
   
@@ -901,11 +903,29 @@ ssize_t FabFabric::exchange_addresses(void* addr, size_t addrlen) {
     p += addrlen;
   }
   
-  std::cout << "OK, my ID is: " << id << std::endl;
-  
   zmq_close(sender);
   zmq_close(receiver);
   zmq_ctx_destroy(context);
   
-  return 0;
+  return id;
+}
+
+// Dump the parameters of this Fabric to a string
+std::string FabFabric::tostr() {
+  size_t len = 256;
+  char buf[256];
+  std::stringstream sstream;
+  sstream << "FabFabric object: \n"
+	  << "    id: " << id << "\n"
+	  << "    num_nodes: " << num_nodes << "\n"
+	  << "    max_send: "  << max_send  << "\n"
+	  << "    pend_num: "  << pend_num  << "\n"
+	  << "    num_progress_threads: " << num_progress_threads << "\n"
+	  << "    exhange_server_ip: " << exchange_server_ip << "\n"
+    	  << "    exhange_server_send_port: " << exchange_server_send_port << "\n"
+	  << "    exhange_server_recv_port: " << exchange_server_recv_port << "\n"
+	  << "Fabric info: "
+	  << fi_tostr((void*) fi->fabric_attr, FI_TYPE_FABRIC_ATTR) << "\n";
+
+  return sstream.str();
 }

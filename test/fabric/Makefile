@@ -90,7 +90,7 @@ REALM_LIB := librealm.a
 run_all : $(TESTS:%=run_%)
 
 run_% : %
-	# this echos exactly once, even if -s was specified
+# this echos exactly once, even if -s was specified
 	@echo $(call LAUNCHER, ./$*) $(TESTARGS_$*)
 	@$(call LAUNCHER, ./$*) $(TESTARGS_$*)
 

@@ -121,11 +121,18 @@ class FabMessage : public Message {
     int get_max_send(); 
     size_t get_iov_limit();
     virtual size_t get_iov_limit(MessageId id);
+    std::string tostr();
 
   protected:
+    // parameters
     NodeId	id;
     uint32_t	num_nodes;
+    int	max_send;
+    int	pend_num;
+    int num_progress_threads;
 
+    
+    // Fabric objects
     struct fid_fabric* fab;
     struct fid_domain* dom;
     struct fid_eq* eq;
@@ -136,14 +143,10 @@ class FabMessage : public Message {
     struct fid_av* av;
     struct fi_context* avctx;
     struct fi_info* fi;
-
     fi_addr_t* fi_addrs;
-
-    // parameters
-    int	max_send;
-    int	pend_num;
-    int num_progress_threads;
-
+    char addr[64]; // this node's address
+    size_t addrlen; // length of all addresses in this fabric
+    
     pthread_t* progress_threads;
     pthread_t* tx_handler_thread;
     bool stop_flag;
@@ -170,7 +173,7 @@ class FabMessage : public Message {
     static int av_create_address_list(char *first_address, int base, int num_addr,
 				      void *addr_array, int offset, int len, int addrlen);
     static int add_address(char* first_address, int index, void* addr);
-    ssize_t exchange_addresses(void* addr, size_t addrlen);     
+    ssize_t exchange_addresses();     
     friend class FabMessage;
     
   };
