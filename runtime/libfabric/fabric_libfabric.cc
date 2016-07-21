@@ -250,11 +250,12 @@ bool FabFabric::init() {
    
   ret = exchange_addresses();
   if (ret < 0)
-    return init_fail(hints, fi, "address exchange failed");  
-    
-  //ret = fi_av_insert(av, &addr, 1, fi_addrs, 0, NULL);
-  //if (ret <= 0) 
-  //return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));  
+    return init_fail(hints, fi, "address exchange failed");
+
+  // Load addresses into AV
+  ret = fi_av_insert(av, &addr, num_nodes, fi_addrs, 0, NULL);
+  if (ret <= 0) 
+    return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));  
   /*
 
   // void* addrs = malloc(num_nodes * addrlen);
@@ -838,10 +839,10 @@ size_t FabFabric::get_iov_limit(MessageId id) {
 
 // Send this node's address to address exchange server;
 // wait until all other nodes have also reported. Must
-// know the total number of nodes before hand. Will assign
-// this node's ID and add all nodes to the address vector.
+// know the total number of nodes before hand. Will find
+// this nodes address, and place it and all other addresses
+// in the addrs array. This nodes ID will be assigned.
 
-// Return this node's ID on success, or -1 on failure.
 ssize_t FabFabric::exchange_addresses() {
   int ret;
   void* addrs = (void*) malloc(num_nodes*addrlen);
@@ -870,25 +871,12 @@ ssize_t FabFabric::exchange_addresses() {
   assert(ret == 0);
   
   // Send our Fabric address info to the server
-  std::cout << "Sending: "
-	    << *(char*) addr
-	    << *(char*) addr+1
-    	    << *(char*) addr+2
-	    << *(char*) addr+3
-	    << std::endl;
-  std::cout << "Size: " << addrlen << std::endl;
-
   ret = zmq_send(sender, addr, addrlen, 0);
   assert(ret == addrlen);
 
   // Wait for the server to reply with out ID and a list of all
   // addresses.
   zmq_recv(receiver, addrs, addrlen*num_nodes, 0);
-  std::cout << "Got addresses: " << std::endl;
-  for(int i = 0; i < num_nodes; ++i) {
-    std::cout << fi_av_straddr(av, ((char*) addrs)+i*addrlen, buf, &len)
-	      << std::endl;
-  }
 
   // Search the received list of addresses to determine this node's ID.
   // Is there a better way to do this? Since messages could be sent in any
