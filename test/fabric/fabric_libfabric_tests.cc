@@ -34,8 +34,17 @@ void print_strided(void* buf, int linesz, int linecnt, int stride) {
 // global from fabric.h
 Fabric* fabric = NULL;
 
-int FabTester::init() {
+int FabTester::init(std::vector<std::string> cmdline) {
   fabric = new FabFabric();
+  Realm::CommandLineParser cp;
+  fabric->register_options(cp);
+  bool cmdline_ok = cp.parse_command_line(cmdline);
+
+  if (!cmdline_ok) {
+    std::cout << "ERROR -- failed to parse command line options" << std::endl;
+    exit(1);
+  }
+  
 
   std::cout << "Adding message types... " << std::endl;
   fabric->add_message_type(new TestMessageType(), "Test Message");

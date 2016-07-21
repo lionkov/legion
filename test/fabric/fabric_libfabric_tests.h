@@ -10,8 +10,11 @@
 #include <iostream>
 #include <cassert>
 #include <unistd.h>
+#include <string>
+#include <vector>
 #include "fabric.h"
 #include "libfabric/fabric_libfabric.h"
+#include "cmdline.h"
 
 
 void print_strided(void* buf, int linesz, int linecnt, int stride);
@@ -19,14 +22,14 @@ void print_strided(void* buf, int linesz, int linecnt, int stride);
 class FabTester {
 
 public:
-FabTester() {}
-~FabTester() {}
-
-int run();
-int init();
-void testFabTwoDPayload();
+  FabTester() {}
+  ~FabTester() {}
+ 
+ int run();
+ int init(std::vector<std::string> cmdline);
+ void testFabTwoDPayload();
  void fill_spans(SpanList& sl);
-
+ 
 private:
 
 };
