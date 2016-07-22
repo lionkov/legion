@@ -38,9 +38,13 @@ class TestMessageType : public MessageType {
  public: 
  TestMessageType()
    : MessageType(1, /* msgId */
-		 64, /* arg size */
+		 sizeof(RequestArgs),
 		 false, /* has payload */
 		 true /*in order */ ){ }
+  
+  struct RequestArgs {
+    char string[64];
+  };
 
   void request(Message* m);
 };
@@ -49,6 +53,7 @@ class TestMessage : public FabMessage {
  public:
  TestMessage(NodeId dest, void* args)
    : FabMessage(dest, 1, args, NULL) { }
+
 };
 
 
@@ -56,10 +61,13 @@ class TestPayloadMessageType : public MessageType {
  public: 
  TestPayloadMessageType()
    : MessageType(2, /* msgId */
-		 64, 
+		 sizeof(RequestArgs),
 		 true, /* has payload */
 		 true /*in order */ ){ }
-
+  struct RequestArgs {
+    char string[64];
+  };
+  
   void request(Message* m);
 };
 

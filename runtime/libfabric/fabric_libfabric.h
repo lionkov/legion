@@ -88,9 +88,7 @@ class FabMessage : public Message {
   FabMessage(NodeId dest, MessageId id, void *args, FabPayload *payload)
     : Message(dest, id, args, payload) { }
  
-  virtual ~FabMessage() { if (payload) delete payload; };
-  //virtual int reply(MessageId id, void *args, Payload *Apayload, bool inOrder);
-  
+  //virtual int reply(MessageId id, void *args, Payload *Apayload, bool inOrder);  
   //protected:
   //friend class FabFabric;
 };

@@ -85,9 +85,6 @@ int FabTester::run() {
   int count = 0;
   
   while (count < 10) {
-    char buf[64];
-    strcpy(buf, "I'm an arg.");
-
     void* paybuf = malloc(64);
     strcpy((char*) paybuf, "This is a payload.");
 
@@ -98,6 +95,10 @@ int FabTester::run() {
       }
     }
 
+    TestMessageType::RequestArgs* args
+      = new TestMessageType::RequestArgs();
+    strcpy(args->string, "I'm an arg.");
+    
     TestTwoDPayloadMessageType::RequestArgs* twodargs
       = new TestTwoDPayloadMessageType::RequestArgs();
     
@@ -113,7 +114,7 @@ int FabTester::run() {
     spanargs->sender = fabric->get_id();
     
     
-    int mode = FAB_PAYLOAD_KEEP;
+    int mode = FAB_PAYLOAD_COPY;
     switch (mode) { 
     case FAB_PAYLOAD_KEEP:
       std::cout << "MODE: KEEP" << std::endl;
@@ -139,25 +140,29 @@ int FabTester::run() {
     fill_spans(*sl);
     FabSpanPayload* spanpayload =
       new FabSpanPayload(mode, *sl);
-
+    
     NodeId target = (fabric->get_id() + 1) % fabric->get_num_nodes();
 
-    /*
-    std::cout << "Sending Contiguous payload message... " << std:: endl;
-    ret = fabric->send(new TestPayloadMessage(fabric->get_id(), (void*) buf, payload));
-    std::cout << "retcode: " << ret << std::endl << std::endl;
     
-    std::cout << "Sending 2D payload message..." << std::endl;
-    ret = fabric->send(new TestTwoDPayloadMessage(fabric->get_id(), (void*) twodargs, twodpayload));
+    std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
+    ret = fabric->send(new TestMessage(fabric->get_id(), (void*) args));
     std::cout << "retcode: " << ret << std::endl << std::endl;
 
-    std::cout << "Sending argless 2D payload message..." << std::endl;
-    ret = fabric->send(new TestArglessTwoDPayloadMessage(fabric->get_id(), twodpayload));
-    std::cout << "retcode: " << ret << std::endl << std::endl;
-    */
-    std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
-    ret = fabric->send(new TestSpanPayloadMessage(target, spanargs, spanpayload));
-    std::cout << "retcode: " << ret << std::endl << std::endl;
+    //std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
+    //ret = fabric->send(new TestPayloadMessage(fabric->get_id(), (void*) buf, payload));
+    //std::cout << "retcode: " << ret << std::endl << std::endl;
+     
+    // std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
+    // ret = fabric->send(new TestTwoDPayloadMessage(fabric->get_id(), (void*) twodargs, twodpayload));
+    // std::cout << "retcode: " << ret << std::endl << std::endl;
+
+    // std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
+    // ret = fabric->send(new TestArglessTwoDPayloadMessage(fabric->get_id(), twodpayload));
+    // std::cout << "retcode: " << ret << std::endl << std::endl;
+    
+    //std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
+    //ret = fabric->send(new TestSpanPayloadMessage(target, spanargs, spanpayload));
+    //std::cout << "retcode: " << ret << std::endl << std::endl;
 
 
     sleep(st);
@@ -168,6 +173,11 @@ int FabTester::run() {
     sleep(st);
     */
     ++count;
+    if (mode == FAB_PAYLOAD_COPY) {
+      free(paybuf);
+      delete[] twodbuf;
+      delete sl;
+    }
   }
 
   //fabric->shutdown();
@@ -213,12 +223,14 @@ void FabTester::fill_spans(SpanList& sl) {
 
 void TestMessageType::request(Message* m) {
   std::cout << "TestMessageType::request() called" << std::endl;
-  std::cout << "Args: " << (char*) m->args << std::endl << std::endl;
+  RequestArgs* args = (RequestArgs*) m->args;
+  std::cout << "Args: " << args->string << std::endl << std::endl;
 }
 
 void TestPayloadMessageType::request(Message* m) {
   std::cout << "TestPayloadMessageType::request called" << std::endl;
-  std::cout << "Args: " << (char*) m->args << std::endl;
+  RequestArgs* args = (RequestArgs*) m->args;
+  std::cout << "Args: " << args->string << std::endl;
   std::cout << "Payload: " << (char*) m->payload->ptr()
 	    << std::endl << std::endl;
 }

@@ -2,14 +2,14 @@
 
 // run
 /*
-int FabMessage::reply(MessageId id, void *args, Payload *payload, bool inOrder)
-{
+  int FabMessage::reply(MessageId id, void *args, Payload *payload, bool inOrder)
+  {
   FabMessage *r = new FabMessage(sndid, id, args, payload, inOrder);
   return fabric->send(r);
-}
+  }
 */
 
-FabFabric::FabFabric() : num_nodes(2), max_send(1024*1024), pend_num(16),
+FabFabric::FabFabric() : id(0), num_nodes(2), max_send(1024*1024), pend_num(16),
 			 num_progress_threads(0),
 			 progress_threads(NULL),
 			 tx_handler_thread(NULL),
@@ -19,7 +19,7 @@ FabFabric::FabFabric() : num_nodes(2), max_send(1024*1024), pend_num(16),
 			 exchange_server_host("127.0.0.1") {
   for (int i = 0; i < MAX_MESSAGE_TYPES; ++i)
     mts[i] = NULL;
- }
+}
 
 void FabFabric::register_options(Realm::CommandLineParser &cp)
 {
@@ -44,7 +44,7 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
 */
 
 /*
-int FabFabric::setup_pmi() {
+  int FabFabric::setup_pmi() {
   
   // Initialize PMI and discover other nodes
   int ret, spawned;
@@ -53,42 +53,42 @@ int FabFabric::setup_pmi() {
 
   
   if (ret != PMI_SUCCESS) {
-    std::cerr << "ERROR -- PMI_Init failed with error code " << ret << std::endl;
-    return -1;
+  std::cerr << "ERROR -- PMI_Init failed with error code " << ret << std::endl;
+  return -1;
   }
   
   // Discover number of nodes, record in num_nodes
   ret = PMI_Get_size((int*) &num_nodes);
   if (ret != PMI_SUCCESS) {
-    std::cerr << "ERROR -- PMI_Get_size failed with error code " << ret << std::endl;
-    return -1;
+  std::cerr << "ERROR -- PMI_Get_size failed with error code " << ret << std::endl;
+  return -1;
   }
 
   // Discover ID of this node, record in id
   ret = PMI_Get_rank((int*) &id);
   if (ret != PMI_SUCCESS) {
-    std::cerr << "ERROR -- PMI_Get_rank failed with error code " << ret << std::endl;
-    return -1;
+  std::cerr << "ERROR -- PMI_Get_rank failed with error code " << ret << std::endl;
+  return -1;
   }
 
   return 1;
-}
+  }
 */
 
 /*
   FabFabric::init():
    
-   YOU MUST REGISTER ALL DESIRED MESSAGE TYPES BEFORE CALLING 
-   THIS FUNCTION.
+  YOU MUST REGISTER ALL DESIRED MESSAGE TYPES BEFORE CALLING 
+  THIS FUNCTION.
 
-   Inputs: none
+  Inputs: none
 
-   Returns: true on success, false on failure.
+  Returns: true on success, false on failure.
 
-   Initializes PMI and discovers rest of network. 
+  Initializes PMI and discovers rest of network. 
 
-   Then initialalizes fabric communication system and posts
-   buffers for all message types. 
+  Then initialalizes fabric communication system and posts
+  buffers for all message types. 
 */ 
 
 bool FabFabric::init() {
@@ -97,8 +97,8 @@ bool FabFabric::init() {
 
   // QUERY PMI
   /*
-  ret = setup_pmi();
-  if (ret != 0) {
+    ret = setup_pmi();
+    if (ret != 0) {
     std::cerr << "ERROR -- could not query PMI to determine network properties" << std::endl;
     return false;
     }*/
@@ -177,7 +177,7 @@ bool FabFabric::init() {
 
   ret = fi_cntr_open(dom, &cntrattr, (struct fid_cntr**) &cntr, NULL);
   if (ret != 0)
-      return init_fail(hints, fi, fi_error_str(ret, "fi_cntr_open", __FILE__, __LINE__));
+    return init_fail(hints, fi, fi_error_str(ret, "fi_cntr_open", __FILE__, __LINE__));
 
   //avattr.type = fi->domain_attr->av_type?fi->domain_attr->av_type : FI_AV_MAP;
   avattr.type = FI_AV_MAP;
@@ -194,7 +194,7 @@ bool FabFabric::init() {
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_ep_bind", __FILE__, __LINE__));
   
-  ret = fi_ep_bind(ep, (fid_t) tx_cq, FI_TRANSMIT | FI_RECV);
+  ret = fi_ep_bind(ep, (fid_t) tx_cq, FI_TRANSMIT);
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_ep_bind", __FILE__, __LINE__));
   
@@ -233,11 +233,11 @@ bool FabFabric::init() {
   //sockaddr_in addr;
   //  size_t addrlen = sizeof(addr);
   /*
-  memset(&addr, 0, sizeof(addr));
-  addr.sin_family = 2;
-  addr.sin_port = htons(8080);
-  inet_aton("127.0.0.1", &addr.sin_addr);		 
-  fi_setname((fid_t) ep, &addr, addrlen);
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = 2;
+    addr.sin_port = htons(8080);
+    inet_aton("127.0.0.1", &addr.sin_addr);		 
+    fi_setname((fid_t) ep, &addr, addrlen);
   */
   
   // INSERT ADDRESS IN TO AV
@@ -247,29 +247,30 @@ bool FabFabric::init() {
   
   // Contact the address change server, wait for all other nodes to post
   // their addresses, and load results into addrs array:
-  void* addrs = exchange_addresses();
-  if (ret < 0)
-    return init_fail(hints, fi, "address exchange failed");
+  // void* addrs = exchange_addresses();
+  // if (ret < 0)
+  //   return init_fail(hints, fi, "address exchange failed");
 
-  // Load addresses into AV
-  ret = fi_av_insert(av, addrs, num_nodes, fi_addrs, 0, NULL);
-  if (ret < 0) 
-    return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));
-
-  // // test code -- add own data twice
-  // addrs = malloc(addrlen*num_nodes);
-  // memcpy(addrs, addr, addrlen);
-  // char* p = (char*) addrs + addrlen;
-  // memcpy(p, addr, addrlen);
-  
+  // // Load addresses into AV
   // ret = fi_av_insert(av, addrs, num_nodes, fi_addrs, 0, NULL);
   // if (ret < 0) 
   //   return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));
-  
-  // ret = fi_av_insert(av, &addr, 1, fi_addrs, 0, NULL);
-  // if (ret < 0) 
-  //   return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));
 
+  // // test code -- add own data twice
+  void* addrs = malloc(addrlen*num_nodes);
+  memcpy(addrs, addr, addrlen);
+  char* p = (char*) addrs + addrlen;
+  memcpy(p, addr, addrlen);
+  
+  ret = fi_av_insert(av, addrs, num_nodes, fi_addrs, 0, NULL);
+  if (ret < 0) 
+    return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));
+  
+  //ret = fi_av_insert(av, &addr, 1, fi_addrs, 0, NULL);
+  //if (ret < 0) 
+  //return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));
+
+  
   /*
 
   // void* addrs = malloc(num_nodes * addrlen);
@@ -322,16 +323,10 @@ bool FabFabric::init() {
   }  
   
   fi_freeinfo(hints);
-  fi_freeinfo(fi);
-
+ 
   start_progress_threads(1, 0);
   
   return true;
-
-  //error:
-  //fi_freeinfo(hints);
-  //fi_freeinfo(fi);
-  //return false;
 }
 
 
@@ -549,8 +544,9 @@ void FabFabric::handle_tx(bool wait) {
     if (ret > 0) {
       // Received a message
       m = (FabMessage *) ce.op_context;
-      if (m->rcvid != get_id()) // TODO : is this correct?
-	delete m; // Ok to delete m now, as it's been successfully sent
+      //if (m->rcvid != get_id()) // TODO : is this correct?
+      delete m; // Ok to delete m now, as it's been successfully sent
+      
     }
 
     if (ret == 0) { // Nothing to recieve
@@ -565,8 +561,6 @@ void FabFabric::handle_tx(bool wait) {
     }
   }
 }
-
-
 
 // For launching progress from Pthreads
 void* FabFabric::bootstrap_progress(void* context) {
