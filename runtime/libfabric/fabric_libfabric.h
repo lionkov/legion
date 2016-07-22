@@ -40,7 +40,7 @@ class FabMutex {
     
     void lock(void) { pthread_mutex_lock(&_lock); }
     void unlock(void) { pthread_mutex_unlock(&_lock); }
-
+    
   protected:
     friend class FabCondVar;
     pthread_mutex_t _lock;
@@ -173,7 +173,7 @@ class FabMessage : public Message {
     static int av_create_address_list(char *first_address, int base, int num_addr,
 				      void *addr_array, int offset, int len, int addrlen);
     static int add_address(char* first_address, int index, void* addr);
-    ssize_t exchange_addresses();     
+    void* exchange_addresses();     
     friend class FabMessage;
     
   };

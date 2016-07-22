@@ -9,7 +9,7 @@ int FabMessage::reply(MessageId id, void *args, Payload *payload, bool inOrder)
 }
 */
 
-FabFabric::FabFabric() : num_nodes(1), max_send(1024*1024), pend_num(16),
+FabFabric::FabFabric() : num_nodes(2), max_send(1024*1024), pend_num(16),
 			 num_progress_threads(0),
 			 progress_threads(NULL),
 			 tx_handler_thread(NULL),
@@ -246,16 +246,30 @@ bool FabFabric::init() {
   // inserting only this address for now, since PMI_Allgather is not working
   
   // Contact the address change server, wait for all other nodes to post
-  // their addresses, and fill results into fi_addrs array:
-   
-  ret = exchange_addresses();
+  // their addresses, and load results into addrs array:
+  void* addrs = exchange_addresses();
   if (ret < 0)
     return init_fail(hints, fi, "address exchange failed");
 
   // Load addresses into AV
-  ret = fi_av_insert(av, &addrs, num_nodes, fi_addrs, 0, NULL);
-  if (ret <= 0) 
-    return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));  
+  ret = fi_av_insert(av, addrs, num_nodes, fi_addrs, 0, NULL);
+  if (ret < 0) 
+    return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));
+
+  // // test code -- add own data twice
+  // addrs = malloc(addrlen*num_nodes);
+  // memcpy(addrs, addr, addrlen);
+  // char* p = (char*) addrs + addrlen;
+  // memcpy(p, addr, addrlen);
+  
+  // ret = fi_av_insert(av, addrs, num_nodes, fi_addrs, 0, NULL);
+  // if (ret < 0) 
+  //   return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));
+  
+  // ret = fi_av_insert(av, &addr, 1, fi_addrs, 0, NULL);
+  // if (ret < 0) 
+  //   return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));
+
   /*
 
   // void* addrs = malloc(num_nodes * addrlen);
@@ -265,13 +279,12 @@ bool FabFabric::init() {
   
   //PMI_Allgather(addr, addrs, addrlen);
 
-  // Hard code this node as fi_addrs[0], since PMI_Allgather isn't working yet
-  //memcpy(&addrs, &addr, addrlen);
+  // Hard code this node as fi_addrs[0], since PMI_Allgather isn't working yeto  //memcpy(&addrs, &addr, addrlen);
   //std::cout << (unsigned long) addrs[0] << std::endl;
   std::cout << addr << std::endl;
   std::cout << num_nodes << std::endl;
 
-  // Temporyary buffer for addresses
+ // Temporyary buffer for addresses
   uint8_t addrbuf[4096];
   fi_addr_t fi_addr;
   int buflen = sizeof(addrbuf);
@@ -537,7 +550,7 @@ void FabFabric::handle_tx(bool wait) {
       // Received a message
       m = (FabMessage *) ce.op_context;
       if (m->rcvid != get_id()) // TODO : is this correct?
-	delete m; // Ok to delete m now, as it's been successfully send
+	delete m; // Ok to delete m now, as it's been successfully sent
     }
 
     if (ret == 0) { // Nothing to recieve
@@ -843,7 +856,9 @@ size_t FabFabric::get_iov_limit(MessageId id) {
 // this nodes address, and place it and all other addresses
 // in the addrs array. This nodes ID will be assigned.
 
-ssize_t FabFabric::exchange_addresses() {
+// returns a pointer to the addrs array on success, or NULL
+// on failure.
+void* FabFabric::exchange_addresses() {
   int ret;
   void* addrs = (void*) malloc(num_nodes*addrlen);
   
@@ -873,11 +888,11 @@ ssize_t FabFabric::exchange_addresses() {
   // Send our Fabric address info to the server
   ret = zmq_send(sender, addr, addrlen, 0);
   assert(ret == addrlen);
-
+  
   // Wait for the server to reply with out ID and a list of all
   // addresses.
   zmq_recv(receiver, addrs, addrlen*num_nodes, 0);
-
+  
   // Search the received list of addresses to determine this node's ID.
   // Is there a better way to do this? Since messages could be sent in any
   // order, there's no way for ZMQ to associate an incoming reported address with
@@ -895,7 +910,7 @@ ssize_t FabFabric::exchange_addresses() {
   zmq_close(receiver);
   zmq_ctx_destroy(context);
   
-  return id;
+  return addrs;
 }
 
 // Dump the parameters of this Fabric to a string

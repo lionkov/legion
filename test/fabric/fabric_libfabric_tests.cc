@@ -110,6 +110,8 @@ int FabTester::run() {
       = new TestSpanPayloadMessageType::RequestArgs();
 
     spanargs->spans = 3;
+    spanargs->sender = fabric->get_id();
+    
     
     int mode = FAB_PAYLOAD_KEEP;
     switch (mode) { 
@@ -138,6 +140,8 @@ int FabTester::run() {
     FabSpanPayload* spanpayload =
       new FabSpanPayload(mode, *sl);
 
+    NodeId target = (fabric->get_id() + 1) % fabric->get_num_nodes();
+
     /*
     std::cout << "Sending Contiguous payload message... " << std:: endl;
     ret = fabric->send(new TestPayloadMessage(fabric->get_id(), (void*) buf, payload));
@@ -151,8 +155,8 @@ int FabTester::run() {
     ret = fabric->send(new TestArglessTwoDPayloadMessage(fabric->get_id(), twodpayload));
     std::cout << "retcode: " << ret << std::endl << std::endl;
     */
-    std::cout << "Sending spanlist payload message..." << std::endl;
-    ret = fabric->send(new TestSpanPayloadMessage(fabric->get_id(), spanargs, spanpayload));
+    std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
+    ret = fabric->send(new TestSpanPayloadMessage(target, spanargs, spanpayload));
     std::cout << "retcode: " << ret << std::endl << std::endl;
 
 
@@ -242,6 +246,7 @@ void TestSpanPayloadMessageType::request(Message* m) {
   
   std::cout << "TestSpanPayloadMessageType::request called" << std::endl;
   std::cout << "spans (args): " << args->spans << std::endl;
+  std::cout << "sender (args): " << args->sender << std::endl;
   std::cout << "size: " << m->payload->size() << std::endl;
   std::cout << "Payload:" << std::endl;
   std::cout << (char*) m->payload->ptr() << std::endl;

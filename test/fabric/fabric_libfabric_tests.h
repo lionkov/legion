@@ -122,6 +122,7 @@ class TestSpanPayloadMessageType : public MessageType {
 
   struct RequestArgs {
     size_t spans;
+    NodeId sender;
   };
 
   void request(Message* m);
