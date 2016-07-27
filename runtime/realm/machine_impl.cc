@@ -1238,7 +1238,7 @@ namespace Realm {
   static int announcements_received = 0;
   
   void NodeAnnounceMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_args();
     void* data = m->payload->ptr();
     size_t datalen = m->payload->size();
 

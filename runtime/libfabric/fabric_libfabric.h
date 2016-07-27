@@ -67,7 +67,6 @@ class FabMutex {
     
   };
 
-
   // AutoLocks wrap a mutex. On creation, the mutex is automatically acquired,
   // when the AutoLock is destroyed, the mutex is released.
   class FabAutoLock {
@@ -77,22 +76,27 @@ class FabMutex {
     void release();
     void reacquire();
 
-  protected:
-    FabMutex& mutex;
+  protected:FabMutex& mutex;
     bool held;
   };
 
-
+// FabMessage represents a message send via LibFabric.
+// NOTE:
+// Because the derived class of the message is not known when it is
+// received, the arg_pointer pointer is set when a message is received.
+// Hanlder methods can then cast this pointer to the appropriate type.
+/*
 class FabMessage : public Message {
  public:
-  FabMessage(NodeId dest, MessageId id, void *args, FabPayload *payload)
-    : Message(dest, id, args, payload) { }
+  FabMessage(NodeId dest, MessageId id, FabPayload *payload)
+    : Message(dest, id, payload) { }
  
-  //virtual int reply(MessageId id, void *args, Payload *Apayload, bool inOrder);  
-  //protected:
-  //friend class FabFabric;
+ protected:
+  virtual void set_arg_ptr(void* data) { arg_ptr = data; }
+  virtual void* get_arg_ptr() { return arg_ptr; }
+  void* arg_ptr;
 };
-
+*/
 
   class FabFabric : public Fabric {
   public:
@@ -106,8 +110,7 @@ class FabMessage : public Message {
     NodeId get_id();
     uint32_t get_num_nodes();
     int send(Message* m);
-    int send(NodeId dest, MessageId id, void* args, FabPayload* payload);
-    bool incoming(FabMessage *);
+    bool incoming(Message *);
     void *memalloc(size_t size);
     void memfree(void *);
     void print_fi_info(fi_info* fi);
@@ -180,3 +183,4 @@ class FabMessage : public Message {
   //typedef FabCondVar CondVar;
  
 #endif // ifndef FABRIC_LIBFABRIC_H
+

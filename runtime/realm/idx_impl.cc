@@ -1776,7 +1776,7 @@ namespace Realm {
     }
 
   void ValidMaskRequestMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_args();
     
     DetailedTimer::ScopedPush sp(TIME_LOW_LEVEL);
     IndexSpaceImpl *r_impl = get_runtime()->get_index_space_impl(args->is);
@@ -1824,7 +1824,7 @@ namespace Realm {
   }
   
   void ValidMaskDataMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_args();
     void* data = m->payload->ptr();
     size_t datalen = m->payload->size();
     

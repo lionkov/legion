@@ -98,7 +98,7 @@ namespace LegionRuntime {
 
     
     void RemoteCopyMessageType::request(Message* m) {
-      RemoteCopyArgs* args = (RemoteCopyArgs*) m->args;
+      RemoteCopyArgs* args = (RemoteCopyArgs*) m->get_args();
       void* data = m->payload->ptr();
       size_t datalen = m->payload->size();
       
@@ -107,7 +107,7 @@ namespace LegionRuntime {
     
     
     void RemoteFillMessageType::request(Message* m) {
-      RemoteFillArgs* args = (RemoteFillArgs*) m->args;
+      RemoteFillArgs* args = (RemoteFillArgs*) m->get_args();
       void* data = m->payload->ptr();
       size_t datalen = m->payload->size();
       

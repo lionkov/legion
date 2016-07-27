@@ -298,7 +298,10 @@ namespace Realm {
     class RuntimeShutdownMessage : public FabMessage {
     public:
       RuntimeShutdownMessage(NodeId dest, void* args)
-	: FabMessage(dest, MACHINE_SHUTDOWN_MSGID, args, NULL) { }
+	: FabMessage(dest, MACHINE_SHUTDOWN_MSGID, NULL)  { }
+
+	RuntimeShutdownMessageType::RequestArgs args;
+	void* get_args() { return (void*) &args; }       
     };
     
 }; // namespace Realm

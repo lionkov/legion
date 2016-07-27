@@ -60,7 +60,10 @@ namespace LegionRuntime {
     class RemoteCopyMessage : public FabMessage {
     public: 
       RemoteCopyMessage(NodeId dest, void* args, FabPayload* payload)
-	: FabMessage(dest, REMOTE_COPY_MSGID, args, payload) { }
+	: FabMessage(dest, REMOTE_COPY_MSGID, payload)  { }
+
+        RemoteCopyArgs args;
+	void* get_args() { return (void*) &args; } 
     };
     
     class RemoteFillMessageType : public MessageType {
@@ -74,7 +77,10 @@ namespace LegionRuntime {
     class RemoteFillMessage : public FabMessage {
     public: 
       RemoteFillMessage(NodeId dest, void* args, FabPayload* payload)
-	: FabMessage(dest, REMOTE_FILL_MSGID, args, payload) { }
+	: FabMessage(dest, REMOTE_FILL_MSGID, payload)  { }
+
+        RemoteFillArgs args;
+	void* get_args() { return (void*) &args; } 
     };
    
     extern void init_dma_handler(void);

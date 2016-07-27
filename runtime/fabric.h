@@ -91,12 +91,11 @@ class MessageType {
  MessageType(MessageId msgid, size_t asz, bool hasPayload, bool inOrder)
    : id(msgid), argsz(asz), payload(hasPayload), inorder(inOrder) { }
 
-  // called when a message of this type is received
-  virtual void request(Message *m) = 0;
-
+  /*TODO -- implement MessageType.send(dest) style call
   int send(NodeId target);
   int send(NodeId target, void *args);
   int send(NodeId target, void *args, FabPayload *payload);
+  */
 };
 
 class Fabric {
@@ -111,8 +110,6 @@ class Fabric {
 
   virtual NodeId get_id() = 0;
   virtual uint32_t get_num_nodes() = 0;
-  virtual int send(NodeId dest, MessageId id, void *args,
-		   FabPayload *payload) = 0;
   virtual int send(Message* m) = 0;
   virtual void progress(bool wait) = 0;
   // virtual bool incoming(Message *) = 0;
@@ -133,23 +130,22 @@ class Fabric {
 
 extern Fabric* fabric;
 
-
 class Message {
  public:
   MessageType	*mtype;		// message type
   NodeId	sndid;		// sender id
   NodeId	rcvid;		// receiver id
-  MessageId     id; 
-  void*		args;
-  FabPayload*	payload;  
+  MessageId     id;
+  FabPayload*	payload;        // may be null!
 
+  // called when a message of this type is received
+  virtual void request() = 0;
+  
   virtual ~Message() {
     if (payload)
       delete payload;
-    if (args)
-      free(args);
     if (iov != siov && iov)
-      delete iov;
+      delete[] iov;
   }
   
   // can be called by the request handler to send a reply
@@ -158,17 +154,16 @@ class Message {
   struct iovec* iov;
   struct iovec siov[6];
 
- protected:
-  Message(NodeId dest, MessageId _id, void *a, FabPayload *p)
-     : rcvid(dest), id(_id), args(a), payload(p) {
-    mtype = fabric->mts[id];
-    rcvid = dest;
-    sndid = fabric->get_id();
-    iov = NULL;
-  }
-  
-};
+  virtual void* get_args_ptr() = 0;
+  virtual void set_args_from_ptr(void* ptr) = 0;
 
+ protected:
+  Message(NodeId dest, MessageId _id, FabPayload *p)
+    : rcvid(dest), id(_id), payload(p), iov(NULL) {
+    mtype = fabric->mts[id];
+    sndid = fabric->get_id();
+  }
+};
 
 // extern FabricMemory *fabric_memory;
 

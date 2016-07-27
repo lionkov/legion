@@ -1935,7 +1935,7 @@ namespace Realm {
   }
 
   void RuntimeShutdownMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_args();
     log_runtime.info("received shutdown request from node %d", args->initiating_node);
     get_runtime()->shutdown(false);
   }

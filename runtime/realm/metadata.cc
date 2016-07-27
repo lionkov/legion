@@ -219,7 +219,7 @@ namespace Realm {
 
   void MetadataRequestMessageType::request(Message* m)
   {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_args();
     void *data = 0;
     size_t datalen = 0;
     
@@ -254,7 +254,7 @@ namespace Realm {
   }
 
   void MetadataResponseMessageType::request(Message* m) {					    
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_args();
     void* data = m->payload->ptr();
     size_t datalen = m->payload->size();
     
@@ -290,7 +290,7 @@ namespace Realm {
   }
 
   void MetadataInvalidateMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_args();
     
     log_metadata.info("received invalidate request for " IDFMT, args->id);
 
@@ -348,7 +348,7 @@ namespace Realm {
   
 
   void MetadataInvalidateAckMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_args();
     log_metadata.info("received invalidate ack for " IDFMT, args->id);
 
     // switch on different types of objects that can have metadata

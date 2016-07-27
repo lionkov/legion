@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <string>
 #include <vector>
+#include <cstring>
 #include "fabric.h"
 #include "libfabric/fabric_libfabric.h"
 #include "cmdline.h"
@@ -34,28 +35,35 @@ private:
 
 };
 
+class TestMessage;
+
 class TestMessageType : public MessageType {
  public: 
  TestMessageType()
    : MessageType(1, /* msgId */
 		 sizeof(RequestArgs),
 		 false, /* has payload */
-		 true /*in order */ ){ }
+		 true /*in order */) { }
   
   struct RequestArgs {
     char string[64];
   };
 
-  void request(Message* m);
+  //void request(TestMessage* m);
 };
 
 class TestMessage : public FabMessage {
  public:
- TestMessage(NodeId dest, void* args)
-   : FabMessage(dest, 1, args, NULL) { }
-
+ TestMessage(NodeId dest, TestMessageType::RequestArgs& _args)
+   : FabMessage(dest, 1, NULL) {
+    memcpy(&args, &_args, sizeof(TestMessageType::RequestArgs));
+  }
+ protected:
+  TestMessageType::RequestArgs args;
+  void request();
+  void* get_arg_ptr() { return (void*) &args; }
+  void set_args_from_ptr(void* ptr) { memcpy(args, ptr, sizeof(TestMessageType::RequestArgs)); }
 };
-
 
 class TestPayloadMessageType : public MessageType {
  public: 
@@ -74,7 +82,10 @@ class TestPayloadMessageType : public MessageType {
 class TestPayloadMessage : public FabMessage {
  public:
  TestPayloadMessage(NodeId dest, void* args, FabPayload* payload)
-   : FabMessage(dest, 2, args, payload) { }
+   : FabMessage(dest, 2, payload)  { }
+
+  TestPayloadMessageType::RequestArgs args;
+  void* get_args() { return (void*) &args; } 
 };
 
 
@@ -98,7 +109,10 @@ class TestTwoDPayloadMessageType : public MessageType {
 class TestTwoDPayloadMessage : public FabMessage {
  public:
  TestTwoDPayloadMessage(NodeId dest, void* args, FabPayload* payload)
-   : FabMessage(dest, 3, args, payload) { }
+   : FabMessage(dest, 3, payload)  { }
+
+	TestTwoDPayloadMessageType::RequestArgs args;
+	void* get_args() { return (void*) &args; } 
 };
 
 class TestArglessTwoDPayloadMessageType : public MessageType {
@@ -116,7 +130,9 @@ class TestArglessTwoDPayloadMessageType : public MessageType {
 class TestArglessTwoDPayloadMessage : public FabMessage {
  public:
  TestArglessTwoDPayloadMessage(NodeId dest, FabPayload* payload)
-    : FabMessage(dest, 4, NULL, payload) { }
+    : FabMessage(dest, 4, payload)  { }
+
+  void* get_args() { return NULL; } 
 };
 
 
@@ -139,5 +155,8 @@ class TestSpanPayloadMessageType : public MessageType {
 class TestSpanPayloadMessage : public FabMessage {
  public:
  TestSpanPayloadMessage(NodeId dest, void* args, FabPayload* payload)
-   : FabMessage(dest, 5, args, payload) { }
+   : FabMessage(dest, 5, payload)  { }
+
+	TestSpanPayloadMessageType::RequestArgs args;
+	void* get_args() { return (void*) &args; } 
 };

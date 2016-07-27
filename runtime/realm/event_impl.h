@@ -262,7 +262,10 @@ namespace Realm {
   class EventSubscribeMessage : public FabMessage {
   public:
     EventSubscribeMessage(NodeId dest, void* args)
-      : FabMessage(dest, EVENT_SUBSCRIBE_MSGID, args, NULL) { }
+      : FabMessage(dest, EVENT_SUBSCRIBE_MSGID, NULL)  { }
+
+	EventSubscribeMessageType::RequestArgs args;
+	void* get_args() { return (void*) &args; } 
   };
 
   // EventTriggerMessage is used by non-owner nodes to trigger an event
@@ -287,7 +290,10 @@ namespace Realm {
   class EventTriggerMessage : public FabMessage {
   public:
     EventTriggerMessage(NodeId dest, void* args)
-      : FabMessage(dest, EVENT_TRIGGER_MSGID, args, NULL) { }    
+      : FabMessage(dest, EVENT_TRIGGER_MSGID, NULL)  { }
+
+	EventTriggerMessageType::RequestArgs args;
+	void* get_args() { return (void*) &args; }     
   };
   
   class EventUpdateMessageType : public MessageType {
@@ -311,7 +317,10 @@ namespace Realm {
   class EventUpdateMessage : public FabMessage {
   public:
     EventUpdateMessage(NodeId dest, void* args, FabPayload* payload)
-      : FabMessage(dest, EVENT_UPDATE_MSGID, args, payload) { }
+      : FabMessage(dest, EVENT_UPDATE_MSGID, payload)  { }
+
+	EventUpdateMessageType::RequestArgs args;
+	void* get_args() { return (void*) &args; } 
   };
 
   class BarrierAdjustMessageType : public MessageType {
@@ -337,7 +346,10 @@ namespace Realm {
   class BarrierAdjustMessage : public FabMessage {
   public:
     BarrierAdjustMessage(NodeId dest, void* args, FabPayload* payload)
-      : FabMessage(dest, BARRIER_ADJUST_MSGID, args, payload) { }
+      : FabMessage(dest, BARRIER_ADJUST_MSGID, payload)  { }
+
+	BarrierAdjustMessageType::RequestArgs args;
+	void* get_args() { return (void*) &args; } 
   };
 
 
@@ -362,7 +374,10 @@ namespace Realm {
   class BarrierSubscribeMessage : public FabMessage {
   public:
     BarrierSubscribeMessage(NodeId dest, void* args)
-      : FabMessage(dest, BARRIER_SUBSCRIBE_MSGID, args, NULL) { }
+      : FabMessage(dest, BARRIER_SUBSCRIBE_MSGID, NULL)  { }
+
+	BarrierSubscribeMessageType::RequestArgs args;
+	void* get_args() { return (void*) &args; } 
   };
 
   
@@ -394,7 +409,10 @@ namespace Realm {
   class BarrierTriggerMessage : public FabMessage {
   public:
   BarrierTriggerMessage(NodeId dest, void* args, FabPayload* payload)
-    : FabMessage(dest, BARRIER_TRIGGER_MSGID, args, payload) { }
+    : FabMessage(dest, BARRIER_TRIGGER_MSGID, payload)  { }
+
+	BarrierTriggerMessageType::RequestArgs args;
+	void* get_args() { return (void*) &args; } 
   };
 
   class BarrierMigrationMessageType : public MessageType {
@@ -414,7 +432,10 @@ namespace Realm {
   class BarrierMigrationMessage : public FabMessage {
   public:
   BarrierMigrationMessage(NodeId dest, void* args)
-    : FabMessage(dest, BARRIER_MIGRATE_MSGID, args, NULL) { }	
+    : FabMessage(dest, BARRIER_MIGRATE_MSGID, NULL)  { }
+
+	BarrierMigrationMessageType::RequestArgs args;
+	void* get_args() { return (void*) &args; } 	
   };
     
 }; // namespace Realm

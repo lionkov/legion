@@ -861,7 +861,7 @@ namespace Realm {
 
 
   void RemoteMemAllocRequestType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_args();
     DetailedTimer::ScopedPush sp(TIME_LOW_LEVEL);
     //printf("[%d] handling remote alloc of size %zd\n", gasnet_mynode(), args.size);
     off_t offset = get_runtime()->get_memory_impl(args->memory)->alloc_bytes(args->size);
@@ -876,8 +876,8 @@ namespace Realm {
   }
   
   /*static*/ off_t RemoteMemAllocRequestType::send_request(NodeId target,
-							   Memory memory,
-							   size_t size) {
+								  Memory memory,
+								  size_t size) {
     HandlerReplyFuture<off_t> result;
 
     RequestArgs* args = new RequestArgs(); 
@@ -886,7 +886,7 @@ namespace Realm {
     args->memory = memory;
     args->size = size;
 
-    fabric->send(new RemoteMemAllocRequestMessage(target, args));
+    fabric->send(new RemoteMemAllocRequest(target, args));
 
     // wait for result to come back
     result.wait();
@@ -894,7 +894,7 @@ namespace Realm {
   }
 
   void RemoteMemAllocResponseType::request(Message* m) { 
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_args();
     HandlerReplyFuture<off_t> *f = static_cast<HandlerReplyFuture<off_t> *>(args->resp_ptr);
     f->set(args->offset);
   }
@@ -905,7 +905,7 @@ namespace Realm {
   //
 
   void CreateInstanceRequestType::request(Message* m) { 
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_args();
     void* msgdata = m->payload->ptr();
     //size_t msglen = m->payload->size();
     
@@ -1007,7 +1007,7 @@ namespace Realm {
   }
 
   void CreateInstanceResponseType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_args();
     HandlerReplyFuture<CreateInstanceRequestType::Result> *f
       = static_cast<HandlerReplyFuture<CreateInstanceRequestType::Result> *>(args->resp_ptr);
 
@@ -1020,7 +1020,7 @@ namespace Realm {
   }
 
   void DestroyInstanceMessageType::request(Message* m) { 
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_args();
     MemoryImpl *m_impl = get_runtime()->get_memory_impl(args->m);
     m_impl->destroy_instance(args->i, false);
   }
@@ -1062,7 +1062,7 @@ namespace Realm {
   static GASNetHSL partial_remote_writes_lock;
   
   void RemoteWriteMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_args();
     void* data = m->payload->ptr();
     size_t datalen = m->payload->size();
     
@@ -1161,7 +1161,7 @@ namespace Realm {
   // class RemoteSerdezMessage
   //
   void RemoteSerdezMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_args();
     void* data = m->payload->ptr();
     size_t datalen = m->payload->size();
     
@@ -1233,7 +1233,7 @@ namespace Realm {
   
 
   void RemoteReduceMessageType::request(Message* m) { 
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_args();
     void* data = m->payload->ptr();
     size_t datalen = m->payload->size();
     
@@ -1313,7 +1313,7 @@ namespace Realm {
   }
 
   void RemoteReduceListMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_args();
     void* data = m->payload->ptr();
     size_t datalen = m->payload->size();
     
@@ -1382,7 +1382,7 @@ namespace Realm {
   }
   
   void RemoteWriteFenceMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_args();
 
     log_copy.debug("remote write fence (mem = " IDFMT ", seq = %d/%d, count = %d, fence = %p",
 		   args->mem.id, args->sender, args->sequence_id, args->num_writes, args->fence);
@@ -1449,7 +1449,7 @@ namespace Realm {
   }
   
   void RemoteWriteFenceAckMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_args();
     log_copy.debug("remote write fence ack: fence = %p",
 		   args->fence);
 

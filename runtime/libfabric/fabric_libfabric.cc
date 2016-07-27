@@ -380,17 +380,6 @@ uint32_t FabFabric::get_num_nodes()
   return num_nodes;
 }
 
-int FabFabric::send(NodeId dest, MessageId id, void *args, FabPayload *payload)
-{
-  FabMessage *m;
-
-  m = new FabMessage(dest, id, args, payload);
-  m->sndid = id;
-  m->rcvid = dest;
-
-  return send(m);
-}
-
 int FabFabric::send(Message* m)
 {
   int ret, e, n;
@@ -402,9 +391,8 @@ int FabFabric::send(Message* m)
   if (mt == NULL)
     return -EINVAL;
 
-
   if (!m->mtype->payload) {
-    ret = fi_tsend(ep, m->args, m->mtype->argsz, NULL,		
+    ret = fi_tsend(ep, m->get_args_ptr(), m->mtype->argsz, NULL,		
 		   fi_addrs[m->rcvid],
 		   m->mtype->id, m);
     if (ret != 0) {
@@ -437,7 +425,7 @@ int FabFabric::send(Message* m)
     sz += m->iov[0].iov_len;
     
     if (m->mtype->argsz != 0) {
-      m->iov[1].iov_base = m->args; 
+      m->iov[1].iov_base = m->get_args_ptr(); 
       m->iov[1].iov_len = m->mtype->argsz;
       sz += m->iov[1].iov_len;
     }
@@ -461,7 +449,7 @@ int FabFabric::send(Message* m)
 // this will be greated than 0. A code of 0 indicates no message recieved, while
 // a negative code is an error.
 
-int FabFabric::check_cq(fid_cq* cq, fi_cq_tagged_entry* ce, int timeout) {
+ int FabFabric::check_cq(fid_cq* cq, fi_cq_tagged_entry* ce, int timeout) {
   int ret;
   fi_addr_t src;
 
@@ -501,7 +489,7 @@ int FabFabric::check_cq(fid_cq* cq, fi_cq_tagged_entry* ce, int timeout) {
 // Receive messages one at a time from the receive queue
 void FabFabric::progress(bool wait) {
   fi_cq_tagged_entry ce;
-  FabMessage *m;
+  Message *m;
   int ret;
 
   int timeout = wait ? 1000 : 0;
@@ -510,7 +498,7 @@ void FabFabric::progress(bool wait) {
     ret = check_cq(rx_cq, &ce, timeout);
     if (ret > 0) {
       // Received a message
-      m = (FabMessage *) ce.op_context;
+      m = (Message *) ce.op_context;
       m->siov[0].iov_len = ce.len;
       incoming(m);
       continue;
@@ -533,7 +521,7 @@ void FabFabric::progress(bool wait) {
 // Clean up completed message sends
 void FabFabric::handle_tx(bool wait) {
   fi_cq_tagged_entry ce;
-  FabMessage *m;
+  Message *m;
   int ret;
 
   int timeout = wait ? 1000 : 0;
@@ -543,10 +531,10 @@ void FabFabric::handle_tx(bool wait) {
     
     if (ret > 0) {
       // Received a message
-      m = (FabMessage *) ce.op_context;
+      m = (Message *) ce.op_context;
       //if (m->rcvid != get_id()) // TODO : is this correct?
-      delete m; // Ok to delete m now, as it's been successfully sent
-      
+      //delete m; // Ok to delete m now, as it's been successfully sent
+      ;
     }
 
     if (ret == 0) { // Nothing to recieve
@@ -574,7 +562,7 @@ void* FabFabric::bootstrap_handle_tx(void* context) {
 }
 
 
-bool FabFabric::incoming(FabMessage *m)
+bool FabFabric::incoming(Message *m)
 {
   if (m->mtype != NULL) {
     // tagged message
@@ -603,16 +591,17 @@ bool FabFabric::incoming(FabMessage *m)
     }
 
     if (mtype->argsz > 0) {
-      m->args = data;
+      //m->set_args_from_ptr(data);
       data += mtype->argsz;
-      len -= mtype->argsz;
+      len  -= mtype->argsz;
     }
     
     // TODO -- will need to respect other payload modes
     m->payload = new FabContiguousPayload(PAYLOAD_KEEP, data, len);
   }
 
-  m->mtype->request(m);
+  //m->mtype->request(m);
+  m->request();
   // Anything else?
 
   return true;
@@ -634,7 +623,7 @@ int FabFabric::post_tagged(MessageType* mt)
   void *args;
 
   args = malloc(mt->argsz);
-  m = new FabMessage(get_id(), mt->id, args, NULL);
+  m = new Message(get_id(), mt->id, NULL);
   return fi_trecv(ep, args, mt->argsz, NULL, FI_ADDR_UNSPEC, mt->id, 0, m);
 }
 
@@ -643,7 +632,7 @@ int FabFabric::post_untagged()
   void *buf = malloc(max_send);
   memset(buf, 0, sizeof(buf));
 
-  FabMessage* m = new FabMessage(get_id(), 0, NULL, NULL);
+  FabMessage* m = new FabMessage(get_id(), 0, NULL);
   m->siov[0].iov_base = buf;
   m->siov[0].iov_len = max_send;
   return fi_recv(ep, buf, max_send, NULL, FI_ADDR_UNSPEC, m);

@@ -209,7 +209,10 @@ namespace Realm {
   class LockRequestMessage : public FabMessage {
   public:
     LockRequestMessage(NodeId dest, void* args)
-      : FabMessage(dest, LOCK_REQUEST_MSGID, args, NULL) { }
+      : FabMessage(dest, LOCK_REQUEST_MSGID, NULL)  { }
+
+	LockRequestMessageType::RequestArgs args;
+	void* get_args() { return (void*) &args; } 
   }; 
 
   class LockReleaseMessageType : public MessageType {
@@ -229,7 +232,10 @@ namespace Realm {
   class LockReleaseMessage : public FabMessage {
   public:
     LockReleaseMessage(NodeId target, void* args)
-      : FabMessage(target, LOCK_RELEASE_MSGID, args, NULL) { }
+      : FabMessage(target, LOCK_RELEASE_MSGID, NULL)  { }
+
+	LockReleaseMessageType::RequestArgs args;
+	void* get_args() { return (void*) &args; } 
   };
   
   class LockGrantMessageType : public MessageType {
@@ -251,7 +257,10 @@ namespace Realm {
   class LockGrantMessage : public FabMessage {
   public:
     LockGrantMessage(NodeId dest, void* args, FabPayload* payload)
-      : FabMessage(dest, LOCK_GRANT_MSGID, args, payload) { }
+      : FabMessage(dest, LOCK_GRANT_MSGID, payload)  { }
+
+	LockGrantMessageType::RequestArgs args;
+	void* get_args() { return (void*) &args; } 
   }; 
  
   class DestroyLockMessageType : public MessageType {
@@ -271,7 +280,10 @@ namespace Realm {
   class DestroyLockMessage : public FabMessage {
   public:
     DestroyLockMessage(NodeId dest, void* args)
-      : FabMessage(dest, DESTROY_LOCK_MSGID, args, NULL) { }
+      : FabMessage(dest, DESTROY_LOCK_MSGID, NULL)  { }
+
+	DestroyLockMessageType::RequestArgs args;
+	void* get_args() { return (void*) &args; } 
   };
 
 }; // namespace Realm

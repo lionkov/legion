@@ -126,7 +126,10 @@ namespace Realm {
     class ValidMaskRequestMessage : public FabMessage {
     public:
       ValidMaskRequestMessage(NodeId dest, void* args)
-	: FabMessage(dest, VALID_MASK_REQ_MSGID, args, NULL) { }
+	: FabMessage(dest, VALID_MASK_REQ_MSGID, NULL)  { }
+
+	ValidMaskRequestMessageType::RequestArgs args;
+	void* get_args() { return (void*) &args; } 
     };
 
     class ValidMaskDataMessageType : public MessageType {
@@ -154,7 +157,10 @@ namespace Realm {
     class ValidMaskDataMessage : public FabMessage {
     public:
       ValidMaskDataMessage(NodeId dest, void* args, FabPayload* payload)
-	: FabMessage(dest, VALID_MASK_DATA_MSGID, args, payload) { }
+	: FabMessage(dest, VALID_MASK_DATA_MSGID, payload)  { }
+
+	ValidMaskDataMessageType::RequestArgs args;
+	void* get_args() { return (void*) &args; } 
     };
    
 }; // namespace Realm
