@@ -28,7 +28,7 @@ public:
  int run();
  int init(std::vector<std::string> cmdline);
  void testFabTwoDPayload();
- void fill_spans(SpanList& sl);
+ size_t fill_spans(SpanList& sl);
  
 private:
 
@@ -51,8 +51,12 @@ class TestMessageType : public MessageType {
 
 class TestMessage : public Message {
  public:
- TestMessage(NodeId dest, void* args)
-   : Message(dest, 1, args, NULL) { }
+ TestMessage(NodeId dest, char* s)
+   : Message(dest, 1, &args, NULL) {
+    strncpy(args.string, s, 64);
+  }
+
+  TestMessageType::RequestArgs args;
 };
 
 
@@ -72,8 +76,11 @@ class TestPayloadMessageType : public MessageType {
 
 class TestPayloadMessage : public Message {
  public:
- TestPayloadMessage(NodeId dest, void* args, FabPayload* payload)
-   : Message(dest, 2, args, payload) { }
+ TestPayloadMessage(NodeId dest, char* s, FabPayload* payload)
+   : Message(dest, 2, &args, payload) {
+    strncpy(args.string, s, 64);
+  }
+  TestPayloadMessageType::RequestArgs args;
 };
 
 
@@ -96,8 +103,18 @@ class TestTwoDPayloadMessageType : public MessageType {
 
 class TestTwoDPayloadMessage : public Message {
  public:
- TestTwoDPayloadMessage(NodeId dest, void* args, FabPayload* payload)
-   : Message(dest, 3, args, payload) { }
+ TestTwoDPayloadMessage(NodeId dest,
+			size_t linesz,
+			size_t linecnt,
+			ptrdiff_t stride,
+			FabPayload* payload)
+   : Message(dest, 3, &args, payload) {
+    args.linesz = linesz;
+    args.linecnt = linecnt;
+    args.stride = stride;    
+  }
+  
+  TestTwoDPayloadMessageType::RequestArgs args;
 };
 
 class TestArglessTwoDPayloadMessageType : public MessageType {
@@ -128,6 +145,9 @@ class TestSpanPayloadMessageType : public MessageType {
 		 true /*in order */ ){ }
 
   struct RequestArgs {
+    RequestArgs(size_t _spans, NodeId _sender)
+    : spans(_spans), sender(_sender) { }
+    
     size_t spans;
     NodeId sender;
   };
@@ -137,6 +157,11 @@ class TestSpanPayloadMessageType : public MessageType {
 
 class TestSpanPayloadMessage : public Message {
  public:
- TestSpanPayloadMessage(NodeId dest, void* args, FabPayload* payload)
-   : Message(dest, 5, args, payload) { }
+ TestSpanPayloadMessage(NodeId dest,
+			size_t spans,
+			NodeId sender,
+			FabPayload* payload)
+   : Message(dest, 5, &args, payload), args(spans, sender){ }
+
+  TestSpanPayloadMessageType::RequestArgs args;
 };

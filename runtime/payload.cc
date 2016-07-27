@@ -197,7 +197,7 @@ ssize_t FabTwoDPayload::copy_strided(void *dest, size_t destsz) {
 // Returns the number of bytes copied, or -1 on error.
 ssize_t FabTwoDPayload::copy(void *dest, size_t destsz) {
   int ret = 0;
-  int remaining = destsz;
+  size_t remaining = destsz;
   char* p = (char*) data;
   char* dest_p = (char*) dest;
   
@@ -257,11 +257,13 @@ FabSpanPayload::~FabSpanPayload(void) {
   std::cout << "DESTRUCTING PAYLOAD -- spanlist " << std::endl;
   
   if (mode == FAB_PAYLOAD_FREE || mode == FAB_PAYLOAD_COPY) {
-    for(SpanList::const_iterator it = spans.begin(); it != spans.end(); it++) {
+    for(SpanList::const_iterator it = data->begin(); it != data->end(); it++) {
       if (it->first)
 	free((void*) it->first);
     }
-  } 
+    delete data;
+  }
+  
 }
 
 
@@ -281,22 +283,22 @@ int FabSpanPayload::checkmode() {
     return 0;
     
   case FAB_PAYLOAD_KEEP:
-    assign_spans(data);
     return 0;
     
   case FAB_PAYLOAD_FREE:
-    assign_spans(data);
     return 0;
 
   case FAB_PAYLOAD_COPY:
     copy_spans(data);
+    data = internal_spans;
     return 0;
   }
 }
 
 // Assign each span to point to the contents of the span list.
-// Returns the number of spans assigned on succes, or -1
+// Returns the number of spans assigned on success, or -1
 // on error. Error will set the mode of this payload to FAB_PAYLOAD_ERROR.
+/*
 ssize_t FabSpanPayload::assign_spans(SpanList* sl) {
   ssize_t ret = 0;
   sz = 0;
@@ -312,6 +314,7 @@ ssize_t FabSpanPayload::assign_spans(SpanList* sl) {
   
   return ret;
 }
+*/
 
 // Copies the data pointed to into the span payload.
 // Returns the number of spans assigned on succes, or -1
@@ -319,6 +322,8 @@ ssize_t FabSpanPayload::assign_spans(SpanList* sl) {
 ssize_t FabSpanPayload::copy_spans(SpanList* sl) {
   ssize_t ret = 0;
   sz = 0;
+  internal_spans = new SpanList();
+  
   if (mode == FAB_PAYLOAD_ERROR)
     return -1;
   
@@ -331,7 +336,7 @@ ssize_t FabSpanPayload::copy_spans(SpanList* sl) {
     memmove(buf, i->first, i->second);
  
     FabSpanListEntry entry(buf, i->second);
-    spans.push_back(entry);
+    internal_spans->push_back(entry);
     ++ret;
   }
   
@@ -346,7 +351,7 @@ size_t FabSpanPayload::size(void) {
 }
 
 void* FabSpanPayload::ptr(void) {
-  return &spans;
+  return data;
 }
 
 
@@ -361,7 +366,7 @@ ssize_t FabSpanPayload::copy(void *dest, size_t destsz) {
   if (mode == FAB_PAYLOAD_ERROR)
     return -1;
  
-  for(SpanList::const_iterator it = spans.begin(); (destsz > 0) && (it != spans.end()); it++) {
+  for(SpanList::const_iterator it = data->begin(); (destsz > 0) && (it != data->end()); it++) {
     n = (destsz > it->second) ? it->second : destsz;
     memmove(dest_p, it->first, n);
     ret += n;
@@ -381,7 +386,7 @@ ssize_t FabSpanPayload::iovec(struct iovec *iov, size_t iovnum) {
     return -1;
 
   SpanList::const_iterator it;
-  for(it = spans.begin(); it != spans.end(); ++it) {
+  for(it = data->begin(); it != data->end(); ++it) {
     if (i >= iovnum)
       return i;
     
@@ -396,5 +401,5 @@ ssize_t FabSpanPayload::iovec(struct iovec *iov, size_t iovnum) {
 // Gets the number of iovs required to completely assign this Payload's
 // data.
 ssize_t FabSpanPayload::get_iovs_required() {
-  return spans.size();
+  return data->size();
 }

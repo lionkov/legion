@@ -85,35 +85,16 @@ int FabTester::run() {
   int count = 0;
   
   while (count < 10) {
-    void* paybuf = malloc(64);
-    strcpy((char*) paybuf, "This is a payload.");
-
+    //void* paybuf = malloc(64);
+    //strcpy((char*) paybuf, "This is a payload.");
+    /*
     char* twodbuf = new char[64];
     for (int i=0; i < 8; ++i) {
       for (int j=0; j < 4; ++j) {
 	twodbuf[i*4+j] = 48+i;
       }
     }
-
-    TestMessageType::RequestArgs* args
-      = new TestMessageType::RequestArgs();
-    strcpy(args->string, "I'm an arg.");
-    
-    TestTwoDPayloadMessageType::RequestArgs* twodargs
-      = new TestTwoDPayloadMessageType::RequestArgs();
-    
-    twodargs->linesz = 4;
-    twodargs->linecnt = 6 ;
-    twodargs->stride = 1;
-
-    
-    TestSpanPayloadMessageType::RequestArgs* spanargs
-      = new TestSpanPayloadMessageType::RequestArgs();
-
-    spanargs->spans = 3;
-    spanargs->sender = fabric->get_id();
-    
-    
+    */
     int mode = FAB_PAYLOAD_COPY;
     switch (mode) { 
     case FAB_PAYLOAD_KEEP:
@@ -126,43 +107,45 @@ int FabTester::run() {
       std::cout << "MODE: FREE" << std::endl;
       break;
     }
-    
-    FabContiguousPayload* payload
-      = new FabContiguousPayload(mode, (void*) paybuf, 64);
+   
+    //FabContiguousPayload* payload
+    //= new FabContiguousPayload(mode, (void*) paybuf, 64);
 
-    FabTwoDPayload* twodpayload
-      = new FabTwoDPayload(mode, twodbuf,
-			   twodargs->linesz,
-			   twodargs->linecnt,
-			   twodargs->stride);
+    // size_t linesz = 4;
+    // size_t linecnt = 6;
+    // ptrdiff_t stride = 1;
+    // FabTwoDPayload* twodpayload
+    //   = new FabTwoDPayload(mode, twodbuf,
+    // 			   linesz,
+    // 			   linecnt,
+    // 			   stride);
+
 
     SpanList* sl = new SpanList();
-    fill_spans(*sl);
+    size_t nspans = fill_spans(*sl);
     FabSpanPayload* spanpayload =
       new FabSpanPayload(mode, *sl);
-    
+
     NodeId target = (fabric->get_id() + 1) % fabric->get_num_nodes();
 
     
-    std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
-    ret = fabric->send(new TestMessage(fabric->get_id(), (void*) args));
-    std::cout << "retcode: " << ret << std::endl << std::endl;
+    //std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
+    //ret = fabric->send(new TestMessage(fabric->get_id(), "I'm an arg!"));
+    //std::cout << "retcode: " << ret << std::endl << std::endl;
 
     //std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
-    //ret = fabric->send(new TestPayloadMessage(fabric->get_id(), (void*) buf, payload));
+    //ret = fabric->send(new TestPayloadMessage(fabric->get_id(), "I'm an arg!", payload));
     //std::cout << "retcode: " << ret << std::endl << std::endl;
      
-    // std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
-    // ret = fabric->send(new TestTwoDPayloadMessage(fabric->get_id(), (void*) twodargs, twodpayload));
-    // std::cout << "retcode: " << ret << std::endl << std::endl;
-
-    // std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
-    // ret = fabric->send(new TestArglessTwoDPayloadMessage(fabric->get_id(), twodpayload));
-    // std::cout << "retcode: " << ret << std::endl << std::endl;
-    
     //std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
-    //ret = fabric->send(new TestSpanPayloadMessage(target, spanargs, spanpayload));
+    //ret = fabric->send(new TestTwoDPayloadMessage(fabric->get_id(), linesz, linecnt,
+    //stride, twodpayload));
     //std::cout << "retcode: " << ret << std::endl << std::endl;
+   
+    std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
+    ret = fabric->send(new TestSpanPayloadMessage(target, nspans, fabric->get_id(),
+						  spanpayload));
+    std::cout << "retcode: " << ret << std::endl << std::endl;
 
 
     sleep(st);
@@ -174,13 +157,22 @@ int FabTester::run() {
     */
     ++count;
     if (mode == FAB_PAYLOAD_COPY) {
-      free(paybuf);
-      delete[] twodbuf;
+      //delete paybuf;
+      //delete[] twodbuf;
+      // deallocate sl contents
+
+      for(SpanList::const_iterator it = sl->begin(); it != sl->end(); it++) {
+	if (it->first)
+	  free((void*) it->first);
+      }
+
       delete sl;
+      ;
     }
   }
 
   //fabric->shutdown();
+  sleep(3);
   fabric->wait_for_shutdown();
   
   std::cout << std::endl << std::endl << "Done." << std::endl;
@@ -206,11 +198,11 @@ void FabTester::testFabTwoDPayload() {
     
 }
 
-// Puts some junk in a span list
-void FabTester::fill_spans(SpanList& sl) {
-  char* buf1 = new char[64];
-  char* buf2 = new char[32];
-  char* buf3 = new char[16];
+// Puts some junk in a span list, returns number of spans added
+size_t FabTester::fill_spans(SpanList& sl) {
+  char* buf1 = (char*) malloc(64);
+  char* buf2 = (char*) malloc(64);
+  char* buf3 = (char*) malloc(64);
 
   strcpy(buf1, "This is span 1.");
   strcpy(buf2, "This is span 2.");
@@ -219,6 +211,8 @@ void FabTester::fill_spans(SpanList& sl) {
   sl.push_back(FabSpanListEntry(buf1, 64));
   sl.push_back(FabSpanListEntry(buf2, 32));
   sl.push_back(FabSpanListEntry(buf3, 16));
+
+  return 3;
 }
 
 void TestMessageType::request(Message* m) {

@@ -129,11 +129,11 @@ typedef std::vector<FabSpanListEntry> FabSpanList;
 // The size of a SpanPayload is the total number of bytes contains in all spans.
 class FabSpanPayload : public FabPayload {
  protected:
-  SpanList	spans;
+  SpanList*	internal_spans;
   size_t	sz;
   SpanList*     data; // Original spanlist
   virtual int checkmode();
-  virtual ssize_t assign_spans(SpanList* sl);
+  //virtual ssize_t assign_spans(SpanList* sl);
   virtual ssize_t copy_spans(SpanList* sl);
   virtual ssize_t get_iovs_required(); 
   

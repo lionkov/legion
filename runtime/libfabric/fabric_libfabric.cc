@@ -323,6 +323,7 @@ bool FabFabric::init() {
   }  
   
   fi_freeinfo(hints);
+  free(addrs);
  
   start_progress_threads(1, 0);
   
@@ -344,6 +345,8 @@ bool FabFabric::init_fail(fi_info* hints, fi_info* fi, const std::string message
 FabFabric::~FabFabric()
 {
   shutdown();
+  if(fi_addrs)
+    free(fi_addrs);
 }
 
 bool FabFabric::add_message_type(MessageType *mt, const std::string tag)
