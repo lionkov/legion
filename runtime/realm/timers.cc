@@ -301,14 +301,14 @@ namespace Realm {
 							     return_data,
 							     sizeof(return_data));
     fabric->send(new TimerDataResponseMessage(m->sndid,
-					      ((TimerDataRequestMessageType::RequestArgs*) m->args)->rollup_ptr,
+					      ((TimerDataRequestMessageType::RequestArgs*) m->get_arg_ptr())->rollup_ptr,
 					      payload));
   }
   
   void TimerDataResponseMessageType::request(Message* m) {
     std::cout << "FABRIC -- TimerDataResponseMessageType::request() was called"  << std::endl;
     ((MultiNodeRollUp *)
-     ((TimerDataRequestMessageType::RequestArgs*) m->args)->rollup_ptr)
+     ((TimerDataRequestMessageType::RequestArgs*) m->get_arg_ptr())->rollup_ptr)
       ->handle_data(m->payload->ptr(), m->payload->size());
   }
   

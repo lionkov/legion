@@ -76,10 +76,10 @@ namespace Realm {
       static void send_request(NodeId target, ID::IDType id);
     };
 
-    class MetadataRequestMessage : public FabMessage {
+    class MetadataRequestMessage : public Message {
     public:
       MetadataRequestMessage(NodeId target, void* args)
-	: FabMessage(target, METADATA_REQUEST_MSGID, args, NULL) { }
+	: Message(target, METADATA_REQUEST_MSGID, args, NULL) { }
     };
     
     class MetadataResponseMessageType : public MessageType {
@@ -96,10 +96,10 @@ namespace Realm {
 			       void *data, size_t datalen, int payload_mode);
     };
 
-    class MetadataResponseMessage : public FabMessage {
+    class MetadataResponseMessage : public Message {
     public: 
       MetadataResponseMessage(NodeId target, void* args, FabPayload* payload)
-	: FabMessage(target, METADATA_RESPONSE_MSGID, args, payload) { }
+	: Message(target, METADATA_RESPONSE_MSGID, args, payload) { }
     };
     
     class MetadataInvalidateMessageType : public MessageType {
@@ -118,10 +118,10 @@ namespace Realm {
       //static void broadcast_request(const NodeSet& targets, ID::IDType id);
     };
 
-    class MetadataInvalidateMessage : public FabMessage {
+    class MetadataInvalidateMessage : public Message {
     public:
       MetadataInvalidateMessage(NodeId dest, void* args)
-	: FabMessage(dest, METADATA_INVALIDATE_MSGID, args, NULL) { }
+	: Message(dest, METADATA_INVALIDATE_MSGID, args, NULL) { }
     };
     
     class MetadataInvalidateAckMessageType : public MessageType {
@@ -138,10 +138,10 @@ namespace Realm {
       static void send_request(NodeId target, ID::IDType id);
     };
 
-    class MetadataInvalidateAckMessage : public FabMessage {
+    class MetadataInvalidateAckMessage : public Message {
     public:
       MetadataInvalidateAckMessage(NodeId dest, void* args)
-	: FabMessage(dest, METADATA_INVALIDATE_ACK_MSGID, args, NULL) { }      
+	: Message(dest, METADATA_INVALIDATE_ACK_MSGID, args, NULL) { }      
     };
     
 }; // namespace Realm

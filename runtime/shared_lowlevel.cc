@@ -2196,7 +2196,7 @@ namespace LegionRuntime {
             task->timeline.record_start_time();
           if (task->capture_usage)
             task->usage.proc = proc;
-          func(task->args, task->arglen,
+          func(task->get_arg_ptr(), task->arglen,
 	       it->second.userdata, it->second.userlen, proc);
           if (task->capture_timeline)
 	  {
@@ -6465,7 +6465,7 @@ namespace LegionRuntime {
     static void *background_run_thread(void *data)
     {
       MachineRunArgs *args = (MachineRunArgs *)data;
-      args->r->run(args->task_id, args->style, args->args, args->arglen,
+      args->r->run(args->task_id, args->style, args->get_arg_ptr(), args->arglen,
 		   false /* foreground from this thread's perspective */);
       delete args;
       return 0;
@@ -7101,7 +7101,7 @@ namespace LegionRuntime {
 	margs->r = this;
 	margs->task_id = task_id;
 	margs->style = style;
-	margs->args = args;
+	margs->get_arg_ptr() = args;
 	margs->arglen = arglen;
 	
 	pthread_t *threadp = (pthread_t*)malloc(sizeof(pthread_t));

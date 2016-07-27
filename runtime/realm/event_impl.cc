@@ -1048,7 +1048,7 @@ namespace Realm {
   
   // only called for generational events
   void EventSubscribeMessageType::request(Message* m) {
-      RequestArgs* args = (RequestArgs*) m->args;
+      RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
       log_event.debug("event subscription: node=%d event=" IDFMT "/%d",
 		args->node, args->event.id, args->event.gen);
 
@@ -1111,7 +1111,7 @@ namespace Realm {
     } 
 
   void EventTriggerMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
     
     DetailedTimer::ScopedPush sp(TIME_LOW_LEVEL);
     log_event.debug("Remote trigger of event " IDFMT "/%d from node %d!",
@@ -1159,7 +1159,7 @@ namespace Realm {
 
 
   void EventUpdateMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
     void* data = m->payload->ptr();
     size_t datalen = m->payload->size();
     
@@ -1643,7 +1643,7 @@ namespace Realm {
     }
 
   void BarrierAdjustMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
     void* data = m->payload->ptr();
     size_t datalen = m->payload->size();
       
@@ -2123,7 +2123,7 @@ static void *bytedup(const void *data, size_t datalen)
     }
 
   void BarrierSubscribeMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
     Barrier b;
     b.id = args->barrier_id;
     b.gen = args->subscribe_gen;
@@ -2243,7 +2243,7 @@ static void *bytedup(const void *data, size_t datalen)
 
 
   void BarrierTriggerMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
     void* data = m->payload->ptr();
     size_t datalen = m->payload->size();
       
@@ -2386,7 +2386,7 @@ static void *bytedup(const void *data, size_t datalen)
     }
 
   void BarrierMigrationMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
     log_barrier.info() << "received barrier migration: barrier="
 		       << args->barrier << " owner=" << args->current_owner;
     BarrierImpl *impl = get_runtime()->get_barrier_impl(args->barrier);

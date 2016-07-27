@@ -49,11 +49,10 @@ class TestMessageType : public MessageType {
   void request(Message* m);
 };
 
-class TestMessage : public FabMessage {
+class TestMessage : public Message {
  public:
  TestMessage(NodeId dest, void* args)
-   : FabMessage(dest, 1, args, NULL) { }
-
+   : Message(dest, 1, args, NULL) { }
 };
 
 
@@ -71,10 +70,10 @@ class TestPayloadMessageType : public MessageType {
   void request(Message* m);
 };
 
-class TestPayloadMessage : public FabMessage {
+class TestPayloadMessage : public Message {
  public:
  TestPayloadMessage(NodeId dest, void* args, FabPayload* payload)
-   : FabMessage(dest, 2, args, payload) { }
+   : Message(dest, 2, args, payload) { }
 };
 
 
@@ -95,10 +94,10 @@ class TestTwoDPayloadMessageType : public MessageType {
   void request(Message* m);
 };
 
-class TestTwoDPayloadMessage : public FabMessage {
+class TestTwoDPayloadMessage : public Message {
  public:
  TestTwoDPayloadMessage(NodeId dest, void* args, FabPayload* payload)
-   : FabMessage(dest, 3, args, payload) { }
+   : Message(dest, 3, args, payload) { }
 };
 
 class TestArglessTwoDPayloadMessageType : public MessageType {
@@ -113,10 +112,10 @@ class TestArglessTwoDPayloadMessageType : public MessageType {
 };
 
 
-class TestArglessTwoDPayloadMessage : public FabMessage {
+class TestArglessTwoDPayloadMessage : public Message {
  public:
  TestArglessTwoDPayloadMessage(NodeId dest, FabPayload* payload)
-    : FabMessage(dest, 4, NULL, payload) { }
+    : Message(dest, 4, NULL, payload) { }
 };
 
 
@@ -136,8 +135,8 @@ class TestSpanPayloadMessageType : public MessageType {
   void request(Message* m);
 };
 
-class TestSpanPayloadMessage : public FabMessage {
+class TestSpanPayloadMessage : public Message {
  public:
  TestSpanPayloadMessage(NodeId dest, void* args, FabPayload* payload)
-   : FabMessage(dest, 5, args, payload) { }
+   : Message(dest, 5, args, payload) { }
 };

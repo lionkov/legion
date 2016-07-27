@@ -223,20 +223,20 @@ void FabTester::fill_spans(SpanList& sl) {
 
 void TestMessageType::request(Message* m) {
   std::cout << "TestMessageType::request() called" << std::endl;
-  RequestArgs* args = (RequestArgs*) m->args;
+  RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
   std::cout << "Args: " << args->string << std::endl << std::endl;
 }
 
 void TestPayloadMessageType::request(Message* m) {
   std::cout << "TestPayloadMessageType::request called" << std::endl;
-  RequestArgs* args = (RequestArgs*) m->args;
+  RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
   std::cout << "Args: " << args->string << std::endl;
   std::cout << "Payload: " << (char*) m->payload->ptr()
 	    << std::endl << std::endl;
 }
 
 void TestTwoDPayloadMessageType::request(Message* m) {
-  RequestArgs* args = (RequestArgs*) m->args;
+  RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
   
   std::cout << "TestTwoDPayloadMessageType::request called" << std::endl;
   std::cout << "linesize: " << args->linesz << "\n"
@@ -254,7 +254,7 @@ void TestArglessTwoDPayloadMessageType::request(Message* m) {
 
 
 void TestSpanPayloadMessageType::request(Message* m) {
-  RequestArgs* args = (RequestArgs*) m->args;
+  RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
   
   std::cout << "TestSpanPayloadMessageType::request called" << std::endl;
   std::cout << "spans (args): " << args->spans << std::endl;

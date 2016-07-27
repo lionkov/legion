@@ -143,10 +143,10 @@ namespace Realm {
     virtual void request(Message *m);
   };
 
-  class ClearTimersMessage : public FabMessage {
+  class ClearTimersMessage : public Message {
   public: 
   ClearTimersMessage(NodeId dest)
-    : FabMessage(dest, CLEAR_TIMER_MSGID, NULL, NULL) { } 
+    : Message(dest, CLEAR_TIMER_MSGID, NULL, NULL) { } 
   };
   
   	
@@ -180,10 +180,10 @@ namespace Realm {
     virtual void request(Message *m);
   };
 
-  class TimerDataResponseMessage : public FabMessage {
+  class TimerDataResponseMessage : public Message {
   public:
   TimerDataResponseMessage(NodeId dest, void* args, FabPayload* payload)
-    : FabMessage(dest, ROLL_UP_TIMER_RPLID, args, payload) { }
+    : Message(dest, ROLL_UP_TIMER_RPLID, args, payload) { }
   };
   
 }; // namespace Realm

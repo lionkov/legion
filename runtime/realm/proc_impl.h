@@ -285,10 +285,10 @@ namespace Realm {
     };
 
 
-    class SpawnTaskMessage : public FabMessage {
+    class SpawnTaskMessage : public Message {
     public: 
       SpawnTaskMessage(NodeId dest, void* args, FabPayload* payload)
-	: FabMessage(dest, SPAWN_TASK_MSGID, args, payload) { }
+	: Message(dest, SPAWN_TASK_MSGID, args, payload) { }
     };
 
     class RegisterTaskMessageType : public MessageType {
@@ -314,10 +314,10 @@ namespace Realm {
 			       RemoteTaskRegistration *reg_op);
     };
 
-    class RegisterTaskMessage : public FabMessage {
+    class RegisterTaskMessage : public Message {
     public:
       RegisterTaskMessage(NodeId dest, void* args, FabPayload* payload)
-	: FabMessage(dest, REGISTER_TASK_MSGID, args, payload) { }
+	: Message(dest, REGISTER_TASK_MSGID, args, payload) { }
     };
 
     class RegisterTaskCompleteMessageType : public MessageType {
@@ -338,10 +338,10 @@ namespace Realm {
 			       bool successful);
     };
 
-    class RegisterTaskCompleteMessage : public FabMessage {
+    class RegisterTaskCompleteMessage : public Message {
     public:
       RegisterTaskCompleteMessage(NodeId dest, void* args)
-	: FabMessage(dest, REGISTER_TASK_COMPLETE_MSGID, args, NULL) { }
+	: Message(dest, REGISTER_TASK_COMPLETE_MSGID, args, NULL) { }
     };
 
 }; // namespace Realm

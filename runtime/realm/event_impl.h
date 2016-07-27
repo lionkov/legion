@@ -259,10 +259,10 @@ namespace Realm {
     static void send_request(NodeId target, Event event, Event::gen_t previous_gen);
   };
 
-  class EventSubscribeMessage : public FabMessage {
+  class EventSubscribeMessage : public Message {
   public:
     EventSubscribeMessage(NodeId dest, void* args)
-      : FabMessage(dest, EVENT_SUBSCRIBE_MSGID, args, NULL) { }
+      : Message(dest, EVENT_SUBSCRIBE_MSGID, args, NULL) { }
   };
 
   // EventTriggerMessage is used by non-owner nodes to trigger an event
@@ -284,10 +284,10 @@ namespace Realm {
     static void send_request(NodeId target, Event event, bool poisoned);
   };
 
-  class EventTriggerMessage : public FabMessage {
+  class EventTriggerMessage : public Message {
   public:
     EventTriggerMessage(NodeId dest, void* args)
-      : FabMessage(dest, EVENT_TRIGGER_MSGID, args, NULL) { }    
+      : Message(dest, EVENT_TRIGGER_MSGID, args, NULL) { }    
   };
   
   class EventUpdateMessageType : public MessageType {
@@ -308,10 +308,10 @@ namespace Realm {
     //int num_poisoned, const Event::gen_t *poisoned_generations);
   };
 
-  class EventUpdateMessage : public FabMessage {
+  class EventUpdateMessage : public Message {
   public:
     EventUpdateMessage(NodeId dest, void* args, FabPayload* payload)
-      : FabMessage(dest, EVENT_UPDATE_MSGID, args, payload) { }
+      : Message(dest, EVENT_UPDATE_MSGID, args, payload) { }
   };
 
   class BarrierAdjustMessageType : public MessageType {
@@ -334,10 +334,10 @@ namespace Realm {
 			     const void *data, size_t datalen);
   };
 
-  class BarrierAdjustMessage : public FabMessage {
+  class BarrierAdjustMessage : public Message {
   public:
     BarrierAdjustMessage(NodeId dest, void* args, FabPayload* payload)
-      : FabMessage(dest, BARRIER_ADJUST_MSGID, args, payload) { }
+      : Message(dest, BARRIER_ADJUST_MSGID, args, payload) { }
   };
 
 
@@ -359,10 +359,10 @@ namespace Realm {
 			     NodeId subscriber, bool forwarded);
   };
 
-  class BarrierSubscribeMessage : public FabMessage {
+  class BarrierSubscribeMessage : public Message {
   public:
     BarrierSubscribeMessage(NodeId dest, void* args)
-      : FabMessage(dest, BARRIER_SUBSCRIBE_MSGID, args, NULL) { }
+      : Message(dest, BARRIER_SUBSCRIBE_MSGID, args, NULL) { }
   };
 
   
@@ -391,10 +391,10 @@ namespace Realm {
 			     const void *data, size_t datalen);
   };
 
-  class BarrierTriggerMessage : public FabMessage {
+  class BarrierTriggerMessage : public Message {
   public:
   BarrierTriggerMessage(NodeId dest, void* args, FabPayload* payload)
-    : FabMessage(dest, BARRIER_TRIGGER_MSGID, args, payload) { }
+    : Message(dest, BARRIER_TRIGGER_MSGID, args, payload) { }
   };
 
   class BarrierMigrationMessageType : public MessageType {
@@ -411,10 +411,10 @@ namespace Realm {
     static void send_request(NodeId target, Barrier barrier, NodeId owner);
   };
 
-  class BarrierMigrationMessage : public FabMessage {
+  class BarrierMigrationMessage : public Message {
   public:
   BarrierMigrationMessage(NodeId dest, void* args)
-    : FabMessage(dest, BARRIER_MIGRATE_MSGID, args, NULL) { }	
+    : Message(dest, BARRIER_MIGRATE_MSGID, args, NULL) { }	
   };
     
 }; // namespace Realm

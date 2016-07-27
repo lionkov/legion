@@ -521,7 +521,7 @@ namespace Realm {
     }
 
   void SpawnTaskMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
     void* data = m->payload->ptr();
     size_t datalen = m->payload->size();
 
@@ -600,7 +600,7 @@ namespace Realm {
   }
 
   void RegisterTaskMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
     void* data = m->payload->ptr();
     size_t datalen = m->payload->size();
     
@@ -683,7 +683,7 @@ namespace Realm {
 
 
   void RegisterTaskCompleteMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
     args->reg_op->mark_finished(args->successful);
   }  
 

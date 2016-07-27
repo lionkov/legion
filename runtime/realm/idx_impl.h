@@ -123,10 +123,10 @@ namespace Realm {
       static void send_request(NodeId target, IndexSpace is);      
     };
 
-    class ValidMaskRequestMessage : public FabMessage {
+    class ValidMaskRequestMessage : public Message {
     public:
       ValidMaskRequestMessage(NodeId dest, void* args)
-	: FabMessage(dest, VALID_MASK_REQ_MSGID, args, NULL) { }
+	: Message(dest, VALID_MASK_REQ_MSGID, args, NULL) { }
     };
 
     class ValidMaskDataMessageType : public MessageType {
@@ -151,10 +151,10 @@ namespace Realm {
 			       const void *data, size_t datalen, int payload_mode);
     };
 
-    class ValidMaskDataMessage : public FabMessage {
+    class ValidMaskDataMessage : public Message {
     public:
       ValidMaskDataMessage(NodeId dest, void* args, FabPayload* payload)
-	: FabMessage(dest, VALID_MASK_DATA_MSGID, args, payload) { }
+	: Message(dest, VALID_MASK_DATA_MSGID, args, payload) { }
     };
    
 }; // namespace Realm

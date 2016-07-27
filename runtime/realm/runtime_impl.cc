@@ -1470,7 +1470,7 @@ namespace Realm {
     {
       MachineRunArgs *args = (MachineRunArgs *)data;
       running_as_background_thread = true;
-      args->r->run(args->task_id, args->style, args->args, args->arglen,
+      args->r->run(args->task_id, args->style, args->get_arg_ptr(), args->arglen,
 		   false /* foreground from this thread's perspective */);
       delete args;
       return 0;
@@ -1492,7 +1492,7 @@ namespace Realm {
 	margs->r = this;
 	margs->task_id = task_id;
 	margs->style = style;
-	margs->args = args;
+	margs->get_arg_ptr() = args;
 	margs->arglen = arglen;
 	
         pthread_t *threadp = (pthread_t*)malloc(sizeof(pthread_t));
@@ -1935,7 +1935,7 @@ namespace Realm {
   }
 
   void RuntimeShutdownMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
     log_runtime.info("received shutdown request from node %d", args->initiating_node);
     get_runtime()->shutdown(false);
   }

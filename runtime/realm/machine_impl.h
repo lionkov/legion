@@ -292,10 +292,10 @@ namespace Realm {
 			     int payload_mode);
   };
 
-  class NodeAnnounceMessage : public FabMessage {
+  class NodeAnnounceMessage : public Message {
   public:
     NodeAnnounceMessage(NodeId dest, void* args, FabPayload* payload)
-      : FabMessage(dest, NODE_ANNOUNCE_MSGID, args, payload) { }
+      : Message(dest, NODE_ANNOUNCE_MSGID, args, payload) { }
   };
 
 }; // namespace Realm

@@ -295,10 +295,10 @@ namespace Realm {
       static void send_request(NodeId target);
     };
 
-    class RuntimeShutdownMessage : public FabMessage {
+    class RuntimeShutdownMessage : public Message {
     public:
       RuntimeShutdownMessage(NodeId dest, void* args)
-	: FabMessage(dest, MACHINE_SHUTDOWN_MSGID, args, NULL) { }
+	: Message(dest, MACHINE_SHUTDOWN_MSGID, args, NULL) { }
     };
     
 }; // namespace Realm

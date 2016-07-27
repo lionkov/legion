@@ -352,7 +352,7 @@ namespace Realm {
   }
 
   void LockRequestMessageType::request(Message* m) { 
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
       
     DetailedTimer::ScopedPush sp(TIME_LOW_LEVEL);
     ReservationImpl *impl = get_runtime()->get_lock_impl(args->lock);
@@ -482,7 +482,7 @@ namespace Realm {
     }
 
   void LockGrantMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
     void* data = m->payload->ptr();
     size_t datalen = m->payload->size();
     
@@ -980,7 +980,7 @@ namespace Realm {
   }
   
   void DestroyLockMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->args;
+    RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
     args->actual.destroy_reservation();
   }
 

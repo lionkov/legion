@@ -206,10 +206,10 @@ namespace Realm {
 			     Reservation lock, unsigned mode);
   };
 
-  class LockRequestMessage : public FabMessage {
+  class LockRequestMessage : public Message {
   public:
     LockRequestMessage(NodeId dest, void* args)
-      : FabMessage(dest, LOCK_REQUEST_MSGID, args, NULL) { }
+      : Message(dest, LOCK_REQUEST_MSGID, args, NULL) { }
   }; 
 
   class LockReleaseMessageType : public MessageType {
@@ -226,10 +226,10 @@ namespace Realm {
     static void send_request(NodeId target, Reservation lock);
   };
 
-  class LockReleaseMessage : public FabMessage {
+  class LockReleaseMessage : public Message {
   public:
     LockReleaseMessage(NodeId target, void* args)
-      : FabMessage(target, LOCK_RELEASE_MSGID, args, NULL) { }
+      : Message(target, LOCK_RELEASE_MSGID, args, NULL) { }
   };
   
   class LockGrantMessageType : public MessageType {
@@ -248,10 +248,10 @@ namespace Realm {
 			     int payload_mode);
   };
 
-  class LockGrantMessage : public FabMessage {
+  class LockGrantMessage : public Message {
   public:
     LockGrantMessage(NodeId dest, void* args, FabPayload* payload)
-      : FabMessage(dest, LOCK_GRANT_MSGID, args, payload) { }
+      : Message(dest, LOCK_GRANT_MSGID, args, payload) { }
   }; 
  
   class DestroyLockMessageType : public MessageType {
@@ -268,10 +268,10 @@ namespace Realm {
     static void send_request(NodeId target, Reservation lock);
   };
 
-  class DestroyLockMessage : public FabMessage {
+  class DestroyLockMessage : public Message {
   public:
     DestroyLockMessage(NodeId dest, void* args)
-      : FabMessage(dest, DESTROY_LOCK_MSGID, args, NULL) { }
+      : Message(dest, DESTROY_LOCK_MSGID, args, NULL) { }
   };
 
 }; // namespace Realm

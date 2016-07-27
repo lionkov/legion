@@ -140,14 +140,12 @@ class Message {
   NodeId	sndid;		// sender id
   NodeId	rcvid;		// receiver id
   MessageId     id; 
-  void*		args;
-  FabPayload*	payload;  
+  void* arg_ptr;
+  FabPayload*	payload;
 
   virtual ~Message() {
     if (payload)
       delete payload;
-    if (args)
-      free(args);
     if (iov != siov && iov)
       delete iov;
   }
@@ -158,9 +156,11 @@ class Message {
   struct iovec* iov;
   struct iovec siov[6];
 
- protected:
+  void* get_arg_ptr() { return arg_ptr; }
+  void set_arg_ptr(void* a) { arg_ptr = a; }
+
   Message(NodeId dest, MessageId _id, void *a, FabPayload *p)
-     : rcvid(dest), id(_id), args(a), payload(p) {
+     : rcvid(dest), id(_id), arg_ptr(a), payload(p) {
     mtype = fabric->mts[id];
     rcvid = dest;
     sndid = fabric->get_id();

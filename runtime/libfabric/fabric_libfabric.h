@@ -83,17 +83,6 @@ class FabMutex {
   };
 
 
-class FabMessage : public Message {
- public:
-  FabMessage(NodeId dest, MessageId id, void *args, FabPayload *payload)
-    : Message(dest, id, args, payload) { }
- 
-  //virtual int reply(MessageId id, void *args, Payload *Apayload, bool inOrder);  
-  //protected:
-  //friend class FabFabric;
-};
-
-
   class FabFabric : public Fabric {
   public:
     FabFabric();
@@ -107,7 +96,7 @@ class FabMessage : public Message {
     uint32_t get_num_nodes();
     int send(Message* m);
     int send(NodeId dest, MessageId id, void* args, FabPayload* payload);
-    bool incoming(FabMessage *);
+    bool incoming(Message *);
     void *memalloc(size_t size);
     void memfree(void *);
     void print_fi_info(fi_info* fi);
