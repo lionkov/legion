@@ -85,16 +85,15 @@ int FabTester::run() {
   int count = 0;
   
   while (count < 10) {
-    //void* paybuf = malloc(64);
-    //strcpy((char*) paybuf, "This is a payload.");
-    /*
+    void* paybuf = malloc(64);
+    strcpy((char*) paybuf, "This is a payload.");
+    
     char* twodbuf = new char[64];
     for (int i=0; i < 8; ++i) {
       for (int j=0; j < 4; ++j) {
 	twodbuf[i*4+j] = 48+i;
       }
     }
-    */
     int mode = FAB_PAYLOAD_COPY;
     switch (mode) { 
     case FAB_PAYLOAD_KEEP:
@@ -108,17 +107,17 @@ int FabTester::run() {
       break;
     }
    
-    //FabContiguousPayload* payload
-    //= new FabContiguousPayload(mode, (void*) paybuf, 64);
+    FabContiguousPayload* payload
+    = new FabContiguousPayload(mode, (void*) paybuf, 64);
 
-    // size_t linesz = 4;
-    // size_t linecnt = 6;
-    // ptrdiff_t stride = 1;
-    // FabTwoDPayload* twodpayload
-    //   = new FabTwoDPayload(mode, twodbuf,
-    // 			   linesz,
-    // 			   linecnt,
-    // 			   stride);
+    size_t linesz = 4;
+    size_t linecnt = 6;
+    ptrdiff_t stride = 1;
+    FabTwoDPayload* twodpayload
+      = new FabTwoDPayload(mode, twodbuf,
+    			   linesz,
+    			   linecnt,
+    			   stride);
 
 
     SpanList* sl = new SpanList();
@@ -129,18 +128,18 @@ int FabTester::run() {
     NodeId target = (fabric->get_id() + 1) % fabric->get_num_nodes();
 
     
-    //std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
-    //ret = fabric->send(new TestMessage(fabric->get_id(), "I'm an arg!"));
-    //std::cout << "retcode: " << ret << std::endl << std::endl;
+    std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
+    ret = fabric->send(new TestMessage(fabric->get_id(), "I'm an arg!"));
+    std::cout << "retcode: " << ret << std::endl << std::endl;
 
-    //std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
-    //ret = fabric->send(new TestPayloadMessage(fabric->get_id(), "I'm an arg!", payload));
-    //std::cout << "retcode: " << ret << std::endl << std::endl;
+    std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
+    ret = fabric->send(new TestPayloadMessage(fabric->get_id(), "I'm an arg!", payload));
+    std::cout << "retcode: " << ret << std::endl << std::endl;
      
-    //std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
-    //ret = fabric->send(new TestTwoDPayloadMessage(fabric->get_id(), linesz, linecnt,
-    //stride, twodpayload));
-    //std::cout << "retcode: " << ret << std::endl << std::endl;
+    std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
+    ret = fabric->send(new TestTwoDPayloadMessage(fabric->get_id(), linesz, linecnt,
+    stride, twodpayload));
+    std::cout << "retcode: " << ret << std::endl << std::endl;
    
     std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
     ret = fabric->send(new TestSpanPayloadMessage(target, nspans, fabric->get_id(),
@@ -149,25 +148,18 @@ int FabTester::run() {
 
 
     sleep(st);
-    /*
-    std::cout << "Sending test message... " << std::endl;
-    ret = fabric->send(new TestMessage(fabric->get_id(), &buf));
-    std::cout << "retcode: " << ret << std::endl;
-    sleep(st);
-    */
     ++count;
     if (mode == FAB_PAYLOAD_COPY) {
-      //delete paybuf;
-      //delete[] twodbuf;
+      delete paybuf;
+      delete[] twodbuf;
+      
       // deallocate sl contents
-
       for(SpanList::const_iterator it = sl->begin(); it != sl->end(); it++) {
 	if (it->first)
 	  free((void*) it->first);
       }
 
       delete sl;
-      ;
     }
   }
 

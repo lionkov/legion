@@ -318,15 +318,14 @@ namespace Realm {
   public: 
     BarrierAdjustMessageType()
       : MessageType(BARRIER_ADJUST_MSGID, sizeof(RequestArgs), true, true) { }
-    
-    struct RequestArgs : public BaseMedium {
+      
+    struct RequestArgs {
       int sender;
-      //bool forwarded;  no room to store this, so encoded as: sender < 0
       int delta;
       Barrier barrier;
       Event wait_on;
     };
-    
+
     void request(Message* m);
 
     static void send_request(NodeId target, Barrier barrier, int delta, Event wait_on,
