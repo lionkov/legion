@@ -343,12 +343,8 @@ namespace Realm {
 						       NodeId req_node,
 						       Reservation lock,
 						       unsigned mode) {
-    RequestArgs* args = new RequestArgs();
-
-    args->node = req_node; // NOT gasnet_mynode() - may be forwarding a request
-    args->lock = lock;
-    args->mode = mode;
-    fabric->send(new LockRequestMessage(target, args));
+    
+    fabric->send(new LockRequestMessage(target, req_node, lock, mode));
   }
 
   void LockRequestMessageType::request(Message* m) { 
@@ -453,11 +449,7 @@ namespace Realm {
 
   /*static*/ void LockReleaseMessageType::send_request(NodeId target,
 						       Reservation lock) { 
-    RequestArgs* args = new RequestArgs();
-    
-    args->node = fabric->get_id();
-    args->lock = lock;
-    fabric->send(new LockReleaseMessage(target, args)); 
+     fabric->send(new LockReleaseMessage(target, fabric->get_id(), lock)); 
   }
   
   void LockReleaseMessageType::request(Message* m) {
@@ -468,17 +460,13 @@ namespace Realm {
     /*static*/ void LockGrantMessageType::send_request(NodeId target,
 						       Reservation lock, unsigned mode,
 						       void* data, size_t datalen,
-						       int payload_mode) { 
-      RequestArgs* args = new RequestArgs();
-
-      args->lock = lock;
-      args->mode = mode;
-
+						       int payload_mode) {
+      
       FabContiguousPayload* payload = new FabContiguousPayload(payload_mode,
 							       data,
 							       datalen);
 
-      fabric->send(new LockGrantMessage(target, args, payload));
+      fabric->send(new LockGrantMessage(target, lock, mode, payload));
     }
 
   void LockGrantMessageType::request(Message* m) {
@@ -972,11 +960,7 @@ namespace Realm {
 
   /*static*/ void DestroyLockMessageType::send_request(NodeId target,
 						       Reservation lock) {
-    RequestArgs* args = new RequestArgs;
-
-    args->actual = lock;
-    args->dummy = lock;
-    fabric->send(new DestroyLockMessage(target, args));
+    fabric->send(new DestroyLockMessage(target, lock, lock));
   }
   
   void DestroyLockMessageType::request(Message* m) {

@@ -1038,12 +1038,10 @@ namespace Realm {
   /*static*/ void EventSubscribeMessageType::send_request(NodeId target,
 							  Event event,
 							  Event::gen_t previous_gen) {
-    RequestArgs* args = new RequestArgs();
-
-    args->node = gasnet_mynode();
-    args->event = event;
-    args->previous_subscribe_gen = previous_gen;
-    fabric->send(new EventSubscribeMessage(target, args));
+    fabric->send(new EventSubscribeMessage(target,
+					   gasnet_mynode(),
+					   event,
+					   previous_gen));
   }
   
   // only called for generational events
@@ -1123,13 +1121,11 @@ namespace Realm {
   /*static*/ void EventTriggerMessageType::send_request(NodeId target,
 							Event event,
 							bool poisoned) {
-    RequestArgs* args = new RequestArgs;
 
-    args->node = fabric->get_id();
-    args->event = event;
-    args->poisoned = poisoned;
-
-    fabric->send(new EventTriggerMessage(target, args));
+    fabric->send(new EventTriggerMessage(target,
+					 fabric->get_id(),
+					 event,
+					 poisoned));
   }
 
   template <typename T>
@@ -1181,15 +1177,11 @@ namespace Realm {
 						       int num_poisoned,
 						       const Event::gen_t *poisoned_generations) { 
         
-    RequestArgs* args = new RequestArgs;
-
-    args->event = event;
-
     FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_KEEP,
 							     (void*) poisoned_generations,
 							     num_poisoned*sizeof(Event::gen_t));
 
-    fabric->send(new EventUpdateMessage(target, args, payload));
+    fabric->send(new EventUpdateMessage(target, event, payload));
   }
 
 
@@ -1680,19 +1672,13 @@ namespace Realm {
 							 bool forwarded,
 							 const void *data,
 							 size_t datalen) { 
-    RequestArgs* args = new RequestArgs();
-      
-    args->barrier = barrier;
-    args->delta = delta;
-    args->wait_on = wait_on;
-    args->sender = forwarded ? (-1 - sender) : sender;
-
 
     FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_KEEP,
 							     (void*) data,
 							     datalen);
 
-    fabric->send(new BarrierAdjustMessage(target, args, payload));
+    fabric->send(new BarrierAdjustMessage(target, forwarded ? (-1 - sender) : sender,
+					  delta, barrier, wait_on, payload));
   }
 
 // like strdup, but works on arbitrary byte arrays
@@ -2231,14 +2217,9 @@ static void *bytedup(const void *data, size_t datalen)
 							    Event::gen_t subscribe_gen,
 							    NodeId subscriber,
 							    bool forwarded) {
-    RequestArgs* args = new RequestArgs();
-    
-    args->subscriber = subscriber;
-    args->forwarded = forwarded;
-    args->barrier_id = barrier_id;
-    args->subscribe_gen = subscribe_gen;
 
-    fabric->send(new BarrierSubscribeMessage(target, args));
+    fabric->send(new BarrierSubscribeMessage(target, subscriber, barrier_id, subscribe_gen,
+					     forwarded));
   }
 
 
@@ -2346,22 +2327,21 @@ static void *bytedup(const void *data, size_t datalen)
 							  NodeId migration_target,
 							  unsigned base_arrival_count,
 							  const void *data, size_t datalen) { 
-    RequestArgs* args = new RequestArgs();
-
-    args->node = gasnet_mynode();
-    args->barrier_id = barrier_id;
-    args->trigger_gen = trigger_gen;
-    args->previous_gen = previous_gen;
-    args->first_generation = first_generation;
-    args->redop_id = redop_id;
-    args->migration_target = migration_target;
-    args->base_arrival_count = base_arrival_count;
-
+ 
     FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_KEEP,
 							     (void*) data,
 							     datalen);
 
-    fabric->send(new BarrierTriggerMessage(target, args, payload));
+    fabric->send(new BarrierTriggerMessage(target,
+					   fabric->get_id(),
+					   barrier_id,
+					   trigger_gen,
+					   previous_gen,
+					   first_generation,
+					   redop_id,
+					   migration_target,
+					   base_arrival_count,
+					   payload));
   }
 
 
@@ -2398,13 +2378,9 @@ static void *bytedup(const void *data, size_t datalen)
 
   /*static*/ void BarrierMigrationMessageType::send_request(NodeId target,
 							    Barrier barrier,
-							    NodeId owner) { 
-    RequestArgs* args = new RequestArgs();
+							    NodeId owner) {
     
-    args->barrier = barrier;
-    args->current_owner = owner;
-    
-    fabric->send(new BarrierMigrationMessage(target, args));
+    fabric->send(new BarrierMigrationMessage(target, barrier, owner));
   }
   
 }; // namespace Realm

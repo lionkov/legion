@@ -27,135 +27,150 @@
 
 namespace Realm {
 
-    struct ElementMaskImpl {
-      //int count, offset;
-      //typedef unsigned long long uint64;
-      uint64_t bits[0];
+  struct ElementMaskImpl {
+    //int count, offset;
+    //typedef unsigned long long uint64;
+    uint64_t bits[0];
 
-      static size_t bytes_needed(coord_t offset, coord_t count)
-      {
-	size_t need = (((count + 63) >> 6) << 3);
-	return need;
-      }
+    static size_t bytes_needed(coord_t offset, coord_t count)
+    {
+      size_t need = (((count + 63) >> 6) << 3);
+      return need;
+    }
 	
+  };
+
+  class IndexSpaceImpl {
+  public:
+    IndexSpaceImpl(void);
+    ~IndexSpaceImpl(void);
+
+    void init(IndexSpace _me, unsigned _init_owner);
+
+    void init(IndexSpace _me, IndexSpace _parent,
+	      size_t _num_elmts,
+	      const ElementMask *_initial_valid_mask = 0, bool _frozen = false);
+
+    static const ID::ID_Types ID_TYPE = ID::ID_INDEXSPACE;
+
+    bool is_parent_of(IndexSpace other);
+
+    size_t instance_size(const ReductionOpUntyped *redop = 0,
+			 coord_t list_size = -1);
+
+    coord_t instance_adjust(const ReductionOpUntyped *redop = 0);
+
+    Event request_valid_mask(void);
+
+    IndexSpace me;
+    ReservationImpl lock;
+    IndexSpaceImpl *next_free;
+
+    struct StaticData {
+      IndexSpace parent;
+      bool frozen;
+      size_t num_elmts;
+      size_t first_elmt, last_elmt;
+      // This had better damn well be the last field
+      // in the struct in order to avoid race conditions!
+      bool valid;
+    };
+    struct CoherentData : public StaticData {
+      unsigned valid_mask_owners;
+      int avail_mask_owner;
     };
 
-    class IndexSpaceImpl {
-    public:
-      IndexSpaceImpl(void);
-      ~IndexSpaceImpl(void);
+    CoherentData locked_data;
+    GASNetHSL valid_mask_mutex;
+    ElementMask *valid_mask;
+    int valid_mask_count;
+    bool valid_mask_complete;
+    Event valid_mask_event;
+    int valid_mask_first, valid_mask_last;
+    bool valid_mask_contig;
+    ElementMask *avail_mask;
+  };
 
-      void init(IndexSpace _me, unsigned _init_owner);
+  class IndexSpaceAllocatorImpl {
+  public:
+    IndexSpaceAllocatorImpl(IndexSpaceImpl *_is_impl);
 
-      void init(IndexSpace _me, IndexSpace _parent,
-		size_t _num_elmts,
-		const ElementMask *_initial_valid_mask = 0, bool _frozen = false);
+    ~IndexSpaceAllocatorImpl(void);
 
-      static const ID::ID_Types ID_TYPE = ID::ID_INDEXSPACE;
+    coord_t alloc_elements(size_t count = 1);
 
-      bool is_parent_of(IndexSpace other);
+    void reserve_elements(coord_t ptr, size_t count = 1);
 
-      size_t instance_size(const ReductionOpUntyped *redop = 0,
-			   coord_t list_size = -1);
+    void free_elements(coord_t ptr, size_t count = 1);
 
-      coord_t instance_adjust(const ReductionOpUntyped *redop = 0);
+    IndexSpaceImpl *is_impl;
+  };
 
-      Event request_valid_mask(void);
-
-      IndexSpace me;
-      ReservationImpl lock;
-      IndexSpaceImpl *next_free;
-
-      struct StaticData {
-	IndexSpace parent;
-	bool frozen;
-	size_t num_elmts;
-        size_t first_elmt, last_elmt;
-        // This had better damn well be the last field
-        // in the struct in order to avoid race conditions!
-	bool valid;
-      };
-      struct CoherentData : public StaticData {
-	unsigned valid_mask_owners;
-	int avail_mask_owner;
-      };
-
-      CoherentData locked_data;
-      GASNetHSL valid_mask_mutex;
-      ElementMask *valid_mask;
-      int valid_mask_count;
-      bool valid_mask_complete;
-      Event valid_mask_event;
-      int valid_mask_first, valid_mask_last;
-      bool valid_mask_contig;
-      ElementMask *avail_mask;
-    };
-
-    class IndexSpaceAllocatorImpl {
-    public:
-      IndexSpaceAllocatorImpl(IndexSpaceImpl *_is_impl);
-
-      ~IndexSpaceAllocatorImpl(void);
-
-      coord_t alloc_elements(size_t count = 1);
-
-      void reserve_elements(coord_t ptr, size_t count = 1);
-
-      void free_elements(coord_t ptr, size_t count = 1);
-
-      IndexSpaceImpl *is_impl;
-    };
-
-    // active messages
+  // active messages
     
-    class ValidMaskRequestMessageType : public MessageType {
-    public:
-      ValidMaskRequestMessageType()
-	: MessageType(VALID_MASK_REQ_MSGID, sizeof(RequestArgs), false, true) { }
+  class ValidMaskRequestMessageType : public MessageType {
+  public:
+  ValidMaskRequestMessageType()
+    : MessageType(VALID_MASK_REQ_MSGID, sizeof(RequestArgs), false, true) { }
 
-      struct RequestArgs {
-	IndexSpace is;
-	int sender;
-      };
+    struct RequestArgs {
+    RequestArgs(IndexSpace _is, int _sender)
+    : is(_is), sender(_sender) { }
+      IndexSpace is;
+      int sender;
+    };
 
-      void request(Message* m);
+    void request(Message* m);
       
-      static void send_request(NodeId target, IndexSpace is);      
+    static void send_request(NodeId target, IndexSpace is);      
+  };
+
+  class ValidMaskRequestMessage : public Message {
+  public:
+  ValidMaskRequestMessage(NodeId dest, IndexSpace is, int sender)
+    : Message(dest, VALID_MASK_REQ_MSGID, &args, NULL),
+      args(is, sender) { }
+    
+    ValidMaskRequestMessageType::RequestArgs args;
+  };
+
+  class ValidMaskDataMessageType : public MessageType {
+  public:
+  ValidMaskDataMessageType()
+    : MessageType(VALID_MASK_DATA_MSGID, sizeof(RequestArgs), true, true) { }
+
+    struct RequestArgs : public BaseMedium {
+    RequestArgs(IndexSpace _is, unsigned _block_id, coord_t _first_element,
+		size_t _num_elements, coord_t _first_enabled_elmt, coord_t _last_enabled_elmt)
+      : is(_is), block_id(_block_id), first_element(_first_element),
+	num_elements(_num_elements), first_enabled_elmt(_first_enabled_elmt),
+	last_enabled_elmt(_last_enabled_elmt) { }
+      IndexSpace is;
+      unsigned block_id;
+      coord_t first_element;
+      size_t num_elements;
+      coord_t first_enabled_elmt;
+      coord_t last_enabled_elmt;
     };
 
-    class ValidMaskRequestMessage : public Message {
-    public:
-      ValidMaskRequestMessage(NodeId dest, void* args)
-	: Message(dest, VALID_MASK_REQ_MSGID, args, NULL) { }
-    };
+    void request(Message* m);
 
-    class ValidMaskDataMessageType : public MessageType {
-    public:
-      ValidMaskDataMessageType()
-	: MessageType(VALID_MASK_DATA_MSGID, sizeof(RequestArgs), true, true) { }
+    static void send_request(NodeId target, IndexSpace is, unsigned block_id,
+			     coord_t first_element, size_t num_elements,
+			     coord_t first_enabled_elmt, coord_t last_enabled_elmt,
+			     const void *data, size_t datalen, int payload_mode);
+  };
 
-      struct RequestArgs : public BaseMedium {
-	IndexSpace is;
-	unsigned block_id;
-	coord_t first_element;
-	size_t num_elements;
-	coord_t first_enabled_elmt;
-	coord_t last_enabled_elmt;
-      };
+  class ValidMaskDataMessage : public Message {
+  public:
+  ValidMaskDataMessage(NodeId dest, IndexSpace is, unsigned block_id, coord_t first_element,
+		       size_t num_elements, coord_t first_enabled_elmt,
+		       coord_t last_enabled_elmt, FabPayload* payload)
+    : Message(dest, VALID_MASK_DATA_MSGID, &args, payload),
+      args(is, block_id, first_element, num_elements, first_enabled_elmt, last_enabled_elmt) { }
 
-      void request(Message* m);
-
-      static void send_request(NodeId target, IndexSpace is, unsigned block_id,
-			       coord_t first_element, size_t num_elements,
-			       coord_t first_enabled_elmt, coord_t last_enabled_elmt,
-			       const void *data, size_t datalen, int payload_mode);
-    };
-
-    class ValidMaskDataMessage : public Message {
-    public:
-      ValidMaskDataMessage(NodeId dest, void* args, FabPayload* payload)
-	: Message(dest, VALID_MASK_DATA_MSGID, args, payload) { }
-    };
+    ValidMaskDataMessageType::RequestArgs args;
+  }; 
    
 }; // namespace Realm
 

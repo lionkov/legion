@@ -34,35 +34,35 @@ namespace Realm {
   // class Memory
   //
 
-    AddressSpace Memory::address_space(void) const
-    {
-      return ID(id).node();
-    }
+  AddressSpace Memory::address_space(void) const
+  {
+    return ID(id).node();
+  }
 
-    ID::IDType Memory::local_id(void) const
-    {
-      return ID(id).index();
-    }
+  ID::IDType Memory::local_id(void) const
+  {
+    return ID(id).index();
+  }
 
-    Memory::Kind Memory::kind(void) const
-    {
-      return get_runtime()->get_memory_impl(*this)->get_kind();
-    }
+  Memory::Kind Memory::kind(void) const
+  {
+    return get_runtime()->get_memory_impl(*this)->get_kind();
+  }
 
-    size_t Memory::capacity(void) const
-    {
-      return get_runtime()->get_memory_impl(*this)->size;
-    }
+  size_t Memory::capacity(void) const
+  {
+    return get_runtime()->get_memory_impl(*this)->size;
+  }
 
-    // reports a problem with a memory in general (this is primarily for fault injection)
-    void Memory::report_memory_fault(int reason,
-				     const void *reason_data,
-				     size_t reason_size) const
-    {
-      assert(0);
-    }
+  // reports a problem with a memory in general (this is primarily for fault injection)
+  void Memory::report_memory_fault(int reason,
+				   const void *reason_data,
+				   size_t reason_size) const
+  {
+    assert(0);
+  }
 
-    /*static*/ const Memory Memory::NO_MEMORY = { 0 };
+  /*static*/ const Memory Memory::NO_MEMORY = { 0 };
 
 
   ////////////////////////////////////////////////////////////////////////
@@ -70,149 +70,134 @@ namespace Realm {
   // class MemoryImpl
   //
 
-    // make bad offsets really obvious (+1 PB)
-    static const off_t ZERO_SIZE_INSTANCE_OFFSET = 1ULL << 50;
+  // make bad offsets really obvious (+1 PB)
+  static const off_t ZERO_SIZE_INSTANCE_OFFSET = 1ULL << 50;
 
-    MemoryImpl::MemoryImpl(Memory _me, size_t _size, MemoryKind _kind, size_t _alignment, Memory::Kind _lowlevel_kind)
-      : me(_me), size(_size), kind(_kind), alignment(_alignment), lowlevel_kind(_lowlevel_kind)
-      , usage(stringbuilder() << "realm/mem " << _me << "/usage")
-      , peak_usage(stringbuilder() << "realm/mem " << _me << "/peak_usage")
-      , peak_footprint(stringbuilder() << "realm/mem " << _me << "/peak_footprint")
-    {
-    }
+  MemoryImpl::MemoryImpl(Memory _me, size_t _size, MemoryKind _kind, size_t _alignment, Memory::Kind _lowlevel_kind)
+    : me(_me), size(_size), kind(_kind), alignment(_alignment), lowlevel_kind(_lowlevel_kind)
+    , usage(stringbuilder() << "realm/mem " << _me << "/usage")
+    , peak_usage(stringbuilder() << "realm/mem " << _me << "/peak_usage")
+    , peak_footprint(stringbuilder() << "realm/mem " << _me << "/peak_footprint")
+  {
+  }
 
-    MemoryImpl::~MemoryImpl(void)
-    {
+  MemoryImpl::~MemoryImpl(void)
+  {
 #ifdef REALM_PROFILE_MEMORY_USAGE
-      printf("Memory " IDFMT " usage: peak=%zd (%.1f MB) footprint=%zd (%.1f MB)\n",
-	     me.id, 
-	     (size_t)peak_usage, peak_usage / 1048576.0,
-	     (size_t)peak_footprint, peak_footprint / 1048576.0);
+    printf("Memory " IDFMT " usage: peak=%zd (%.1f MB) footprint=%zd (%.1f MB)\n",
+	   me.id, 
+	   (size_t)peak_usage, peak_usage / 1048576.0,
+	   (size_t)peak_footprint, peak_footprint / 1048576.0);
 #endif
+  }
+
+  off_t MemoryImpl::alloc_bytes_local(size_t size)
+  {
+    AutoHSLLock al(mutex);
+
+    // for zero-length allocations, return a special "offset"
+    if(size == 0) {
+      return this->size + ZERO_SIZE_INSTANCE_OFFSET;
     }
 
-    off_t MemoryImpl::alloc_bytes_local(size_t size)
-    {
-      AutoHSLLock al(mutex);
-
-      // for zero-length allocations, return a special "offset"
-      if(size == 0) {
-	return this->size + ZERO_SIZE_INSTANCE_OFFSET;
+    if(alignment > 0) {
+      off_t leftover = size % alignment;
+      if(leftover > 0) {
+	log_malloc.info("padding allocation from %zd to %zd",
+			size, size + (alignment - leftover));
+	size += (alignment - leftover);
       }
+    }
+    // HACK: pad the size by a bit to see if we have people falling off
+    //  the end of their allocations
+    size += 0;
 
-      if(alignment > 0) {
-	off_t leftover = size % alignment;
-	if(leftover > 0) {
-	  log_malloc.info("padding allocation from %zd to %zd",
-			  size, size + (alignment - leftover));
-	  size += (alignment - leftover);
+    // try to minimize footprint by allocating at the highest address possible
+    if(!free_blocks.empty()) {
+      std::map<off_t, off_t>::iterator it = free_blocks.end();
+      do {
+	--it;  // predecrement since we started at the end
+
+	if(it->second == (off_t)size) {
+	  // perfect match
+	  off_t retval = it->first;
+	  free_blocks.erase(it);
+	  log_malloc.info("alloc full block: mem=" IDFMT " size=%zd ofs=%zd", me.id, size, retval);
+	  usage += size;
+	  if(usage > peak_usage) peak_usage = usage;
+	  size_t footprint = this->size - retval;
+	  if(footprint > peak_footprint) peak_footprint = footprint;
+	  return retval;
 	}
-      }
-      // HACK: pad the size by a bit to see if we have people falling off
-      //  the end of their allocations
-      size += 0;
-
-      // try to minimize footprint by allocating at the highest address possible
-      if(!free_blocks.empty()) {
-	std::map<off_t, off_t>::iterator it = free_blocks.end();
-	do {
-	  --it;  // predecrement since we started at the end
-
-	  if(it->second == (off_t)size) {
-	    // perfect match
-	    off_t retval = it->first;
-	    free_blocks.erase(it);
-	    log_malloc.info("alloc full block: mem=" IDFMT " size=%zd ofs=%zd", me.id, size, retval);
-	    usage += size;
-	    if(usage > peak_usage) peak_usage = usage;
-	    size_t footprint = this->size - retval;
-	    if(footprint > peak_footprint) peak_footprint = footprint;
-	    return retval;
-	  }
 	
-	  if(it->second > (off_t)size) {
-	    // some left over
-	    off_t leftover = it->second - size;
-	    off_t retval = it->first + leftover;
-	    it->second = leftover;
-	    log_malloc.info("alloc partial block: mem=" IDFMT " size=%zd ofs=%zd", me.id, size, retval);
-	    usage += size;
-	    if(usage > peak_usage) peak_usage = usage;
-	    size_t footprint = this->size - retval;
-	    if(footprint > peak_footprint) peak_footprint = footprint;
-	    return retval;
-	  }
-	} while(it != free_blocks.begin());
-      }
-
-      // no blocks large enough - boo hoo
-      log_malloc.info("alloc FAILED: mem=" IDFMT " size=%zd", me.id, size);
-      return -1;
+	if(it->second > (off_t)size) {
+	  // some left over
+	  off_t leftover = it->second - size;
+	  off_t retval = it->first + leftover;
+	  it->second = leftover;
+	  log_malloc.info("alloc partial block: mem=" IDFMT " size=%zd ofs=%zd", me.id, size, retval);
+	  usage += size;
+	  if(usage > peak_usage) peak_usage = usage;
+	  size_t footprint = this->size - retval;
+	  if(footprint > peak_footprint) peak_footprint = footprint;
+	  return retval;
+	}
+      } while(it != free_blocks.begin());
     }
 
-    void MemoryImpl::free_bytes_local(off_t offset, size_t size)
-    {
-      log_malloc.info() << "free block: mem=" << me << " size=" << size << " ofs=" << offset;
-      AutoHSLLock al(mutex);
+    // no blocks large enough - boo hoo
+    log_malloc.info("alloc FAILED: mem=" IDFMT " size=%zd", me.id, size);
+    return -1;
+  }
 
-      // frees of zero bytes should have the special offset
-      if(size == 0) {
-	assert((size_t)offset == this->size + ZERO_SIZE_INSTANCE_OFFSET);
-	return;
+  void MemoryImpl::free_bytes_local(off_t offset, size_t size)
+  {
+    log_malloc.info() << "free block: mem=" << me << " size=" << size << " ofs=" << offset;
+    AutoHSLLock al(mutex);
+
+    // frees of zero bytes should have the special offset
+    if(size == 0) {
+      assert((size_t)offset == this->size + ZERO_SIZE_INSTANCE_OFFSET);
+      return;
+    }
+
+    if(alignment > 0) {
+      off_t leftover = size % alignment;
+      if(leftover > 0) {
+	log_malloc.info("padding free from %zd to %zd",
+			size, size + (alignment - leftover));
+	size += (alignment - leftover);
       }
+    }
 
-      if(alignment > 0) {
-	off_t leftover = size % alignment;
-	if(leftover > 0) {
-	  log_malloc.info("padding free from %zd to %zd",
-			  size, size + (alignment - leftover));
-	  size += (alignment - leftover);
-	}
-      }
+    usage -= size;
+    // only made things smaller, so can't impact the peak usage
 
-      usage -= size;
-      // only made things smaller, so can't impact the peak usage
-
-      if(free_blocks.size() > 0) {
-	// find the first existing block that comes _after_ us
-	std::map<off_t, off_t>::iterator after = free_blocks.lower_bound(offset);
-	if(after != free_blocks.end()) {
-	  // found one - is it the first one?
-	  if(after == free_blocks.begin()) {
-	    // yes, so no "before"
-	    assert((offset + (off_t)size) <= after->first); // no overlap!
-	    if((offset + (off_t)size) == after->first) {
-	      // merge the ranges by eating the "after"
-	      size += after->second;
-	      free_blocks.erase(after);
-	    }
-	    free_blocks[offset] = size;
-	  } else {
-	    // no, get range that comes before us too
-	    std::map<off_t, off_t>::iterator before = after; before--;
-
-	    // if we're adjacent to the after, merge with it
-	    assert((offset + (off_t)size) <= after->first); // no overlap!
-	    if((offset + (off_t)size) == after->first) {
-	      // merge the ranges by eating the "after"
-	      size += after->second;
-	      free_blocks.erase(after);
-	    }
-
-	    // if we're adjacent with the before, grow it instead of adding
-	    //  a new range
-	    assert((before->first + before->second) <= offset);
-	    if((before->first + before->second) == offset) {
-	      before->second += size;
-	    } else {
-	      free_blocks[offset] = size;
-	    }
+    if(free_blocks.size() > 0) {
+      // find the first existing block that comes _after_ us
+      std::map<off_t, off_t>::iterator after = free_blocks.lower_bound(offset);
+      if(after != free_blocks.end()) {
+	// found one - is it the first one?
+	if(after == free_blocks.begin()) {
+	  // yes, so no "before"
+	  assert((offset + (off_t)size) <= after->first); // no overlap!
+	  if((offset + (off_t)size) == after->first) {
+	    // merge the ranges by eating the "after"
+	    size += after->second;
+	    free_blocks.erase(after);
 	  }
+	  free_blocks[offset] = size;
 	} else {
-	  // nothing's after us, so just see if we can merge with the range
-	  //  that's before us
-
+	  // no, get range that comes before us too
 	  std::map<off_t, off_t>::iterator before = after; before--;
+
+	  // if we're adjacent to the after, merge with it
+	  assert((offset + (off_t)size) <= after->first); // no overlap!
+	  if((offset + (off_t)size) == after->first) {
+	    // merge the ranges by eating the "after"
+	    size += after->second;
+	    free_blocks.erase(after);
+	  }
 
 	  // if we're adjacent with the before, grow it instead of adding
 	  //  a new range
@@ -224,217 +209,232 @@ namespace Realm {
 	  }
 	}
       } else {
-	// easy case - nothing was free, so now just our block is
-	free_blocks[offset] = size;
-      }
-    }
+	// nothing's after us, so just see if we can merge with the range
+	//  that's before us
 
-    off_t MemoryImpl::alloc_bytes_remote(size_t size)
-    {
-      // RPC over to owner's node for allocation
-      return RemoteMemAllocRequestType::send_request(ID(me).node(), me, size);
-    }
+	std::map<off_t, off_t>::iterator before = after; before--;
 
-    void MemoryImpl::free_bytes_remote(off_t offset, size_t size)
-    {
-      assert(0);
-    }
-
-    Memory::Kind MemoryImpl::get_kind(void) const
-    {
-      return lowlevel_kind;
-    }
-
-    RegionInstance MemoryImpl::create_instance_local(IndexSpace r,
-						       const int *linearization_bits,
-						       size_t bytes_needed,
-						       size_t block_size,
-						       size_t element_size,
-						       const std::vector<size_t>& field_sizes,
-						       ReductionOpID redopid,
-						       off_t list_size,
-                                                       const ProfilingRequestSet &reqs,
-						       RegionInstance parent_inst)
-    {
-      off_t inst_offset = alloc_bytes(bytes_needed);
-      if(inst_offset < 0) {
-        return RegionInstance::NO_INST;
-      }
-
-      off_t count_offset = -1;
-      if(list_size > 0) {
-	count_offset = alloc_bytes(sizeof(size_t));
-	if(count_offset < 0) {
-	  return RegionInstance::NO_INST;
+	// if we're adjacent with the before, grow it instead of adding
+	//  a new range
+	assert((before->first + before->second) <= offset);
+	if((before->first + before->second) == offset) {
+	  before->second += size;
+	} else {
+	  free_blocks[offset] = size;
 	}
+      }
+    } else {
+      // easy case - nothing was free, so now just our block is
+      free_blocks[offset] = size;
+    }
+  }
 
-	size_t zero = 0;
-	put_bytes(count_offset, &zero, sizeof(zero));
+  off_t MemoryImpl::alloc_bytes_remote(size_t size)
+  {
+    // RPC over to owner's node for allocation
+    return RemoteMemAllocRequestType::send_request(ID(me).node(), me, size);
+  }
+
+  void MemoryImpl::free_bytes_remote(off_t offset, size_t size)
+  {
+    assert(0);
+  }
+
+  Memory::Kind MemoryImpl::get_kind(void) const
+  {
+    return lowlevel_kind;
+  }
+
+  RegionInstance MemoryImpl::create_instance_local(IndexSpace r,
+						   const int *linearization_bits,
+						   size_t bytes_needed,
+						   size_t block_size,
+						   size_t element_size,
+						   const std::vector<size_t>& field_sizes,
+						   ReductionOpID redopid,
+						   off_t list_size,
+						   const ProfilingRequestSet &reqs,
+						   RegionInstance parent_inst)
+  {
+    off_t inst_offset = alloc_bytes(bytes_needed);
+    if(inst_offset < 0) {
+      return RegionInstance::NO_INST;
+    }
+
+    off_t count_offset = -1;
+    if(list_size > 0) {
+      count_offset = alloc_bytes(sizeof(size_t));
+      if(count_offset < 0) {
+	return RegionInstance::NO_INST;
       }
 
-      // SJT: think about this more to see if there are any race conditions
-      //  with an allocator temporarily having the wrong ID
-      RegionInstance i = ID(ID::ID_INSTANCE, 
-			    ID(me).node(),
-			    ID(me).index_h(),
-			    0).convert<RegionInstance>();
+      size_t zero = 0;
+      put_bytes(count_offset, &zero, sizeof(zero));
+    }
+
+    // SJT: think about this more to see if there are any race conditions
+    //  with an allocator temporarily having the wrong ID
+    RegionInstance i = ID(ID::ID_INSTANCE, 
+			  ID(me).node(),
+			  ID(me).index_h(),
+			  0).convert<RegionInstance>();
 
 
-      //RegionMetaDataImpl *r_impl = get_runtime()->get_metadata_impl(r);
+    //RegionMetaDataImpl *r_impl = get_runtime()->get_metadata_impl(r);
+    DomainLinearization linear;
+    linear.deserialize(linearization_bits);
+
+    RegionInstanceImpl *i_impl = new RegionInstanceImpl(i, r, me, inst_offset, 
+							bytes_needed, redopid,
+							linear, block_size, 
+							element_size, field_sizes, reqs,
+							count_offset, list_size, 
+							parent_inst);
+
+    // find/make an available index to store this in
+    ID::IDType index;
+    {
+      AutoHSLLock al(mutex);
+
+      size_t size = instances.size();
+      for(index = 0; index < size; index++)
+	if(!instances[index]) {
+	  i.id |= index;
+	  i_impl->me = i;
+	  instances[index] = i_impl;
+	  break;
+	}
+      assert(index < (((ID::IDType)1) << ID::INDEX_L_BITS));
+
+      i.id |= index;
+      i_impl->me = i;
+      i_impl->lock.me = ID(i.id).convert<Reservation>(); // have to change the lock's ID too!
+      if(index >= size) instances.push_back(i_impl);
+    }
+
+    log_inst.info("local instance " IDFMT " created in memory " IDFMT " at offset %zd+%zd (redop=%d list_size=%zd parent_inst=" IDFMT " block_size=%zd)",
+		  i.id, me.id, inst_offset, bytes_needed, redopid, list_size,
+		  parent_inst.id, block_size);
+
+    return i;
+  }
+
+  RegionInstance MemoryImpl::create_instance_remote(IndexSpace r,
+						    const int *linearization_bits,
+						    size_t bytes_needed,
+						    size_t block_size,
+						    size_t element_size,
+						    const std::vector<size_t>& field_sizes,
+						    ReductionOpID redopid,
+						    off_t list_size,
+						    const ProfilingRequestSet &reqs,
+						    RegionInstance parent_inst)
+  {
+    CreateInstanceRequestType::Result resp;
+
+    CreateInstanceRequestType::send_request(&resp,
+					    ID(me).node(), me, r,
+					    parent_inst, bytes_needed,
+					    block_size, element_size,
+					    list_size, redopid,
+					    linearization_bits,
+					    field_sizes,
+					    &reqs);
+
+    // Only do this if the response succeeds
+    if (resp.i.exists()) {
+      log_inst.debug("created remote instance: inst=" IDFMT " offset=%zd", resp.i.id, resp.inst_offset);
+
       DomainLinearization linear;
       linear.deserialize(linearization_bits);
 
-      RegionInstanceImpl *i_impl = new RegionInstanceImpl(i, r, me, inst_offset, 
-                                                              bytes_needed, redopid,
-							      linear, block_size, 
-                                                              element_size, field_sizes, reqs,
-							      count_offset, list_size, 
-                                                              parent_inst);
+      RegionInstanceImpl *i_impl = new RegionInstanceImpl(resp.i, r, me, resp.inst_offset, bytes_needed, redopid,
+							  linear, block_size, element_size, field_sizes, reqs,
+							  resp.count_offset, list_size, parent_inst);
 
-      // find/make an available index to store this in
-      ID::IDType index;
-      {
-	AutoHSLLock al(mutex);
-
-	size_t size = instances.size();
-	for(index = 0; index < size; index++)
-	  if(!instances[index]) {
-	    i.id |= index;
-	    i_impl->me = i;
-	    instances[index] = i_impl;
-	    break;
-	  }
-        assert(index < (((ID::IDType)1) << ID::INDEX_L_BITS));
-
-	i.id |= index;
-	i_impl->me = i;
-	i_impl->lock.me = ID(i.id).convert<Reservation>(); // have to change the lock's ID too!
-	if(index >= size) instances.push_back(i_impl);
-      }
-
-      log_inst.info("local instance " IDFMT " created in memory " IDFMT " at offset %zd+%zd (redop=%d list_size=%zd parent_inst=" IDFMT " block_size=%zd)",
-		    i.id, me.id, inst_offset, bytes_needed, redopid, list_size,
-                    parent_inst.id, block_size);
-
-      return i;
-    }
-
-    RegionInstance MemoryImpl::create_instance_remote(IndexSpace r,
-							const int *linearization_bits,
-							size_t bytes_needed,
-							size_t block_size,
-							size_t element_size,
-							const std::vector<size_t>& field_sizes,
-							ReductionOpID redopid,
-							off_t list_size,
-                                                        const ProfilingRequestSet &reqs,
-							RegionInstance parent_inst)
-    {
-      CreateInstanceRequestType::Result resp;
-
-      CreateInstanceRequestType::send_request(&resp,
-					      ID(me).node(), me, r,
-					      parent_inst, bytes_needed,
-					      block_size, element_size,
-					      list_size, redopid,
-					      linearization_bits,
-					      field_sizes,
-					      &reqs);
-
-      // Only do this if the response succeeds
-      if (resp.i.exists()) {
-        log_inst.debug("created remote instance: inst=" IDFMT " offset=%zd", resp.i.id, resp.inst_offset);
-
-        DomainLinearization linear;
-        linear.deserialize(linearization_bits);
-
-        RegionInstanceImpl *i_impl = new RegionInstanceImpl(resp.i, r, me, resp.inst_offset, bytes_needed, redopid,
-                                                                linear, block_size, element_size, field_sizes, reqs,
-                                                                resp.count_offset, list_size, parent_inst);
-
-        unsigned index = ID(resp.i).index_l();
-        // resize array if needed
-        if(index >= instances.size()) {
-          AutoHSLLock a(mutex);
-          if(index >= instances.size()) {
-            log_inst.debug("resizing instance array: mem=" IDFMT " old=%zd new=%d",
-                     me.id, instances.size(), index+1);
-            for(unsigned i = instances.size(); i <= index; i++)
-              instances.push_back(0);
-          }
-        }
-        instances[index] = i_impl;
-      }
-      return resp.i;
-    }
-
-    RegionInstanceImpl *MemoryImpl::get_instance(RegionInstance i)
-    {
-      ID id(i);
-
-      // have we heard of this one before?  if not, add it
-      unsigned index = id.index_l();
-      if(index >= instances.size()) { // lock not held - just for early out
+      unsigned index = ID(resp.i).index_l();
+      // resize array if needed
+      if(index >= instances.size()) {
 	AutoHSLLock a(mutex);
-	if(index >= instances.size()) // real check
-	  instances.resize(index + 1);
+	if(index >= instances.size()) {
+	  log_inst.debug("resizing instance array: mem=" IDFMT " old=%zd new=%d",
+			 me.id, instances.size(), index+1);
+	  for(unsigned i = instances.size(); i <= index; i++)
+	    instances.push_back(0);
+	}
       }
+      instances[index] = i_impl;
+    }
+    return resp.i;
+  }
 
-      if(!instances[index]) {
-	//instances[index] = new RegionInstanceImpl(id.node());
-	assert(0);
-      }
+  RegionInstanceImpl *MemoryImpl::get_instance(RegionInstance i)
+  {
+    ID id(i);
 
-      return instances[index];
+    // have we heard of this one before?  if not, add it
+    unsigned index = id.index_l();
+    if(index >= instances.size()) { // lock not held - just for early out
+      AutoHSLLock a(mutex);
+      if(index >= instances.size()) // real check
+	instances.resize(index + 1);
     }
 
-    void MemoryImpl::destroy_instance_local(RegionInstance i, 
-					      bool local_destroy)
-    {
-      log_inst.info("destroying local instance: mem=" IDFMT " inst=" IDFMT "", me.id, i.id);
+    if(!instances[index]) {
+      //instances[index] = new RegionInstanceImpl(id.node());
+      assert(0);
+    }
 
-      // all we do for now is free the actual data storage
-      unsigned index = ID(i).index_l();
-      assert(index < instances.size());
+    return instances[index];
+  }
 
-      RegionInstanceImpl *iimpl = instances[index];
+  void MemoryImpl::destroy_instance_local(RegionInstance i, 
+					  bool local_destroy)
+  {
+    log_inst.info("destroying local instance: mem=" IDFMT " inst=" IDFMT "", me.id, i.id);
 
-      free_bytes(iimpl->metadata.alloc_offset, iimpl->metadata.size);
+    // all we do for now is free the actual data storage
+    unsigned index = ID(i).index_l();
+    assert(index < instances.size());
 
-      if(iimpl->metadata.count_offset >= 0)
-	free_bytes(iimpl->metadata.count_offset, sizeof(size_t));
+    RegionInstanceImpl *iimpl = instances[index];
 
-      // begin recovery of metadata
-      if(iimpl->metadata.initiate_cleanup(i.id)) {
-	// no remote copies exist, so we can reclaim instance immediately
-	//log_metadata.info("no remote copies of metadata for " IDFMT, i.id);
-	// TODO
-      }
+    free_bytes(iimpl->metadata.alloc_offset, iimpl->metadata.size);
+
+    if(iimpl->metadata.count_offset >= 0)
+      free_bytes(iimpl->metadata.count_offset, sizeof(size_t));
+
+    // begin recovery of metadata
+    if(iimpl->metadata.initiate_cleanup(i.id)) {
+      // no remote copies exist, so we can reclaim instance immediately
+      //log_metadata.info("no remote copies of metadata for " IDFMT, i.id);
+      // TODO
+    }
       
-      // handle any profiling requests
-      iimpl->finalize_instance();
+    // handle any profiling requests
+    iimpl->finalize_instance();
       
-      return; // TODO: free up actual instance record?
-      ID id(i);
+    return; // TODO: free up actual instance record?
+    ID id(i);
 
-      // TODO: actually free corresponding storage
+    // TODO: actually free corresponding storage
+  }
+
+  void MemoryImpl::destroy_instance_remote(RegionInstance i, 
+					   bool local_destroy)
+  {
+    // if we're the original destroyer of the instance, tell the owner
+    if(local_destroy) {
+      int owner = ID(me).node();
+
+      log_inst.debug("destroying remote instance: node=%d inst=" IDFMT "", owner, i.id);
+
+      DestroyInstanceMessageType::send_request(owner, me, i);
     }
 
-    void MemoryImpl::destroy_instance_remote(RegionInstance i, 
-					       bool local_destroy)
-    {
-      // if we're the original destroyer of the instance, tell the owner
-      if(local_destroy) {
-	int owner = ID(me).node();
-
-	log_inst.debug("destroying remote instance: node=%d inst=" IDFMT "", owner, i.id);
-
-	DestroyInstanceMessageType::send_request(owner, me, i);
-      }
-
-      // and right now, we leave the instance itself untouched
-      return;
-    }
+    // and right now, we leave the instance itself untouched
+    return;
+  }
 
   
   ////////////////////////////////////////////////////////////////////////
@@ -538,80 +538,80 @@ namespace Realm {
   // class RemoteMemory
   //
 
-    RemoteMemory::RemoteMemory(Memory _me, size_t _size, Memory::Kind k, void *_regbase)
-      : MemoryImpl(_me, _size, _regbase ? MKIND_RDMA : MKIND_REMOTE, 0, k), regbase(_regbase)
-    {
-    }
+  RemoteMemory::RemoteMemory(Memory _me, size_t _size, Memory::Kind k, void *_regbase)
+    : MemoryImpl(_me, _size, _regbase ? MKIND_RDMA : MKIND_REMOTE, 0, k), regbase(_regbase)
+  {
+  }
 
-    RemoteMemory::~RemoteMemory(void)
-    {
-    }
+  RemoteMemory::~RemoteMemory(void)
+  {
+  }
     
-    RegionInstance RemoteMemory::create_instance(IndexSpace r,
-						 const int *linearization_bits,
-						 size_t bytes_needed,
-						 size_t block_size,
-						 size_t element_size,
-						 const std::vector<size_t>& field_sizes,
-						 ReductionOpID redopid,
-						 off_t list_size,
-						 const ProfilingRequestSet &reqs,
-						 RegionInstance parent_inst)
-    {
-      return create_instance_remote(r, linearization_bits, bytes_needed,
-				    block_size, element_size, field_sizes, redopid,
-				    list_size, reqs, parent_inst);
-    }
+  RegionInstance RemoteMemory::create_instance(IndexSpace r,
+					       const int *linearization_bits,
+					       size_t bytes_needed,
+					       size_t block_size,
+					       size_t element_size,
+					       const std::vector<size_t>& field_sizes,
+					       ReductionOpID redopid,
+					       off_t list_size,
+					       const ProfilingRequestSet &reqs,
+					       RegionInstance parent_inst)
+  {
+    return create_instance_remote(r, linearization_bits, bytes_needed,
+				  block_size, element_size, field_sizes, redopid,
+				  list_size, reqs, parent_inst);
+  }
 
-    void RemoteMemory::destroy_instance(RegionInstance i, 
-					bool local_destroy)
-    {
-      destroy_instance_remote(i, local_destroy);
-    }
+  void RemoteMemory::destroy_instance(RegionInstance i, 
+				      bool local_destroy)
+  {
+    destroy_instance_remote(i, local_destroy);
+  }
 
-    off_t RemoteMemory::alloc_bytes(size_t size)
-    {
-      return alloc_bytes_remote(size);
-    }
+  off_t RemoteMemory::alloc_bytes(size_t size)
+  {
+    return alloc_bytes_remote(size);
+  }
 
-    void RemoteMemory::free_bytes(off_t offset, size_t size)
-    {
-      free_bytes_remote(offset, size);
-    }
+  void RemoteMemory::free_bytes(off_t offset, size_t size)
+  {
+    free_bytes_remote(offset, size);
+  }
 
-    void RemoteMemory::put_bytes(off_t offset, const void *src, size_t size)
-    {
-      // can't read/write a remote memory
+  void RemoteMemory::put_bytes(off_t offset, const void *src, size_t size)
+  {
+    // can't read/write a remote memory
 #define ALLOW_REMOTE_MEMORY_WRITES
 #ifdef ALLOW_REMOTE_MEMORY_WRITES
-      // THIS IS BAD - no fence means no consistency!
-      do_remote_write(me, offset, src, size, 0, true /* make copy! */);
+    // THIS IS BAD - no fence means no consistency!
+    do_remote_write(me, offset, src, size, 0, true /* make copy! */);
 #else
-      assert(0);
+    assert(0);
 #endif
-    }
+  }
 
-    void RemoteMemory::get_bytes(off_t offset, void *dst, size_t size)
-    {
-      // this better be an RDMA-able memory
+  void RemoteMemory::get_bytes(off_t offset, void *dst, size_t size)
+  {
+    // this better be an RDMA-able memory
 #ifdef USE_GASNET
-      assert(kind == MemoryImpl::MKIND_RDMA);
-      void *srcptr = ((char *)regbase) + offset;
-      gasnet_get(dst, ID(me).node(), srcptr, size);
+    assert(kind == MemoryImpl::MKIND_RDMA);
+    void *srcptr = ((char *)regbase) + offset;
+    gasnet_get(dst, ID(me).node(), srcptr, size);
 #else
-      assert(0 && "no remote get_bytes without GASNET");
+    assert(0 && "no remote get_bytes without GASNET");
 #endif
-    }
+  }
 
-    void *RemoteMemory::get_direct_ptr(off_t offset, size_t size)
-    {
-      return 0;
-    }
+  void *RemoteMemory::get_direct_ptr(off_t offset, size_t size)
+  {
+    return 0;
+  }
 
-    int RemoteMemory::get_home_node(off_t offset, size_t size)
-    {
-      return ID(me).node();
-    }
+  int RemoteMemory::get_home_node(off_t offset, size_t size)
+  {
+    return ID(me).node();
+  }
 
 
   ////////////////////////////////////////////////////////////////////////
@@ -619,117 +619,117 @@ namespace Realm {
   // class GASNetMemory
   //
 
-    GASNetMemory::GASNetMemory(Memory _me, size_t size_per_node)
-      : MemoryImpl(_me, 0 /* we'll calculate it below */, MKIND_GLOBAL,
-		     MEMORY_STRIDE, Memory::GLOBAL_MEM)
-    {
-      num_nodes = gasnet_nodes();
-      seginfos = new gasnet_seginfo_t[num_nodes];
-      CHECK_GASNET( gasnet_getSegmentInfo(seginfos, num_nodes) );
+  GASNetMemory::GASNetMemory(Memory _me, size_t size_per_node)
+    : MemoryImpl(_me, 0 /* we'll calculate it below */, MKIND_GLOBAL,
+		 MEMORY_STRIDE, Memory::GLOBAL_MEM)
+  {
+    num_nodes = gasnet_nodes();
+    seginfos = new gasnet_seginfo_t[num_nodes];
+    CHECK_GASNET( gasnet_getSegmentInfo(seginfos, num_nodes) );
       
-      for(int i = 0; i < num_nodes; i++) {
-	assert(seginfos[i].size >= size_per_node);
-      }
+    for(int i = 0; i < num_nodes; i++) {
+      assert(seginfos[i].size >= size_per_node);
+    }
 
-      size = size_per_node * num_nodes;
-      memory_stride = MEMORY_STRIDE;
+    size = size_per_node * num_nodes;
+    memory_stride = MEMORY_STRIDE;
       
-      free_blocks[0] = size;
+    free_blocks[0] = size;
+  }
+
+  GASNetMemory::~GASNetMemory(void)
+  {
+  }
+
+  RegionInstance GASNetMemory::create_instance(IndexSpace r,
+					       const int *linearization_bits,
+					       size_t bytes_needed,
+					       size_t block_size,
+					       size_t element_size,
+					       const std::vector<size_t>& field_sizes,
+					       ReductionOpID redopid,
+					       off_t list_size,
+					       const ProfilingRequestSet &reqs,
+					       RegionInstance parent_inst)
+  {
+    if(gasnet_mynode() == 0) {
+      return create_instance_local(r, linearization_bits, bytes_needed,
+				   block_size, element_size, field_sizes, redopid,
+				   list_size, reqs, parent_inst);
+    } else {
+      return create_instance_remote(r, linearization_bits, bytes_needed,
+				    block_size, element_size, field_sizes, redopid,
+				    list_size, reqs, parent_inst);
     }
+  }
 
-    GASNetMemory::~GASNetMemory(void)
-    {
+  void GASNetMemory::destroy_instance(RegionInstance i, 
+				      bool local_destroy)
+  {
+    if(gasnet_mynode() == 0) {
+      destroy_instance_local(i, local_destroy);
+    } else {
+      destroy_instance_remote(i, local_destroy);
     }
+  }
 
-    RegionInstance GASNetMemory::create_instance(IndexSpace r,
-						 const int *linearization_bits,
-						 size_t bytes_needed,
-						 size_t block_size,
-						 size_t element_size,
-						 const std::vector<size_t>& field_sizes,
-						 ReductionOpID redopid,
-						 off_t list_size,
-                                                 const ProfilingRequestSet &reqs,
-						 RegionInstance parent_inst)
-    {
-      if(gasnet_mynode() == 0) {
-	return create_instance_local(r, linearization_bits, bytes_needed,
-				     block_size, element_size, field_sizes, redopid,
-				     list_size, reqs, parent_inst);
-      } else {
-	return create_instance_remote(r, linearization_bits, bytes_needed,
-				      block_size, element_size, field_sizes, redopid,
-				      list_size, reqs, parent_inst);
-      }
+  off_t GASNetMemory::alloc_bytes(size_t size)
+  {
+    if(gasnet_mynode() == 0) {
+      return alloc_bytes_local(size);
+    } else {
+      return alloc_bytes_remote(size);
     }
+  }
 
-    void GASNetMemory::destroy_instance(RegionInstance i, 
-					bool local_destroy)
-    {
-      if(gasnet_mynode() == 0) {
-	destroy_instance_local(i, local_destroy);
-      } else {
-	destroy_instance_remote(i, local_destroy);
-      }
+  void GASNetMemory::free_bytes(off_t offset, size_t size)
+  {
+    if(gasnet_mynode() == 0) {
+      free_bytes_local(offset, size);
+    } else {
+      free_bytes_remote(offset, size);
     }
+  }
 
-    off_t GASNetMemory::alloc_bytes(size_t size)
-    {
-      if(gasnet_mynode() == 0) {
-	return alloc_bytes_local(size);
-      } else {
-	return alloc_bytes_remote(size);
-      }
+  void GASNetMemory::get_bytes(off_t offset, void *dst, size_t size)
+  {
+    char *dst_c = (char *)dst;
+    while(size > 0) {
+      off_t blkid = (offset / memory_stride / num_nodes);
+      off_t node = (offset / memory_stride) % num_nodes;
+      off_t blkoffset = offset % memory_stride;
+      size_t chunk_size = memory_stride - blkoffset;
+      if(chunk_size > size) chunk_size = size;
+      gasnet_get(dst_c, node, ((char *)seginfos[node].addr)+(blkid * memory_stride)+blkoffset, chunk_size);
+      offset += chunk_size;
+      dst_c += chunk_size;
+      size -= chunk_size;
     }
+  }
 
-    void GASNetMemory::free_bytes(off_t offset, size_t size)
-    {
-      if(gasnet_mynode() == 0) {
-	free_bytes_local(offset, size);
-      } else {
-	free_bytes_remote(offset, size);
-      }
+  void GASNetMemory::put_bytes(off_t offset, const void *src, size_t size)
+  {
+    char *src_c = (char *)src; // dropping const on purpose...
+    while(size > 0) {
+      off_t blkid = (offset / memory_stride / num_nodes);
+      off_t node = (offset / memory_stride) % num_nodes;
+      off_t blkoffset = offset % memory_stride;
+      size_t chunk_size = memory_stride - blkoffset;
+      if(chunk_size > size) chunk_size = size;
+      gasnet_put(node, ((char *)seginfos[node].addr)+(blkid * memory_stride)+blkoffset, src_c, chunk_size);
+      offset += chunk_size;
+      src_c += chunk_size;
+      size -= chunk_size;
     }
+  }
 
-    void GASNetMemory::get_bytes(off_t offset, void *dst, size_t size)
-    {
-      char *dst_c = (char *)dst;
-      while(size > 0) {
-	off_t blkid = (offset / memory_stride / num_nodes);
-	off_t node = (offset / memory_stride) % num_nodes;
-	off_t blkoffset = offset % memory_stride;
-	size_t chunk_size = memory_stride - blkoffset;
-	if(chunk_size > size) chunk_size = size;
-	gasnet_get(dst_c, node, ((char *)seginfos[node].addr)+(blkid * memory_stride)+blkoffset, chunk_size);
-	offset += chunk_size;
-	dst_c += chunk_size;
-	size -= chunk_size;
-      }
-    }
+  void GASNetMemory::apply_reduction_list(off_t offset, const ReductionOpUntyped *redop,
+					  size_t count, const void *entry_buffer)
+  {
+    const char *entry = (const char *)entry_buffer;
+    unsigned ptr;
 
-    void GASNetMemory::put_bytes(off_t offset, const void *src, size_t size)
-    {
-      char *src_c = (char *)src; // dropping const on purpose...
-      while(size > 0) {
-	off_t blkid = (offset / memory_stride / num_nodes);
-	off_t node = (offset / memory_stride) % num_nodes;
-	off_t blkoffset = offset % memory_stride;
-	size_t chunk_size = memory_stride - blkoffset;
-	if(chunk_size > size) chunk_size = size;
-	gasnet_put(node, ((char *)seginfos[node].addr)+(blkid * memory_stride)+blkoffset, src_c, chunk_size);
-	offset += chunk_size;
-	src_c += chunk_size;
-	size -= chunk_size;
-      }
-    }
-
-    void GASNetMemory::apply_reduction_list(off_t offset, const ReductionOpUntyped *redop,
-					    size_t count, const void *entry_buffer)
-    {
-      const char *entry = (const char *)entry_buffer;
-      unsigned ptr;
-
-      for(size_t i = 0; i < count; i++)
+    for(size_t i = 0; i < count; i++)
       {
 	redop->get_list_pointers(&ptr, entry, 1);
 	//printf("ptr[%d] = %d\n", i, ptr);
@@ -742,122 +742,122 @@ namespace Realm {
 	redop->apply_list_entry(tgt_ptr, entry, 1, ptr);
 	entry += redop->sizeof_list_entry;
       }
-    }
+  }
 
-    void *GASNetMemory::get_direct_ptr(off_t offset, size_t size)
-    {
-      return 0;  // can't give a pointer to the caller - have to use RDMA
-    }
+  void *GASNetMemory::get_direct_ptr(off_t offset, size_t size)
+  {
+    return 0;  // can't give a pointer to the caller - have to use RDMA
+  }
 
-    int GASNetMemory::get_home_node(off_t offset, size_t size)
-    {
-      off_t start_blk = offset / memory_stride;
-      off_t end_blk = (offset + size - 1) / memory_stride;
-      if(start_blk != end_blk) return -1;
+  int GASNetMemory::get_home_node(off_t offset, size_t size)
+  {
+    off_t start_blk = offset / memory_stride;
+    off_t end_blk = (offset + size - 1) / memory_stride;
+    if(start_blk != end_blk) return -1;
 
-      return start_blk % num_nodes;
-    }
+    return start_blk % num_nodes;
+  }
 
-    void GASNetMemory::get_batch(size_t batch_size,
-				 const off_t *offsets, void * const *dsts, 
-				 const size_t *sizes)
-    {
+  void GASNetMemory::get_batch(size_t batch_size,
+			       const off_t *offsets, void * const *dsts, 
+			       const size_t *sizes)
+  {
 #define NO_USE_NBI_ACCESSREGION
 #ifdef USE_NBI_ACCESSREGION
-      gasnet_begin_nbi_accessregion();
+    gasnet_begin_nbi_accessregion();
 #endif
-      DetailedTimer::push_timer(10);
-      for(size_t i = 0; i < batch_size; i++) {
-	off_t offset = offsets[i];
-	char *dst_c = (char *)(dsts[i]);
-	size_t size = sizes[i];
+    DetailedTimer::push_timer(10);
+    for(size_t i = 0; i < batch_size; i++) {
+      off_t offset = offsets[i];
+      char *dst_c = (char *)(dsts[i]);
+      size_t size = sizes[i];
 
-	off_t blkid = (offset / memory_stride / num_nodes);
-	off_t node = (offset / memory_stride) % num_nodes;
-	off_t blkoffset = offset % memory_stride;
+      off_t blkid = (offset / memory_stride / num_nodes);
+      off_t node = (offset / memory_stride) % num_nodes;
+      off_t blkoffset = offset % memory_stride;
 
-	while(size > 0) {
-	  size_t chunk_size = memory_stride - blkoffset;
-	  if(chunk_size > size) chunk_size = size;
+      while(size > 0) {
+	size_t chunk_size = memory_stride - blkoffset;
+	if(chunk_size > size) chunk_size = size;
 
-	  char *src_c = (((char *)seginfos[node].addr) +
-			 (blkid * memory_stride) + blkoffset);
-	  if(node == gasnet_mynode()) {
-	    memcpy(dst_c, src_c, chunk_size);
-	  } else {
-	    gasnet_get_nbi(dst_c, node, src_c, chunk_size);
-	  }
-
-	  dst_c += chunk_size;
-	  size -= chunk_size;
-	  blkoffset = 0;
-	  node = (node + 1) % num_nodes;
-	  if(node == 0) blkid++;
+	char *src_c = (((char *)seginfos[node].addr) +
+		       (blkid * memory_stride) + blkoffset);
+	if(node == gasnet_mynode()) {
+	  memcpy(dst_c, src_c, chunk_size);
+	} else {
+	  gasnet_get_nbi(dst_c, node, src_c, chunk_size);
 	}
+
+	dst_c += chunk_size;
+	size -= chunk_size;
+	blkoffset = 0;
+	node = (node + 1) % num_nodes;
+	if(node == 0) blkid++;
       }
-      DetailedTimer::pop_timer();
+    }
+    DetailedTimer::pop_timer();
 
 #ifdef USE_NBI_ACCESSREGION
-      DetailedTimer::push_timer(11);
-      gasnet_handle_t handle = gasnet_end_nbi_accessregion();
-      DetailedTimer::pop_timer();
+    DetailedTimer::push_timer(11);
+    gasnet_handle_t handle = gasnet_end_nbi_accessregion();
+    DetailedTimer::pop_timer();
 
-      DetailedTimer::push_timer(12);
-      gasnet_wait_syncnb(handle);
-      DetailedTimer::pop_timer();
+    DetailedTimer::push_timer(12);
+    gasnet_wait_syncnb(handle);
+    DetailedTimer::pop_timer();
 #else
-      DetailedTimer::push_timer(13);
-      gasnet_wait_syncnbi_gets();
-      DetailedTimer::pop_timer();
+    DetailedTimer::push_timer(13);
+    gasnet_wait_syncnbi_gets();
+    DetailedTimer::pop_timer();
 #endif
-    }
+  }
 
-    void GASNetMemory::put_batch(size_t batch_size,
-				 const off_t *offsets,
-				 const void * const *srcs, 
-				 const size_t *sizes)
-    {
-      gasnet_begin_nbi_accessregion();
+  void GASNetMemory::put_batch(size_t batch_size,
+			       const off_t *offsets,
+			       const void * const *srcs, 
+			       const size_t *sizes)
+  {
+    gasnet_begin_nbi_accessregion();
 
-      DetailedTimer::push_timer(14);
-      for(size_t i = 0; i < batch_size; i++) {
-	off_t offset = offsets[i];
-	const char *src_c = (char *)(srcs[i]);
-	size_t size = sizes[i];
+    DetailedTimer::push_timer(14);
+    for(size_t i = 0; i < batch_size; i++) {
+      off_t offset = offsets[i];
+      const char *src_c = (char *)(srcs[i]);
+      size_t size = sizes[i];
 
-	off_t blkid = (offset / memory_stride / num_nodes);
-	off_t node = (offset / memory_stride) % num_nodes;
-	off_t blkoffset = offset % memory_stride;
+      off_t blkid = (offset / memory_stride / num_nodes);
+      off_t node = (offset / memory_stride) % num_nodes;
+      off_t blkoffset = offset % memory_stride;
 
-	while(size > 0) {
-	  size_t chunk_size = memory_stride - blkoffset;
-	  if(chunk_size > size) chunk_size = size;
+      while(size > 0) {
+	size_t chunk_size = memory_stride - blkoffset;
+	if(chunk_size > size) chunk_size = size;
 
-	  char *dst_c = (((char *)seginfos[node].addr) +
-			 (blkid * memory_stride) + blkoffset);
-	  if(node == gasnet_mynode()) {
-	    memcpy(dst_c, src_c, chunk_size);
-	  } else {
-	    gasnet_put_nbi(node, dst_c, (void *)src_c, chunk_size);
-	  }
-
-	  src_c += chunk_size;
-	  size -= chunk_size;
-	  blkoffset = 0;
-	  node = (node + 1) % num_nodes;
-	  if(node == 0) blkid++;
+	char *dst_c = (((char *)seginfos[node].addr) +
+		       (blkid * memory_stride) + blkoffset);
+	if(node == gasnet_mynode()) {
+	  memcpy(dst_c, src_c, chunk_size);
+	} else {
+	  gasnet_put_nbi(node, dst_c, (void *)src_c, chunk_size);
 	}
+
+	src_c += chunk_size;
+	size -= chunk_size;
+	blkoffset = 0;
+	node = (node + 1) % num_nodes;
+	if(node == 0) blkid++;
       }
-      DetailedTimer::pop_timer();
-
-      DetailedTimer::push_timer(15);
-      gasnet_handle_t handle = gasnet_end_nbi_accessregion();
-      DetailedTimer::pop_timer();
-
-      DetailedTimer::push_timer(16);
-      gasnet_wait_syncnb(handle);
-      DetailedTimer::pop_timer();
     }
+    DetailedTimer::pop_timer();
+
+    DetailedTimer::push_timer(15);
+    gasnet_handle_t handle = gasnet_end_nbi_accessregion();
+    DetailedTimer::pop_timer();
+
+    DetailedTimer::push_timer(16);
+    gasnet_wait_syncnb(handle);
+    DetailedTimer::pop_timer();
+  }
 
 
   void RemoteMemAllocRequestType::request(Message* m) {
@@ -867,12 +867,7 @@ namespace Realm {
     off_t offset = get_runtime()->get_memory_impl(args->memory)->alloc_bytes(args->size);
     //printf("[%d] remote alloc will return %d\n", gasnet_mynode(), result);
 
-    RemoteMemAllocResponseType::RequestArgs* r_args =
-      new RemoteMemAllocResponseType::RequestArgs();
-    
-    r_args->resp_ptr = args->resp_ptr;
-    r_args->offset = offset;
-    fabric->send(new RemoteMemAllocResponse(args->sender, r_args));
+    fabric->send(new RemoteMemAllocResponse(args->sender, args->resp_ptr, offset));
   }
   
   /*static*/ off_t RemoteMemAllocRequestType::send_request(NodeId target,
@@ -880,13 +875,8 @@ namespace Realm {
 							   size_t size) {
     HandlerReplyFuture<off_t> result;
 
-    RequestArgs* args = new RequestArgs(); 
-    args->sender = fabric->get_id();
-    args->resp_ptr = &result;
-    args->memory = memory;
-    args->size = size;
-
-    fabric->send(new RemoteMemAllocRequestMessage(target, args));
+    fabric->send(new RemoteMemAllocRequestMessage(target, fabric->get_id(), &result,
+						  memory, size));
 
     // wait for result to come back
     result.wait();
@@ -935,23 +925,18 @@ namespace Realm {
 						  args->parent_inst);
 
     // send the response
-    CreateInstanceResponseType::RequestArgs* r_args
-      = new CreateInstanceResponseType::RequestArgs();
-
-    r_args->resp_ptr = args->resp_ptr;
-    r_args->i = inst;
-
+    off_t inst_offset, count_offset;
     if (inst.exists()) {
       RegionInstanceImpl *i_impl = get_runtime()->get_instance_impl(inst);
-
-      r_args->inst_offset = i_impl->metadata.alloc_offset;
-      r_args->count_offset = i_impl->metadata.count_offset;
+      inst_offset = i_impl->metadata.alloc_offset;
+      count_offset = i_impl->metadata.count_offset;
     } else {
-      r_args->inst_offset = -1;
-      r_args->count_offset = -1;
+      inst_offset = -1;
+      count_offset = -1;
     }
 
-    fabric->send(new CreateInstanceResponse(args->sender, r_args));
+    fabric->send(new CreateInstanceResponse(args->sender, args->resp_ptr, inst,
+					    inst_offset, count_offset));
   }
 
   /*static*/ void CreateInstanceRequestType::send_request(Result *result,
@@ -986,21 +971,16 @@ namespace Realm {
 
     //reqs.serialize(((char*)payload_data)+req_offset);
 
-    RequestArgs* args = new RequestArgs();
-    args->m = memory;
-    args->r = ispace;
-    args->parent_inst = parent_inst;
     log_inst.debug("creating remote instance: node=%d", ID(memory).node());
 
     HandlerReplyFuture<Result> result_future;
-    args->resp_ptr = &result_future;
-    args->sender = gasnet_mynode();
 
     FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_FREE,
 							     (void*) payload_data,
 							     payload_size);
 
-    fabric->send(new CreateInstanceRequest(target, args, payload));
+    fabric->send(new CreateInstanceRequest(target, memory, ispace, parent_inst,
+					   fabric->get_id(), &result_future, payload));
 
     result_future.wait();
     *result = result_future.get();
@@ -1028,11 +1008,8 @@ namespace Realm {
   /*static*/ void DestroyInstanceMessageType::send_request(NodeId target,
 							   Memory memory,
 							   RegionInstance inst) {
-    RequestArgs* args = new RequestArgs();
-
-    args->m = memory;
-    args->i = inst;
-    fabric->send(new DestroyInstanceMessage(target, args));
+    
+    fabric->send(new DestroyInstanceMessage(target, memory, inst));
   }
   
 
@@ -1348,17 +1325,12 @@ namespace Realm {
 							    const void *data,
 							    size_t datalen,
 							    int payload_mode) { 
-    RequestArgs* args = new RequestArgs();
-
-    args->mem = mem;
-    args->offset = offset;
-    args->redopid = redopid;
 
     FabContiguousPayload* payload = new FabContiguousPayload(payload_mode,
 							     (void*) data,
 							     datalen);
 
-    fabric->send(new RemoteReduceListMessage(target, args, payload));
+    fabric->send(new RemoteReduceListMessage(target, mem, offset, redopid, payload));
   }
   
 
@@ -1437,15 +1409,10 @@ namespace Realm {
 							    Memory memory,
 							    unsigned sequence_id,
 							    unsigned num_writes,
-							    RemoteWriteFence *fence) { 
-    RequestArgs* args = new RequestArgs();
-
-    args->mem = memory;
-    args->sender = gasnet_mynode();
-    args->sequence_id = sequence_id;
-    args->num_writes = num_writes;
-    args->fence = fence;
-    fabric->send(new RemoteWriteFenceMessage(target, args));
+							    RemoteWriteFence *fence) {
+    
+    fabric->send(new RemoteWriteFenceMessage(target, memory, fabric->get_id(),
+					     sequence_id, num_writes, fence));
   }
   
   void RemoteWriteFenceAckMessageType::request(Message* m) {
@@ -1457,11 +1424,9 @@ namespace Realm {
   }
 
   /*static*/ void RemoteWriteFenceAckMessageType::send_request(NodeId target,
-							       RemoteWriteFence *fence) { 
-    RequestArgs* args = new RequestArgs(); 
-
-    args->fence = fence;
-    fabric->send(new RemoteWriteFenceAckMessage(target, args));
+							       RemoteWriteFence *fence) {
+    
+    fabric->send(new RemoteWriteFenceAckMessage(target, fence));
   }
   
 
@@ -1483,13 +1448,13 @@ namespace Realm {
     NodeId dest = ID(mem).node();
       
     /* 
-      char *dstptr;
-      if(m_impl->kind == MemoryImpl::MKIND_RDMA) {
-      dstptr = ((char *)(((RemoteMemory *)m_impl)->regbase)) + offset;
-      //printf("remote mem write to rdma'able memory: dstptr = %p\n", dstptr);
-      } else { 
-      dstptr = 0;
-      }*/
+       char *dstptr;
+       if(m_impl->kind == MemoryImpl::MKIND_RDMA) {
+       dstptr = ((char *)(((RemoteMemory *)m_impl)->regbase)) + offset;
+       //printf("remote mem write to rdma'able memory: dstptr = %p\n", dstptr);
+       } else { 
+       dstptr = 0;
+       }*/
       
     assert(datalen > 0); 
     // CHECK -- using fabric, I believe it is no longer valid to do a remote
@@ -1507,37 +1472,28 @@ namespace Realm {
     int count = 1;
     while(datalen > max_xfer_size) {
 	   
-      RemoteWriteMessageType::RequestArgs* args = new RemoteWriteMessageType::RequestArgs();
-      args->mem = mem;
-      args->offset = offset;
-      args->sender = fabric->get_id();
-      args->sequence_id = sequence_id;
 
       FabContiguousPayload* payload = new FabContiguousPayload(make_copy ?
 							       FAB_PAYLOAD_COPY : FAB_PAYLOAD_KEEP,
 							       pos,
 							       max_xfer_size);
       
-      fabric->send(new RemoteWriteMessage(dest, args, payload));
+      fabric->send(new RemoteWriteMessage(dest, mem, offset, fabric->get_id(),
+					  sequence_id, payload));
       
       offset += max_xfer_size;
       pos += max_xfer_size;
       datalen -= max_xfer_size;
       count++;
     }
-
-    RemoteWriteMessageType::RequestArgs* args = new RemoteWriteMessageType::RequestArgs();
-    args->mem = mem;
-    args->offset = offset;
-    args->sender = fabric->get_id();
-    args->sequence_id = sequence_id;
 	  
     FabContiguousPayload* payload = new FabContiguousPayload(make_copy ?
 							     FAB_PAYLOAD_COPY : FAB_PAYLOAD_KEEP,
 							     pos,
 							     max_xfer_size);
       
-    fabric->send(new RemoteWriteMessage(dest, args, payload));
+    fabric->send(new RemoteWriteMessage(dest, mem, offset, fabric->get_id(),
+					sequence_id, payload));
     
     return count;    
   }
@@ -1554,7 +1510,6 @@ namespace Realm {
 		   mem.id, offset, line_len, lines);
 
     //MemoryImpl *m_impl = get_runtime()->get_memory_impl(mem);
-    NodeId dest = ID(mem).node();
       
     /* CHECK -- I believe fabric is always constrained by posted buffer size 
        char *dstptr;
@@ -1583,13 +1538,6 @@ namespace Realm {
     int count = 1;
     while(lines > max_lines_per_xfer) {
 	    
-      RemoteWriteMessageType::RequestArgs* args
-	= new RemoteWriteMessageType::RequestArgs();
-      args->mem = mem;
-      args->offset = offset;
-      args->sender = fabric->get_id();
-      args->sequence_id = sequence_id;
-
       FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
       						   FAB_PAYLOAD_COPY : FAB_PAYLOAD_KEEP,
       						   pos,
@@ -1597,19 +1545,14 @@ namespace Realm {
       						   max_lines_per_xfer,
       						   stride);
    	    
-      fabric->send(new RemoteWriteMessage(ID(mem).node(), args, payload));
+      fabric->send(new RemoteWriteMessage(ID(mem).node(), mem, offset, fabric->get_id(),
+					  sequence_id, payload));
 	    
       offset += line_len * max_lines_per_xfer;
       pos += stride * max_lines_per_xfer;
       lines -= max_lines_per_xfer;
       count++;
     }
-
-    RemoteWriteMessageType::RequestArgs* args = new RemoteWriteMessageType::RequestArgs();
-    args->mem = mem;
-    args->offset = offset;
-    args->sender = fabric->get_id();
-    args->sequence_id = sequence_id;
 	
     FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
     						 FAB_PAYLOAD_COPY : FAB_PAYLOAD_KEEP,
@@ -1618,7 +1561,8 @@ namespace Realm {
     						 max_lines_per_xfer,
     						 stride);
 
-    fabric->send(new RemoteWriteMessage(dest, args, payload));
+    fabric->send(new RemoteWriteMessage(ID(mem).node(), mem, offset, fabric->get_id(),
+					sequence_id, payload));
     return count;
       
   }
@@ -1642,7 +1586,6 @@ namespace Realm {
       
     // if we don't have a destination pointer, we need to use the LMB, which
     //  may require chopping this request into pieces
-    NodeId dest = ID(mem).node();
     size_t max_xfer_size = fabric->get_max_send();
       
     if(datalen > max_xfer_size) {
@@ -1663,38 +1606,26 @@ namespace Realm {
 	size_t left = it->second;
 	while(left > max_xfer_size) {
 
-	  RemoteWriteMessageType::RequestArgs* args
-	    = new RemoteWriteMessageType::RequestArgs();
-	  args->mem = mem;
-	  args->offset = offset;
-	  args->sender = fabric->get_id();
-	  args->sequence_id = sequence_id;
-
 	  FabContiguousPayload* payload = new FabContiguousPayload(make_copy ?
 								   PAYLOAD_COPY : PAYLOAD_KEEP,
 								   pos,
 								   max_xfer_size);
 		  
-	  fabric->send(new RemoteWriteMessage(dest, args, payload));
+	  fabric->send(new RemoteWriteMessage(ID(mem).node(), mem, offset, fabric->get_id(),
+					      sequence_id, payload));
 	  pos += max_xfer_size;
 	  offset += max_xfer_size;
 	  left -= max_xfer_size;
 	  count++;
 	}
-
-	RemoteWriteMessageType::RequestArgs* args
-	  = new RemoteWriteMessageType::RequestArgs();
-	args->mem = mem;
-	args->offset = offset;
-	args->sender = fabric->get_id();
-	args->sequence_id = sequence_id;
 	    
 	FabContiguousPayload* payload = new FabContiguousPayload(make_copy ?
 								 PAYLOAD_COPY : PAYLOAD_KEEP,
 								 pos,
 								 max_xfer_size);
 	    
-	fabric->send(new RemoteWriteMessage(dest, args, payload));
+	fabric->send(new RemoteWriteMessage(ID(mem).node(), mem, offset, fabric->get_id(),
+					    sequence_id, payload));
 	    
 	offset += left;
 	count++;
@@ -1721,20 +1652,13 @@ namespace Realm {
       // if we didn't get at least one span, we won't make forward progress
       assert(!subspans.empty());
 	  
-
-      RemoteWriteMessageType::RequestArgs* args
-	= new RemoteWriteMessageType::RequestArgs();
-      args->mem = mem;
-      args->offset = offset;
-      args->sender = fabric->get_id();
-      args->sequence_id = sequence_id;
-
       FabSpanPayload* payload = new FabSpanPayload(make_copy ?
       						   PAYLOAD_COPY : PAYLOAD_KEEP,
       						   subspans);
       
-      fabric->send(new RemoteWriteMessage(dest, args, payload));
-	  
+      fabric->send(new RemoteWriteMessage(ID(mem).node(), mem, offset, fabric->get_id(),
+					  sequence_id, payload));
+       
       offset += xfer_size;
       datalen -= xfer_size;
       count++;
@@ -1742,160 +1666,139 @@ namespace Realm {
     return count;
   }
 
-    unsigned do_remote_serdez(Memory mem, off_t offset,
-                             CustomSerdezID serdez_id,
-                             const void *data, size_t count,
-                             unsigned sequence_id)
-    {
-      const CustomSerdezUntyped *serdez_op = get_runtime()->custom_serdez_table[serdez_id];
-      size_t field_size = serdez_op->sizeof_field_type;
-      log_copy.debug("sending remote serdez request: mem=" IDFMT ", offset=%zd, size=%zdx%zd, serdez_id=%d",
-                     mem.id, offset, field_size, count, serdez_id);
-      size_t max_xfer_size = get_lmb_size(ID(mem).node());
-      // create a intermediate buf with same size as max_xfer_size
-      char* buffer_start = (char*) malloc(max_xfer_size);
-      const char *pos = (const char *)data;
-      unsigned xfers = 0;
+  unsigned do_remote_serdez(Memory mem, off_t offset,
+			    CustomSerdezID serdez_id,
+			    const void *data, size_t count,
+			    unsigned sequence_id)
+  {
+    const CustomSerdezUntyped *serdez_op = get_runtime()->custom_serdez_table[serdez_id];
+    size_t field_size = serdez_op->sizeof_field_type;
+    log_copy.debug("sending remote serdez request: mem=" IDFMT ", offset=%zd, size=%zdx%zd, serdez_id=%d",
+		   mem.id, offset, field_size, count, serdez_id);
+    size_t max_xfer_size = get_lmb_size(ID(mem).node());
+    // create a intermediate buf with same size as max_xfer_size
+    char* buffer_start = (char*) malloc(max_xfer_size);
+    const char *pos = (const char *)data;
+    unsigned xfers = 0;
+    while (count > 0) {
+      size_t cur_size = 0;
+      size_t cur_count = 0;
+      char* buffer = buffer_start;
+      off_t new_offset = offset;
       while (count > 0) {
-        size_t cur_size = 0;
-        size_t cur_count = 0;
-        char* buffer = buffer_start;
-        off_t new_offset = offset;
-        while (count > 0) {
-          size_t elemnt_size = serdez_op->serialized_size(pos);
-          // break if including this element exceeds max_xfer_size
-          if (elemnt_size + cur_size > max_xfer_size)
-            break;
-          count--;
-          cur_count++;
-          serdez_op->serialize(pos, buffer); 
-          pos += field_size;
-          new_offset += field_size;
-          buffer += elemnt_size;
-          cur_size += elemnt_size;
-        }
-        assert(cur_size > 0);
-	RemoteSerdezMessageType::RequestArgs* args =
-	  new RemoteSerdezMessageType::RequestArgs() ;
-        args->mem = mem;
-        args->offset = offset;
-        offset = new_offset;
-        args->count = cur_count;
-        args->serdez_id = serdez_id;
-        args->sender = gasnet_mynode();
-        args->sequence_id = sequence_id;
-	
-	FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_COPY,
-								 buffer_start,
-								 cur_size);
-	
-	fabric->send(new RemoteSerdezMessage(ID(mem).node(), args, payload));
-	
-        xfers ++;
+	size_t elemnt_size = serdez_op->serialized_size(pos);
+	// break if including this element exceeds max_xfer_size
+	if (elemnt_size + cur_size > max_xfer_size)
+	  break;
+	count--;
+	cur_count++;
+	serdez_op->serialize(pos, buffer); 
+	pos += field_size;
+	new_offset += field_size;
+	buffer += elemnt_size;
+	cur_size += elemnt_size;
       }
-      free(buffer_start);
-      return xfers;
+      assert(cur_size > 0);
+	
+      FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_COPY,
+							       buffer_start,
+							       cur_size);
+	
+      fabric->send(new RemoteSerdezMessage(ID(mem).node(), mem, offset, cur_count,
+					   serdez_id, fabric->get_id(), sequence_id,
+					   payload));
+	
+      xfers ++;
     }
+    free(buffer_start);
+    return xfers;
+  }
 
-    unsigned do_remote_reduce(Memory mem, off_t offset,
-			      ReductionOpID redop_id, bool red_fold,
-			      const void *data, size_t count,
-			      off_t src_stride, off_t dst_stride,
-			      unsigned sequence_id,
-			      bool make_copy /*= false*/) {
+  unsigned do_remote_reduce(Memory mem, off_t offset,
+			    ReductionOpID redop_id, bool red_fold,
+			    const void *data, size_t count,
+			    off_t src_stride, off_t dst_stride,
+			    unsigned sequence_id,
+			    bool make_copy /*= false*/) {
       
-      const ReductionOpUntyped *redop = get_runtime()->reduce_op_table[redop_id];
-      size_t rhs_size = redop->sizeof_rhs;
+    const ReductionOpUntyped *redop = get_runtime()->reduce_op_table[redop_id];
+    size_t rhs_size = redop->sizeof_rhs;
 
-      log_copy.debug("sending remote reduction request: mem=" IDFMT ", offset=%zd+%zd, size=%zdx%zd, redop=%d(%s)",
-		     mem.id, offset, dst_stride, rhs_size, count,
-		     redop_id, (red_fold ? "fold" : "apply"));
+    log_copy.debug("sending remote reduction request: mem=" IDFMT ", offset=%zd+%zd, size=%zdx%zd, redop=%d(%s)",
+		   mem.id, offset, dst_stride, rhs_size, count,
+		   redop_id, (red_fold ? "fold" : "apply"));
 
-      // reductions always have to bounce off an intermediate buffer, so are subject to
-      //  LMB limits
+    // reductions always have to bounce off an intermediate buffer, so are subject to
+    //  LMB limits
 
-      // TODO -- fabric should get destination transfer size
-      NodeId dest = ID(mem).node();
-      size_t max_xfer_size = fabric->get_max_send();
-      size_t max_elmts_per_xfer = std::min(max_xfer_size / rhs_size,
-					   fabric->get_iov_limit(REMOTE_WRITE_MSGID));
+    // TODO -- fabric should get destination transfer size
+    NodeId dest = ID(mem).node();
+    size_t max_xfer_size = fabric->get_max_send();
+    size_t max_elmts_per_xfer = std::min(max_xfer_size / rhs_size,
+					 fabric->get_iov_limit(REMOTE_WRITE_MSGID));
       
-      assert(max_elmts_per_xfer > 0);
+    assert(max_elmts_per_xfer > 0);
       
-      if(count > max_elmts_per_xfer) {
-	log_copy.info("breaking large reduction into pieces");
-      }
+    if(count > max_elmts_per_xfer) {
+      log_copy.info("breaking large reduction into pieces");
+    }
       
-      char *pos = (char *)data;
-      int xfers = 1;
+    char *pos = (char *)data;
+    int xfers = 1;
       
-      while(count > max_elmts_per_xfer) {	    
-	RemoteReduceMessageType::RequestArgs* args = 
-	  new RemoteReduceMessageType::RequestArgs(); 
-	args->mem = mem;
-	args->offset = offset;
-	args->stride = dst_stride;
-	assert(((off_t)(args->stride)) == dst_stride); // did it fit?
-	// fold encoded as a negation of the redop_id
-	args->redop_id = red_fold ? -redop_id : redop_id;
-	//args->red_fold = red_fold;
-	args->sender = fabric->get_id();
-	args->sequence_id = sequence_id;
-
- 	FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
-						     PAYLOAD_COPY : PAYLOAD_KEEP,
-						     pos,
-						     rhs_size,
-						     max_elmts_per_xfer,
-						     src_stride);
-	  
-	fabric->send(new RemoteReduceMessage(dest, args, payload));
-	  
-	offset += dst_stride * max_elmts_per_xfer;
-	pos += src_stride * max_elmts_per_xfer;
-	count -= max_elmts_per_xfer;
-	xfers++;
-      }
-      // Last chunck sends whatever is left
-      RemoteReduceMessageType::RequestArgs* args = 
-	new RemoteReduceMessageType::RequestArgs(); 
-      args->mem = mem;
-      args->offset = offset;
-      args->stride = dst_stride;
-      assert(((off_t)(args->stride)) == dst_stride); // did it fit?
-      // fold encoded as a negation of the redop_id
-      args->redop_id = red_fold ? -redop_id : redop_id;
-      //args->red_fold = red_fold;
-      args->sender = fabric->get_id();
-      args->sequence_id = sequence_id;
-      
+    while(count > max_elmts_per_xfer) {	    
       FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
-      						   PAYLOAD_COPY : PAYLOAD_KEEP,
-      						   pos,
-      						   rhs_size,
-      						   max_elmts_per_xfer,
-      						   src_stride);
+						   PAYLOAD_COPY : PAYLOAD_KEEP,
+						   pos,
+						   rhs_size,
+						   max_elmts_per_xfer,
+						   src_stride);
+
+      RemoteReduceMessage* msg = new RemoteReduceMessage(dest, mem, offset, dst_stride,
+							 red_fold ? -redop_id : redop_id,
+							 fabric->get_id(), sequence_id, payload);
+
+      assert(((off_t)(msg->args.stride)) == dst_stride); // did it fit?
+      fabric->send(msg);
+	  
+      offset += dst_stride * max_elmts_per_xfer;
+      pos += src_stride * max_elmts_per_xfer;
+      count -= max_elmts_per_xfer;
+      xfers++;
+    }
+    // Last chunck sends whatever is left
+    FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
+						 PAYLOAD_COPY : PAYLOAD_KEEP,
+						 pos,
+						 rhs_size,
+						 max_elmts_per_xfer,
+						 src_stride);
       
-      fabric->send(new RemoteReduceMessage(dest, args, payload));
+    RemoteReduceMessage* msg = new RemoteReduceMessage(dest, mem, offset, dst_stride,
+						       red_fold ? -redop_id : redop_id,
+						       fabric->get_id(), sequence_id, payload);
       
-      return xfers;	
-    }
+    assert(((off_t)(msg->args.stride)) == dst_stride); // did it fit?
+    fabric->send(msg);
+      
+    return xfers;	
+  }
+  
+  void do_remote_apply_red_list(int node, Memory mem, off_t offset,
+				ReductionOpID redopid,
+				const void *data, size_t datalen) { 
+    RemoteReduceListMessageType::send_request(node, mem, offset, redopid,
+					      data, datalen, PAYLOAD_COPY);
+  }
 
-    void do_remote_apply_red_list(int node, Memory mem, off_t offset,
-				  ReductionOpID redopid,
-				  const void *data, size_t datalen) { 
-      RemoteReduceListMessageType::send_request(node, mem, offset, redopid,
-					    data, datalen, PAYLOAD_COPY);
-    }
+  void do_remote_fence(Memory mem, unsigned sequence_id, unsigned num_writes,
+		       RemoteWriteFence *fence) { 
+    // technically we could handle a num_writes == 0 case, but since it's
+    //  probably indicative of badness elsewhere, barf on it for now
+    assert(num_writes > 0);
 
-    void do_remote_fence(Memory mem, unsigned sequence_id, unsigned num_writes,
-                         RemoteWriteFence *fence) { 
-      // technically we could handle a num_writes == 0 case, but since it's
-      //  probably indicative of badness elsewhere, barf on it for now
-      assert(num_writes > 0);
-
-      RemoteWriteFenceMessageType::send_request(ID(mem).node(), mem, sequence_id,
-						num_writes, fence);
-    }
+    RemoteWriteFenceMessageType::send_request(ID(mem).node(), mem, sequence_id,
+					      num_writes, fence);
+  }
   
 }; // namespace Realm

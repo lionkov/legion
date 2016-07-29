@@ -1271,16 +1271,16 @@ namespace Realm {
 							void* data,
 							size_t datalen,
 							int payload_mode) {
-    RequestArgs* args = new RequestArgs;
-    args->node_id = fabric->get_id();
-    args->num_procs = num_procs;
-    args->num_memories = num_memories;
     
     FabContiguousPayload* payload = new FabContiguousPayload(payload_mode,
 							     data,
 							     datalen);
     
-    fabric->send(new NodeAnnounceMessage(dest, (void*) args, payload));
+    fabric->send(new NodeAnnounceMessage(dest,
+					 fabric->get_id(),
+					 num_procs,
+					 num_memories,
+					 payload));
   }
 
   /* static */ void NodeAnnounceMessageType::await_all_announcements(void) {

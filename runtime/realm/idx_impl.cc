@@ -1817,10 +1817,8 @@ namespace Realm {
 
   /*static*/ void ValidMaskRequestMessageType::send_request(NodeId target,
 							    IndexSpace is) {
-    RequestArgs* args = new RequestArgs();
-    args->sender = fabric->get_id();
-    args->is = is;
-    fabric->send(new ValidMaskRequestMessage(target, args));
+    
+    fabric->send(new ValidMaskRequestMessage(target, is, fabric->get_id()));
   }
   
   void ValidMaskDataMessageType::request(Message* m) {
@@ -1886,19 +1884,13 @@ namespace Realm {
 							 const void *data,
 							 size_t datalen,
 							 int payload_mode) { 
-    RequestArgs* args = new RequestArgs();
-    args->is = is;
-    args->block_id = block_id;
-    args->first_element = first_element;
-    args->num_elements = num_elements;
-    args->first_enabled_elmt = first_enabled_elmt;
-    args->last_enabled_elmt = last_enabled_elmt;
 
     FabContiguousPayload* payload = new FabContiguousPayload(payload_mode,
 							     (void*) data,
 							     datalen); 
 
-    fabric->send(new ValidMaskDataMessage(target, args, payload));
+    fabric->send(new ValidMaskDataMessage(target, is, block_id, first_element, num_elements,
+					  first_enabled_elmt, last_enabled_elmt, payload));
   }
   
 }; // namespace Realm

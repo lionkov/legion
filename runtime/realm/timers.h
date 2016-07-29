@@ -156,6 +156,8 @@ namespace Realm {
     : MessageType(ROLL_UP_TIMER_MSGID, sizeof(RequestArgs), false, true) { }
     
     struct RequestArgs {
+    RequestArgs(void* _rollup_ptr)
+    : rollup_ptr(_rollup_ptr) { }
       void *rollup_ptr;
     };
 	
@@ -164,8 +166,11 @@ namespace Realm {
 
   class TimerDataRequestMessage : public Message {
   public:
-  TimerDataRequestMessage(NodeId dest, void* args)
-    : Message(dest, ROLL_UP_TIMER_MSGID, args, NULL) { }
+  TimerDataRequestMessage(NodeId dest, void* rollup_ptr)
+    : Message(dest, ROLL_UP_TIMER_MSGID, &args, NULL),
+      args(rollup_ptr) { }
+
+    TimerDataRequestMessageType::RequestArgs args;
   };
 
   class TimerDataResponseMessageType : public MessageType {
@@ -174,7 +179,9 @@ namespace Realm {
     : MessageType(ROLL_UP_TIMER_RPLID, sizeof(RequestArgs), true, true) { }
     
     struct RequestArgs {
-      void *rollup_ptr;
+    RequestArgs(void* _rollup_ptr)
+    : rollup_ptr(_rollup_ptr) { }
+      void* rollup_ptr;
     };
 
     virtual void request(Message *m);
@@ -182,8 +189,11 @@ namespace Realm {
 
   class TimerDataResponseMessage : public Message {
   public:
-  TimerDataResponseMessage(NodeId dest, void* args, FabPayload* payload)
-    : Message(dest, ROLL_UP_TIMER_RPLID, args, payload) { }
+  TimerDataResponseMessage(NodeId dest, void* rollup_ptr, FabPayload* payload)
+    : Message(dest, ROLL_UP_TIMER_RPLID, &args, payload),
+      args(rollup_ptr) { }
+
+    TimerDataResponseMessageType::RequestArgs args;
   };
   
 }; // namespace Realm

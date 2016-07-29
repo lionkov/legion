@@ -246,11 +246,7 @@ namespace Realm {
 
   
   void MetadataRequestMessageType::send_request(NodeId target, ID::IDType id) {
-    RequestArgs* args = new RequestArgs();
-
-    args->node = fabric->get_id();
-    args->id = id;
-    fabric->send(new MetadataRequestMessage(target, args));
+    fabric->send(new MetadataRequestMessage(target, fabric->get_id(), id));
   }
 
   void MetadataResponseMessageType::request(Message* m) {					    
@@ -281,12 +277,11 @@ namespace Realm {
 							    void *data,
 							    size_t datalen,
 							    int payload_mode) {
-    RequestArgs* args = new RequestArgs();
-    args->id = id;
+    
     FabContiguousPayload* payload = new FabContiguousPayload(payload_mode,
 							     data,
 							     datalen);
-    fabric->send(new MetadataResponseMessage(target, args, payload));
+    fabric->send(new MetadataResponseMessage(target, id, payload));
   }
 
   void MetadataInvalidateMessageType::request(Message* m) {
@@ -314,11 +309,7 @@ namespace Realm {
 
   /*static*/ void MetadataInvalidateMessageType::send_request(NodeId target,
 							      ID::IDType id) {
-    RequestArgs* args = new RequestArgs();
-
-    args->owner = fabric->get_id();
-    args->id = id;
-    fabric->send(new MetadataInvalidateMessage(target, args));
+    fabric->send(new MetadataInvalidateMessage(target, fabric->get_id(), id));
   }
   /* TODO -- implement broadcast */
   
@@ -371,11 +362,7 @@ namespace Realm {
   }
    
   /*static*/ void MetadataInvalidateAckMessageType::send_request(NodeId target, ID::IDType id) {
-    RequestArgs* args = new RequestArgs();
-
-    args->node = fabric->get_id();
-    args->id = id;
-    fabric->send(new MetadataInvalidateAckMessage(target, (void*) args));
+    fabric->send(new MetadataInvalidateAckMessage(target, fabric->get_id(), id));
   }
   
 

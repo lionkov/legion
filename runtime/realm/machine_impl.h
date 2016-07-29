@@ -29,237 +29,237 @@
 
 namespace Realm {
 
-    class MachineImpl {
-    public:
-      MachineImpl(void);
-      ~MachineImpl(void);
+  class MachineImpl {
+  public:
+    MachineImpl(void);
+    ~MachineImpl(void);
 
-      void get_all_memories(std::set<Memory>& mset) const;
-      void get_all_processors(std::set<Processor>& pset) const;
+    void get_all_memories(std::set<Memory>& mset) const;
+    void get_all_processors(std::set<Processor>& pset) const;
 
-      void get_local_processors(std::set<Processor>& pset) const;
-      void get_local_processors_by_kind(std::set<Processor>& pset,
-					Processor::Kind kind) const;
+    void get_local_processors(std::set<Processor>& pset) const;
+    void get_local_processors_by_kind(std::set<Processor>& pset,
+				      Processor::Kind kind) const;
 
-      // Return the set of memories visible from a processor
-      void get_visible_memories(Processor p, std::set<Memory>& mset) const;
+    // Return the set of memories visible from a processor
+    void get_visible_memories(Processor p, std::set<Memory>& mset) const;
 
-      // Return the set of memories visible from a memory
-      void get_visible_memories(Memory m, std::set<Memory>& mset) const;
+    // Return the set of memories visible from a memory
+    void get_visible_memories(Memory m, std::set<Memory>& mset) const;
 
-      // Return the set of processors which can all see a given memory
-      void get_shared_processors(Memory m, std::set<Processor>& pset) const;
+    // Return the set of processors which can all see a given memory
+    void get_shared_processors(Memory m, std::set<Processor>& pset) const;
 
-      bool has_affinity(Processor p, Memory m, Machine::AffinityDetails *details = 0) const;
-      bool has_affinity(Memory m1, Memory m2, Machine::AffinityDetails *details = 0) const;
+    bool has_affinity(Processor p, Memory m, Machine::AffinityDetails *details = 0) const;
+    bool has_affinity(Memory m1, Memory m2, Machine::AffinityDetails *details = 0) const;
 
-      int get_proc_mem_affinity(std::vector<Machine::ProcessorMemoryAffinity>& result,
-				Processor restrict_proc = Processor::NO_PROC,
-				Memory restrict_memory = Memory::NO_MEMORY) const;
+    int get_proc_mem_affinity(std::vector<Machine::ProcessorMemoryAffinity>& result,
+			      Processor restrict_proc = Processor::NO_PROC,
+			      Memory restrict_memory = Memory::NO_MEMORY) const;
 
-      int get_mem_mem_affinity(std::vector<Machine::MemoryMemoryAffinity>& result,
-			       Memory restrict_mem1 = Memory::NO_MEMORY,
-			       Memory restrict_mem2 = Memory::NO_MEMORY) const;
+    int get_mem_mem_affinity(std::vector<Machine::MemoryMemoryAffinity>& result,
+			     Memory restrict_mem1 = Memory::NO_MEMORY,
+			     Memory restrict_mem2 = Memory::NO_MEMORY) const;
       
-      void parse_node_announce_data(int node_id,
-				    unsigned num_procs, unsigned num_memories,
-				    const void *args, size_t arglen,
-				    bool remote);
+    void parse_node_announce_data(int node_id,
+				  unsigned num_procs, unsigned num_memories,
+				  const void *args, size_t arglen,
+				  bool remote);
 
-      void add_proc_mem_affinity(const Machine::ProcessorMemoryAffinity& pma);
-      void add_mem_mem_affinity(const Machine::MemoryMemoryAffinity& mma);
+    void add_proc_mem_affinity(const Machine::ProcessorMemoryAffinity& pma);
+    void add_mem_mem_affinity(const Machine::MemoryMemoryAffinity& mma);
 
-      void add_subscription(Machine::MachineUpdateSubscriber *subscriber);
-      void remove_subscription(Machine::MachineUpdateSubscriber *subscriber);
+    void add_subscription(Machine::MachineUpdateSubscriber *subscriber);
+    void remove_subscription(Machine::MachineUpdateSubscriber *subscriber);
 
-      mutable GASNetHSL mutex;
-      std::vector<Machine::ProcessorMemoryAffinity> proc_mem_affinities;
-      std::vector<Machine::MemoryMemoryAffinity> mem_mem_affinities;
-      std::set<Machine::MachineUpdateSubscriber *> subscribers;
-    };
+    mutable GASNetHSL mutex;
+    std::vector<Machine::ProcessorMemoryAffinity> proc_mem_affinities;
+    std::vector<Machine::MemoryMemoryAffinity> mem_mem_affinities;
+    std::set<Machine::MachineUpdateSubscriber *> subscribers;
+  };
 
-    template <typename T>
+  template <typename T>
     class QueryPredicate {
-    public:
-      virtual ~QueryPredicate(void) {};
+  public:
+    virtual ~QueryPredicate(void) {};
 
-      virtual QueryPredicate<T> *clone(void) const = 0;
+    virtual QueryPredicate<T> *clone(void) const = 0;
 
-      virtual bool matches_predicate(MachineImpl *machine, T thing) const = 0;
-    };
+    virtual bool matches_predicate(MachineImpl *machine, T thing) const = 0;
+  };
 
-    class ProcessorKindPredicate : public QueryPredicate<Processor> {
-    public:
-      ProcessorKindPredicate(Processor::Kind _kind);
+  class ProcessorKindPredicate : public QueryPredicate<Processor> {
+  public:
+    ProcessorKindPredicate(Processor::Kind _kind);
 
-      virtual QueryPredicate<Processor> *clone(void) const;
+    virtual QueryPredicate<Processor> *clone(void) const;
 
-      virtual bool matches_predicate(MachineImpl *machine, Processor thing) const;
+    virtual bool matches_predicate(MachineImpl *machine, Processor thing) const;
 
-    protected:
-      Processor::Kind kind;
-    };
+  protected:
+    Processor::Kind kind;
+  };
 
-    class ProcessorHasAffinityPredicate : public QueryPredicate<Processor> {
-    public:
-      ProcessorHasAffinityPredicate(Memory _memory, unsigned _min_bandwidth, unsigned _max_latency);
+  class ProcessorHasAffinityPredicate : public QueryPredicate<Processor> {
+  public:
+    ProcessorHasAffinityPredicate(Memory _memory, unsigned _min_bandwidth, unsigned _max_latency);
 
-      virtual QueryPredicate<Processor> *clone(void) const;
+    virtual QueryPredicate<Processor> *clone(void) const;
 
-      virtual bool matches_predicate(MachineImpl *machine, Processor thing) const;
+    virtual bool matches_predicate(MachineImpl *machine, Processor thing) const;
 
-    protected:
-      Memory memory;
-      unsigned min_bandwidth;
-      unsigned max_latency;
-    };
+  protected:
+    Memory memory;
+    unsigned min_bandwidth;
+    unsigned max_latency;
+  };
 
-    class ProcessorBestAffinityPredicate : public QueryPredicate<Processor> {
-    public:
-      ProcessorBestAffinityPredicate(Memory _memory, int _bandwidth_weight, int _latency_weight);
+  class ProcessorBestAffinityPredicate : public QueryPredicate<Processor> {
+  public:
+    ProcessorBestAffinityPredicate(Memory _memory, int _bandwidth_weight, int _latency_weight);
 
-      virtual QueryPredicate<Processor> *clone(void) const;
+    virtual QueryPredicate<Processor> *clone(void) const;
 
-      virtual bool matches_predicate(MachineImpl *machine, Processor thing) const;
+    virtual bool matches_predicate(MachineImpl *machine, Processor thing) const;
 
-    protected:
-      Memory memory;
-      int bandwidth_weight;
-      int latency_weight;
-    };
+  protected:
+    Memory memory;
+    int bandwidth_weight;
+    int latency_weight;
+  };
 
-    class ProcessorQueryImpl {
-    public:
-      ProcessorQueryImpl(const Machine& _machine);
+  class ProcessorQueryImpl {
+  public:
+    ProcessorQueryImpl(const Machine& _machine);
      
-    protected:
-      // these things are refcounted and copied-on-write
-      ProcessorQueryImpl(const ProcessorQueryImpl& copy_from);
-      ~ProcessorQueryImpl(void);
+  protected:
+    // these things are refcounted and copied-on-write
+    ProcessorQueryImpl(const ProcessorQueryImpl& copy_from);
+    ~ProcessorQueryImpl(void);
 
-    public:
-      void add_reference(void);
-      void remove_reference(void);
-      // makes and returns if a copy if more than one reference is held
-      ProcessorQueryImpl *writeable_reference(void);
+  public:
+    void add_reference(void);
+    void remove_reference(void);
+    // makes and returns if a copy if more than one reference is held
+    ProcessorQueryImpl *writeable_reference(void);
 
-      void restrict_to_node(int new_node_id);
-      void add_predicate(QueryPredicate<Processor> *pred);
+    void restrict_to_node(int new_node_id);
+    void add_predicate(QueryPredicate<Processor> *pred);
 
-      Processor first_match(void) const;
-      Processor next_match(Processor after) const;
-      size_t count_matches(void) const;
-      Processor random_match(void) const;
+    Processor first_match(void) const;
+    Processor next_match(Processor after) const;
+    size_t count_matches(void) const;
+    Processor random_match(void) const;
 
-    protected:
-      int references;
-      MachineImpl *machine;
-      bool is_restricted;
-      int restricted_node_id;
-      std::vector<QueryPredicate<Processor> *> predicates;     
-    };            
+  protected:
+    int references;
+    MachineImpl *machine;
+    bool is_restricted;
+    int restricted_node_id;
+    std::vector<QueryPredicate<Processor> *> predicates;     
+  };            
 
-    class MemoryKindPredicate : public QueryPredicate<Memory> {
-    public:
-      MemoryKindPredicate(Memory::Kind _kind);
+  class MemoryKindPredicate : public QueryPredicate<Memory> {
+  public:
+    MemoryKindPredicate(Memory::Kind _kind);
 
-      virtual QueryPredicate<Memory> *clone(void) const;
+    virtual QueryPredicate<Memory> *clone(void) const;
 
-      virtual bool matches_predicate(MachineImpl *machine, Memory thing) const;
+    virtual bool matches_predicate(MachineImpl *machine, Memory thing) const;
 
-    protected:
-      Memory::Kind kind;
-    };
+  protected:
+    Memory::Kind kind;
+  };
 
-    class MemoryHasProcAffinityPredicate : public QueryPredicate<Memory> {
-    public:
-      MemoryHasProcAffinityPredicate(Processor _proc, unsigned _min_bandwidth, unsigned _max_latency);
+  class MemoryHasProcAffinityPredicate : public QueryPredicate<Memory> {
+  public:
+    MemoryHasProcAffinityPredicate(Processor _proc, unsigned _min_bandwidth, unsigned _max_latency);
 
-      virtual QueryPredicate<Memory> *clone(void) const;
+    virtual QueryPredicate<Memory> *clone(void) const;
 
-      virtual bool matches_predicate(MachineImpl *machine, Memory thing) const;
+    virtual bool matches_predicate(MachineImpl *machine, Memory thing) const;
 
-    protected:
-      Processor proc;
-      unsigned min_bandwidth;
-      unsigned max_latency;
-    };
+  protected:
+    Processor proc;
+    unsigned min_bandwidth;
+    unsigned max_latency;
+  };
 
-    class MemoryHasMemAffinityPredicate : public QueryPredicate<Memory> {
-    public:
-      MemoryHasMemAffinityPredicate(Memory _memory, unsigned _min_bandwidth, unsigned _max_latency);
+  class MemoryHasMemAffinityPredicate : public QueryPredicate<Memory> {
+  public:
+    MemoryHasMemAffinityPredicate(Memory _memory, unsigned _min_bandwidth, unsigned _max_latency);
 
-      virtual QueryPredicate<Memory> *clone(void) const;
+    virtual QueryPredicate<Memory> *clone(void) const;
 
-      virtual bool matches_predicate(MachineImpl *machine, Memory thing) const;
+    virtual bool matches_predicate(MachineImpl *machine, Memory thing) const;
 
-    protected:
-      Memory memory;
-      unsigned min_bandwidth;
-      unsigned max_latency;
-    };
+  protected:
+    Memory memory;
+    unsigned min_bandwidth;
+    unsigned max_latency;
+  };
 
-    class MemoryBestProcAffinityPredicate : public QueryPredicate<Memory> {
-    public:
-      MemoryBestProcAffinityPredicate(Processor _proc, int _bandwidth_weight, int _latency_weight);
+  class MemoryBestProcAffinityPredicate : public QueryPredicate<Memory> {
+  public:
+    MemoryBestProcAffinityPredicate(Processor _proc, int _bandwidth_weight, int _latency_weight);
 
-      virtual QueryPredicate<Memory> *clone(void) const;
+    virtual QueryPredicate<Memory> *clone(void) const;
 
-      virtual bool matches_predicate(MachineImpl *machine, Memory thing) const;
+    virtual bool matches_predicate(MachineImpl *machine, Memory thing) const;
 
-    protected:
-      Processor proc;
-      int bandwidth_weight;
-      int latency_weight;
-    };
+  protected:
+    Processor proc;
+    int bandwidth_weight;
+    int latency_weight;
+  };
 
-    class MemoryBestMemAffinityPredicate : public QueryPredicate<Memory> {
-    public:
-      MemoryBestMemAffinityPredicate(Memory _memory, int _bandwidth_weight, int _latency_weight);
+  class MemoryBestMemAffinityPredicate : public QueryPredicate<Memory> {
+  public:
+    MemoryBestMemAffinityPredicate(Memory _memory, int _bandwidth_weight, int _latency_weight);
 
-      virtual QueryPredicate<Memory> *clone(void) const;
+    virtual QueryPredicate<Memory> *clone(void) const;
 
-      virtual bool matches_predicate(MachineImpl *machine, Memory thing) const;
+    virtual bool matches_predicate(MachineImpl *machine, Memory thing) const;
 
-    protected:
-      Memory memory;
-      int bandwidth_weight;
-      int latency_weight;
-    };
+  protected:
+    Memory memory;
+    int bandwidth_weight;
+    int latency_weight;
+  };
 
-    class MemoryQueryImpl {
-    public:
-      MemoryQueryImpl(const Machine& _machine);
+  class MemoryQueryImpl {
+  public:
+    MemoryQueryImpl(const Machine& _machine);
      
-    protected:
-      // these things are refcounted and copied-on-write
-      MemoryQueryImpl(const MemoryQueryImpl& copy_from);
-      ~MemoryQueryImpl(void);
+  protected:
+    // these things are refcounted and copied-on-write
+    MemoryQueryImpl(const MemoryQueryImpl& copy_from);
+    ~MemoryQueryImpl(void);
 
-    public:
-      void add_reference(void);
-      void remove_reference(void);
-      // makes and returns if a copy if more than one reference is held
-      MemoryQueryImpl *writeable_reference(void);
+  public:
+    void add_reference(void);
+    void remove_reference(void);
+    // makes and returns if a copy if more than one reference is held
+    MemoryQueryImpl *writeable_reference(void);
 
-      void restrict_to_node(int new_node_id);
-      void add_predicate(QueryPredicate<Memory> *pred);
+    void restrict_to_node(int new_node_id);
+    void add_predicate(QueryPredicate<Memory> *pred);
 
-      Memory first_match(void) const;
-      Memory next_match(Memory after) const;
-      size_t count_matches(void) const;
-      Memory random_match(void) const;
+    Memory first_match(void) const;
+    Memory next_match(Memory after) const;
+    size_t count_matches(void) const;
+    Memory random_match(void) const;
 
-    protected:
-      int references;
-      MachineImpl *machine;
-      bool is_restricted;
-      int restricted_node_id;
-      std::vector<QueryPredicate<Memory> *> predicates;     
-    };            
+  protected:
+    int references;
+    MachineImpl *machine;
+    bool is_restricted;
+    int restricted_node_id;
+    std::vector<QueryPredicate<Memory> *> predicates;     
+  };            
 
-    extern MachineImpl *machine_singleton;
-    inline MachineImpl *get_machine(void) { return machine_singleton; }
+  extern MachineImpl *machine_singleton;
+  inline MachineImpl *get_machine(void) { return machine_singleton; }
 
   // active messages
 
@@ -273,10 +273,12 @@ namespace Realm {
 
   class NodeAnnounceMessageType: public MessageType {
   public:
-    NodeAnnounceMessageType()
-      : MessageType(NODE_ANNOUNCE_MSGID, sizeof(RequestArgs), true, true) { }
+  NodeAnnounceMessageType()
+    : MessageType(NODE_ANNOUNCE_MSGID, sizeof(RequestArgs), true, true) { }
 
     struct RequestArgs : public BaseMedium {
+    RequestArgs(NodeId _node_id, unsigned _num_procs, unsigned _num_memories)
+      : node_id(_node_id), num_procs(_num_procs), num_memories(_num_memories) { }
       NodeId node_id;
       unsigned num_procs;
       unsigned num_memories;
@@ -294,8 +296,12 @@ namespace Realm {
 
   class NodeAnnounceMessage : public Message {
   public:
-    NodeAnnounceMessage(NodeId dest, void* args, FabPayload* payload)
-      : Message(dest, NODE_ANNOUNCE_MSGID, args, payload) { }
+  NodeAnnounceMessage(NodeId dest, NodeId node_id,
+		      unsigned num_procs,
+		      unsigned num_memories, FabPayload* payload)
+    : Message(dest, NODE_ANNOUNCE_MSGID, &args, payload),
+      args(node_id, num_procs, num_memories) { }
+    NodeAnnounceMessageType::RequestArgs args;    
   };
 
 }; // namespace Realm

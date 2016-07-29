@@ -28,121 +28,141 @@ namespace Realm {
 
   class GenEventImpl;
 
-    class MetadataBase {
-    public:
-      MetadataBase(void);
-      ~MetadataBase(void);
+  class MetadataBase {
+  public:
+    MetadataBase(void);
+    ~MetadataBase(void);
 
-      enum State { STATE_INVALID,
-		   STATE_VALID,
-		   STATE_REQUESTED,
-		   STATE_INVALIDATE,  // if invalidate passes normal request response
-		   STATE_CLEANUP };
+    enum State { STATE_INVALID,
+		 STATE_VALID,
+		 STATE_REQUESTED,
+		 STATE_INVALIDATE,  // if invalidate passes normal request response
+		 STATE_CLEANUP };
 
-      bool is_valid(void) const { return state == STATE_VALID; }
+    bool is_valid(void) const { return state == STATE_VALID; }
 
-      void mark_valid(void); // used by owner
-      void handle_request(int requestor);
+    void mark_valid(void); // used by owner
+    void handle_request(int requestor);
 
-      // returns an Event for when data will be valid
-      Event request_data(int owner, ID::IDType id);
-      void await_data(bool block = true);  // request must have already been made
-      void handle_response(void);
-      void handle_invalidate(void);
+    // returns an Event for when data will be valid
+    Event request_data(int owner, ID::IDType id);
+    void await_data(bool block = true);  // request must have already been made
+    void handle_response(void);
+    void handle_invalidate(void);
 
-      // these return true once all remote copies have been invalidated
-      bool initiate_cleanup(ID::IDType id);
-      bool handle_inval_ack(int sender);
+    // these return true once all remote copies have been invalidated
+    bool initiate_cleanup(ID::IDType id);
+    bool handle_inval_ack(int sender);
 
-    protected:
-      GASNetHSL mutex;
-      State state;  // current state
-      Event valid_event;
-      NodeSet remote_copies;
-    };
+  protected:
+    GASNetHSL mutex;
+    State state;  // current state
+    Event valid_event;
+    NodeSet remote_copies;
+  };
 
-    // active messages
-    class MetadataRequestMessageType : public MessageType {
-    public:
-      MetadataRequestMessageType()
-	: MessageType(METADATA_REQUEST_MSGID, sizeof(RequestArgs), false, true) { }
+  // active messages
+  class MetadataRequestMessageType : public MessageType {
+  public:
+  MetadataRequestMessageType()
+    : MessageType(METADATA_REQUEST_MSGID, sizeof(RequestArgs), false, true) { }
       
-      struct RequestArgs {
-	int node;
-	ID::IDType id;
-      };
-
-      void request(Message* m);
-      static void send_request(NodeId target, ID::IDType id);
+    struct RequestArgs {
+    RequestArgs(int _node, ID::IDType _id)
+    : node(_node), id(_id) { }
+      int node;
+      ID::IDType id;
     };
 
-    class MetadataRequestMessage : public Message {
-    public:
-      MetadataRequestMessage(NodeId target, void* args)
-	: Message(target, METADATA_REQUEST_MSGID, args, NULL) { }
-    };
+    void request(Message* m);
+    static void send_request(NodeId target, ID::IDType id);
+  };
+
+  class MetadataRequestMessage : public Message {
+  public:
+  MetadataRequestMessage(NodeId target, int node, ID::IDType id)
+    : Message(target, METADATA_REQUEST_MSGID, &args, NULL),
+      args(node, id) { }
+
+    MetadataRequestMessageType::RequestArgs args;
+  };
     
-    class MetadataResponseMessageType : public MessageType {
-    public:
-      MetadataResponseMessageType()
-	: MessageType(METADATA_RESPONSE_MSGID, sizeof(RequestArgs), true, true) { }
+  class MetadataResponseMessageType : public MessageType {
+  public:
+  MetadataResponseMessageType()
+    : MessageType(METADATA_RESPONSE_MSGID, sizeof(RequestArgs), true, true) { }
       
-      struct RequestArgs : public BaseMedium {
-	ID::IDType id;
-      };
-
-      void request(Message* m);
-      static void send_request(NodeId target, ID::IDType id, 
-			       void *data, size_t datalen, int payload_mode);
+    struct RequestArgs : public BaseMedium {
+    RequestArgs(ID::IDType _id)
+      : id(_id) { }
+      ID::IDType id;
     };
 
-    class MetadataResponseMessage : public Message {
-    public: 
-      MetadataResponseMessage(NodeId target, void* args, FabPayload* payload)
-	: Message(target, METADATA_RESPONSE_MSGID, args, payload) { }
-    };
+    void request(Message* m);
+    static void send_request(NodeId target, ID::IDType id, 
+			     void *data, size_t datalen, int payload_mode);
+  };
+
+  class MetadataResponseMessage : public Message {
+  public: 
+  MetadataResponseMessage(NodeId target, ID::IDType id, FabPayload* payload)
+    : Message(target, METADATA_RESPONSE_MSGID, &args, payload),
+      args(id) { }
+
+    MetadataResponseMessageType::RequestArgs args;
+  };
     
-    class MetadataInvalidateMessageType : public MessageType {
-    public:
-      MetadataInvalidateMessageType()
-	: MessageType(METADATA_INVALIDATE_MSGID, sizeof(RequestArgs), false, true) { }
+  class MetadataInvalidateMessageType : public MessageType {
+  public:
+  MetadataInvalidateMessageType()
+    : MessageType(METADATA_INVALIDATE_MSGID, sizeof(RequestArgs), false, true) { }
       
-      struct RequestArgs {
-	int owner;
-	ID::IDType id;
-      };
-
-      void request(Message* m);
-      static void send_request(NodeId target, ID::IDType id);
-      // TODO
-      //static void broadcast_request(const NodeSet& targets, ID::IDType id);
+    struct RequestArgs {
+    RequestArgs(int _owner, ID::IDType _id)
+    : owner(_owner), id(_id) { }
+      int owner;
+      ID::IDType id;
     };
 
-    class MetadataInvalidateMessage : public Message {
-    public:
-      MetadataInvalidateMessage(NodeId dest, void* args)
-	: Message(dest, METADATA_INVALIDATE_MSGID, args, NULL) { }
-    };
+    void request(Message* m);
+    static void send_request(NodeId target, ID::IDType id);
+    // TODO
+    //static void broadcast_request(const NodeSet& targets, ID::IDType id);
+  };
+
+  class MetadataInvalidateMessage : public Message {
+  public:
+  MetadataInvalidateMessage(NodeId dest, int owner, ID::IDType id)
+    : Message(dest, METADATA_INVALIDATE_MSGID, &args, NULL),
+      args(owner, id) { }
+
+    MetadataInvalidateMessageType::RequestArgs args;
+  };
     
-    class MetadataInvalidateAckMessageType : public MessageType {
-    public:
-      MetadataInvalidateAckMessageType()
-	: MessageType(METADATA_INVALIDATE_ACK_MSGID, sizeof(RequestArgs), false, true) { }
+  class MetadataInvalidateAckMessageType : public MessageType {
+  public:
+  MetadataInvalidateAckMessageType()
+    : MessageType(METADATA_INVALIDATE_ACK_MSGID, sizeof(RequestArgs), false, true) { }
       
-      struct RequestArgs {
-	gasnet_node_t node;
-	ID::IDType id;
-      };
-
-      void request(Message* m);
-      static void send_request(NodeId target, ID::IDType id);
+    struct RequestArgs {
+    RequestArgs(NodeId _node, ID::IDType _id)
+    : node(_node), id(_id) { }
+      NodeId node;
+      ID::IDType id;
     };
 
-    class MetadataInvalidateAckMessage : public Message {
-    public:
-      MetadataInvalidateAckMessage(NodeId dest, void* args)
-	: Message(dest, METADATA_INVALIDATE_ACK_MSGID, args, NULL) { }      
-    };
+    void request(Message* m);
+    static void send_request(NodeId target, ID::IDType id);
+  };
+
+  class MetadataInvalidateAckMessage : public Message {
+  public:
+  MetadataInvalidateAckMessage(NodeId dest, NodeId node, ID::IDType id)
+    : Message(dest, METADATA_INVALIDATE_ACK_MSGID, &args, NULL),
+      args(node, id) { }
+
+    MetadataInvalidateAckMessageType::RequestArgs args;
+  };
     
 }; // namespace Realm
 

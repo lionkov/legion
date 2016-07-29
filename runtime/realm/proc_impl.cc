@@ -561,23 +561,15 @@ namespace Realm {
 						     Event start_event,
 						     Event finish_event,
 						     int priority) { 
-    RequestArgs* r_args = new RequestArgs();
-
-    r_args->proc = proc;
-    r_args->func_id = func_id;
-    r_args->start_id = start_event.id;
-    r_args->start_gen = start_event.gen;
-    r_args->finish_id = finish_event.id;
-    r_args->finish_gen = finish_event.gen;
-    r_args->priority = priority;
-    r_args->user_arglen = arglen;
     
     if(!prs || prs->empty()) {
       // no profiling, so task args are the only payload
       FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_FREE,
 							       (void*) args,
 							       arglen);
-      fabric->send(new SpawnTaskMessage(target, (void*) r_args, payload));
+      fabric->send(new SpawnTaskMessage(target, proc, start_event.id, finish_event.id, arglen,
+					priority, func_id, start_event.gen, finish_event.gen,
+					payload));
     } else {
       // need to serialize both the task args and the profiling request
       //  into a single payload
@@ -595,7 +587,9 @@ namespace Realm {
       FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_FREE,
 							       data,
 							       datalen);
-      fabric->send(new SpawnTaskMessage(target, (void*) r_args, payload));
+      fabric->send(new SpawnTaskMessage(target, proc, start_event.id, finish_event.id, arglen,
+					priority, func_id, start_event.gen, finish_event.gen,
+					payload));
     }
   }
 
@@ -648,14 +642,7 @@ namespace Realm {
 						    const std::vector<Processor>& procs,
 						    const CodeDescriptor& codedesc,
 						    const void *userdata, size_t userlen,
-						    RemoteTaskRegistration *reg_op)
-  {
-    RequestArgs* args = new RequestArgs();
-
-    args->sender = gasnet_mynode();
-    args->func_id = func_id;
-    args->kind = kind;
-    args->reg_op = reg_op;
+						    RemoteTaskRegistration *reg_op) {
 
     Serialization::DynamicBufferSerializer dbs(1024);
     dbs << procs;
@@ -666,19 +653,14 @@ namespace Realm {
     void *data = dbs.detach_buffer(-1 /*no trim*/);
     FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_FREE, data, datalen);
     
-    fabric->send(new RegisterTaskMessage(target, (void*) args, payload));
+    fabric->send(new RegisterTaskMessage(target, fabric->get_id(), func_id, kind, reg_op, payload));
   }
 
   /*static*/ void RegisterTaskCompleteMessageType::send_request(NodeId target,
 								RemoteTaskRegistration *reg_op,
 								bool successful) {
-    RequestArgs* args = new RequestArgs();
 
-    args->sender = fabric->get_id();
-    args->reg_op = reg_op;
-    args->successful = successful;
-
-    fabric->send(new RegisterTaskCompleteMessage(target, (void*) args));
+    fabric->send(new RegisterTaskCompleteMessage(target, fabric->get_id(), reg_op, successful));
   }
 
 

@@ -1941,9 +1941,6 @@ namespace Realm {
   }
 
   /*static*/ void RuntimeShutdownMessageType::send_request(NodeId target) {
-    RequestArgs* args = new RequestArgs();
-    args->initiating_node = fabric->get_id();
-    args->dummy = 0;
-    fabric->send(new RuntimeShutdownMessage(target, args));
+    fabric->send(new RuntimeShutdownMessage(target, fabric->get_id(), 0));
   }
 }; // namespace Realm

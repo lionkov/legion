@@ -301,7 +301,8 @@ namespace Realm {
 							     return_data,
 							     sizeof(return_data));
     fabric->send(new TimerDataResponseMessage(m->sndid,
-					      ((TimerDataRequestMessageType::RequestArgs*) m->get_arg_ptr())->rollup_ptr,
+					      ((TimerDataRequestMessageType::RequestArgs*)
+					       m->get_arg_ptr())->rollup_ptr,
 					      payload));
   }
   
