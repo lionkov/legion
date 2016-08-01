@@ -172,8 +172,8 @@ namespace Realm {
     // send invalidations outside the locked section
     if(invals_to_send.empty())
       return true;
-    // TODO
-    //MetadataInvalidateMessage::broadcast_request(invals_to_send, id);
+    
+    MetadataInvalidateMessageType::broadcast_request(invals_to_send, id);
 
     // can't free object until we receive all the acks
     return false;
