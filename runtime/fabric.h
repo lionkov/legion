@@ -104,7 +104,6 @@ class Fabric {
   // all message types need to be added before init() is called
   Fabric() : log(NULL) { }
   ~Fabric() { }
-  MessageType* mts[MAX_MESSAGE_TYPES];
   virtual bool add_message_type(MessageType *mt, const std::string tag) = 0;
   virtual bool init() = 0;
   virtual void shutdown() = 0;
@@ -129,6 +128,15 @@ class Fabric {
     static Realm::Logger log("fabric");
     return log;
   }
+
+  MessageType* look_up_mt(MessageId id) {
+    assert((id >= 0) && (id < MAX_MESSAGE_TYPES) && "Message type out of range");
+    assert((mts[id] != NULL) && "Message type was not added / initialized");
+    return mts[id];
+  }
+  
+  MessageType* mts[MAX_MESSAGE_TYPES];
+ protected:
 };
 
 extern Fabric* fabric;
@@ -161,6 +169,7 @@ class Message {
 
   Message(NodeId dest, MessageId _id, void *a, FabPayload *p)
      : rcvid(dest), id(_id), arg_ptr(a), payload(p) {
+    //mtype = fabric->look_up_mt(id);
     mtype = fabric->mts[id];
     rcvid = dest;
     sndid = fabric->get_id();
