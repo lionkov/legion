@@ -53,7 +53,7 @@ enum MessageIds {
       BARRIER_MIGRATE_MSGID, //
       METADATA_REQUEST_MSGID, //
       METADATA_RESPONSE_MSGID,   // // should really be a reply
-      METADATA_INVALIDATE_MSGID, // // TODO -- broadcast
+      METADATA_INVALIDATE_MSGID, // 
       METADATA_INVALIDATE_ACK_MSGID, // 
       REGISTER_TASK_MSGID, //
       REGISTER_TASK_COMPLETE_MSGID  //

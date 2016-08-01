@@ -129,8 +129,7 @@ namespace Realm {
 	: RequestArgs(_owner, _id) { }
       inline void apply(NodeId target);
       void broadcast(const NodeSet& targets);
-    };
-    
+    };    
 
     void request(Message* m);
     static void send_request(NodeId target, ID::IDType id);
