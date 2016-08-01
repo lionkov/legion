@@ -1322,11 +1322,11 @@ protected:
 	   ((hdr->payload_mode == PAYLOAD_NONE) ? "SHORT" : "MEDIUM"),
 	   hdr->num_args, hdr->msgid,
 	   hdr->payload, hdr->payload_size,
-	   hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-	   hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-	   hdr->get_arg_ptr()[6], hdr->get_arg_ptr()[7], hdr->get_arg_ptr()[8],
-	   hdr->get_arg_ptr()[9], hdr->get_arg_ptr()[10], hdr->get_arg_ptr()[11],
-	   hdr->get_arg_ptr()[12], hdr->get_arg_ptr()[13], hdr->get_arg_ptr()[14], hdr->get_arg_ptr()[15]);
+	   hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+	   hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+	   hdr->get_args()[6], hdr->get_args()[7], hdr->get_args()[8],
+	   hdr->get_args()[9], hdr->get_args()[10], hdr->get_args()[11],
+	   hdr->get_args()[12], hdr->get_args()[13], hdr->get_args()[14], hdr->get_args()[15]);
     fflush(stdout);
 #endif
 #ifdef TRACE_MESSAGES
@@ -1342,148 +1342,148 @@ protected:
     case 1:
       if(hdr->payload_mode != PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium1(peer, hdr->msgid, hdr->payload, 
-                                              hdr->payload_size, hdr->get_arg_ptr()[0]) );
+                                              hdr->payload_size, hdr->get_args()[0]) );
       } else {
-	CHECK_GASNET( gasnet_AMRequestShort1(peer, hdr->msgid, hdr->get_arg_ptr()[0]) );
+	CHECK_GASNET( gasnet_AMRequestShort1(peer, hdr->msgid, hdr->get_args()[0]) );
       }
       break;
 
     case 2:
       if(hdr->payload_mode != PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium2(peer, hdr->msgid, hdr->payload, hdr->payload_size,
-                                              hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1]) );
+                                              hdr->get_args()[0], hdr->get_args()[1]) );
       } else {
-	CHECK_GASNET( gasnet_AMRequestShort2(peer, hdr->msgid, hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1]) );
+	CHECK_GASNET( gasnet_AMRequestShort2(peer, hdr->msgid, hdr->get_args()[0], hdr->get_args()[1]) );
       }
       break;
 
     case 3:
       if(hdr->payload_mode != PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium3(peer, hdr->msgid, hdr->payload, hdr->payload_size,
-				hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2]) );
+				hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2]) );
       } else {
 	CHECK_GASNET( gasnet_AMRequestShort3(peer, hdr->msgid,
-			       hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2]) );
+			       hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2]) );
       }
       break;
 
     case 4:
       if(hdr->payload_mode != PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium4(peer, hdr->msgid, hdr->payload, hdr->payload_size,
-				hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-				hdr->get_arg_ptr()[3]) );
+				hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+				hdr->get_args()[3]) );
       } else {
 	CHECK_GASNET( gasnet_AMRequestShort4(peer, hdr->msgid,
-			       hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-			       hdr->get_arg_ptr()[3]) );
+			       hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+			       hdr->get_args()[3]) );
       }
       break;
 
     case 5:
       if(hdr->payload_mode != PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium5(peer, hdr->msgid, hdr->payload, hdr->payload_size,
-				hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-				hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4]) );
+				hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+				hdr->get_args()[3], hdr->get_args()[4]) );
       } else {
 	CHECK_GASNET( gasnet_AMRequestShort5(peer, hdr->msgid,
-			       hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-			       hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4]) );
+			       hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+			       hdr->get_args()[3], hdr->get_args()[4]) );
       }
       break;
 
     case 6:
       if(hdr->payload_mode != PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium6(peer, hdr->msgid, hdr->payload, hdr->payload_size,
-				hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-				hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5]) );
+				hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+				hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5]) );
       } else {
 	CHECK_GASNET( gasnet_AMRequestShort6(peer, hdr->msgid,
-			       hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-			       hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5]) );
+			       hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+			       hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5]) );
       }
       break;
 
     case 8:
       if(hdr->payload_mode != PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium8(peer, hdr->msgid, hdr->payload, hdr->payload_size,
-				hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-				hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-				hdr->get_arg_ptr()[6], hdr->get_arg_ptr()[7]) );
+				hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+				hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+				hdr->get_args()[6], hdr->get_args()[7]) );
       } else {
 	CHECK_GASNET( gasnet_AMRequestShort8(peer, hdr->msgid,
-			       hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-			       hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-			       hdr->get_arg_ptr()[6], hdr->get_arg_ptr()[7]) );
+			       hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+			       hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+			       hdr->get_args()[6], hdr->get_args()[7]) );
       }
       break;
 
     case 10:
       if(hdr->payload_mode != PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium10(peer, hdr->msgid, hdr->payload, hdr->payload_size,
-				 hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-				 hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-				 hdr->get_arg_ptr()[6], hdr->get_arg_ptr()[7], hdr->get_arg_ptr()[8],
-				 hdr->get_arg_ptr()[9]) );
+				 hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+				 hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+				 hdr->get_args()[6], hdr->get_args()[7], hdr->get_args()[8],
+				 hdr->get_args()[9]) );
       } else {
 	CHECK_GASNET( gasnet_AMRequestShort10(peer, hdr->msgid,
-				hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-				hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-				hdr->get_arg_ptr()[6], hdr->get_arg_ptr()[7], hdr->get_arg_ptr()[8],
-				hdr->get_arg_ptr()[9]) );
+				hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+				hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+				hdr->get_args()[6], hdr->get_args()[7], hdr->get_args()[8],
+				hdr->get_args()[9]) );
       }
       break;
 
     case 12:
       if(hdr->payload_mode != PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium12(peer, hdr->msgid, hdr->payload, hdr->payload_size,
-				 hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-				 hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-				 hdr->get_arg_ptr()[6], hdr->get_arg_ptr()[7], hdr->get_arg_ptr()[8],
-				 hdr->get_arg_ptr()[9], hdr->get_arg_ptr()[10], hdr->get_arg_ptr()[11]) );
+				 hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+				 hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+				 hdr->get_args()[6], hdr->get_args()[7], hdr->get_args()[8],
+				 hdr->get_args()[9], hdr->get_args()[10], hdr->get_args()[11]) );
       } else {
 	CHECK_GASNET( gasnet_AMRequestShort12(peer, hdr->msgid,
-				hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-				hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-				hdr->get_arg_ptr()[6], hdr->get_arg_ptr()[7], hdr->get_arg_ptr()[8],
-				hdr->get_arg_ptr()[9], hdr->get_arg_ptr()[10], hdr->get_arg_ptr()[11]) );
+				hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+				hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+				hdr->get_args()[6], hdr->get_args()[7], hdr->get_args()[8],
+				hdr->get_args()[9], hdr->get_args()[10], hdr->get_args()[11]) );
       }
       break;
 
     case 14:
       if(hdr->payload_mode != PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium14(peer, hdr->msgid, hdr->payload, hdr->payload_size,
-				 hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-				 hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-				 hdr->get_arg_ptr()[6], hdr->get_arg_ptr()[7], hdr->get_arg_ptr()[8],
-				 hdr->get_arg_ptr()[9], hdr->get_arg_ptr()[10], hdr->get_arg_ptr()[11],
-				 hdr->get_arg_ptr()[12], hdr->get_arg_ptr()[13]) );
+				 hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+				 hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+				 hdr->get_args()[6], hdr->get_args()[7], hdr->get_args()[8],
+				 hdr->get_args()[9], hdr->get_args()[10], hdr->get_args()[11],
+				 hdr->get_args()[12], hdr->get_args()[13]) );
       } else {
 	CHECK_GASNET( gasnet_AMRequestShort14(peer, hdr->msgid,
-				hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-				hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-				hdr->get_arg_ptr()[6], hdr->get_arg_ptr()[7], hdr->get_arg_ptr()[8],
-				hdr->get_arg_ptr()[9], hdr->get_arg_ptr()[10], hdr->get_arg_ptr()[11],
-				hdr->get_arg_ptr()[12], hdr->get_arg_ptr()[13]) );
+				hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+				hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+				hdr->get_args()[6], hdr->get_args()[7], hdr->get_args()[8],
+				hdr->get_args()[9], hdr->get_args()[10], hdr->get_args()[11],
+				hdr->get_args()[12], hdr->get_args()[13]) );
       }
       break;
 
     case 16:
       if(hdr->payload_mode != PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium16(peer, hdr->msgid, hdr->payload, hdr->payload_size,
-				 hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-				 hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-				 hdr->get_arg_ptr()[6], hdr->get_arg_ptr()[7], hdr->get_arg_ptr()[8],
-				 hdr->get_arg_ptr()[9], hdr->get_arg_ptr()[10], hdr->get_arg_ptr()[11],
-				 hdr->get_arg_ptr()[12], hdr->get_arg_ptr()[13], hdr->get_arg_ptr()[14],
-				 hdr->get_arg_ptr()[15]) );
+				 hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+				 hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+				 hdr->get_args()[6], hdr->get_args()[7], hdr->get_args()[8],
+				 hdr->get_args()[9], hdr->get_args()[10], hdr->get_args()[11],
+				 hdr->get_args()[12], hdr->get_args()[13], hdr->get_args()[14],
+				 hdr->get_args()[15]) );
       } else {
 	CHECK_GASNET( gasnet_AMRequestShort16(peer, hdr->msgid,
-				hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-				hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-				hdr->get_arg_ptr()[6], hdr->get_arg_ptr()[7], hdr->get_arg_ptr()[8],
-				hdr->get_arg_ptr()[9], hdr->get_arg_ptr()[10], hdr->get_arg_ptr()[11],
-				hdr->get_arg_ptr()[12], hdr->get_arg_ptr()[13], hdr->get_arg_ptr()[14],
-				hdr->get_arg_ptr()[15]) );
+				hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+				hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+				hdr->get_args()[6], hdr->get_args()[7], hdr->get_args()[8],
+				hdr->get_args()[9], hdr->get_args()[10], hdr->get_args()[11],
+				hdr->get_args()[12], hdr->get_args()[13], hdr->get_args()[14],
+				hdr->get_args()[15]) );
       }
       break;
 
@@ -1502,31 +1502,31 @@ protected:
     // Get a new message ID for this message
     // We know that all medium and long active messages use the
     // BaseMedium class as their base type for sending so the first
-    // two fields hdr->get_arg_ptr()[0] and hdr->get_arg_ptr()[1] can be used for
+    // two fields hdr->get_args()[0] and hdr->get_args()[1] can be used for
     // storing the message ID and the number of chunks
     int message_id_start;
-    if(hdr->get_arg_ptr()[0] == BaseMedium::MESSAGE_ID_MAGIC) {
-      assert(hdr->get_arg_ptr()[1] == BaseMedium::MESSAGE_CHUNKS_MAGIC);
+    if(hdr->get_args()[0] == BaseMedium::MESSAGE_ID_MAGIC) {
+      assert(hdr->get_args()[1] == BaseMedium::MESSAGE_CHUNKS_MAGIC);
       message_id_start = 0;
       //printf("CASE 1\n");
     } else {
-      assert(hdr->get_arg_ptr()[2] == BaseMedium::MESSAGE_ID_MAGIC);
-      assert(hdr->get_arg_ptr()[3] == BaseMedium::MESSAGE_CHUNKS_MAGIC);
+      assert(hdr->get_args()[2] == BaseMedium::MESSAGE_ID_MAGIC);
+      assert(hdr->get_args()[3] == BaseMedium::MESSAGE_CHUNKS_MAGIC);
       message_id_start = 2;
       //printf("CASE 2\n");
     }
-    hdr->get_arg_ptr()[message_id_start] = next_outgoing_message_id++;
+    hdr->get_args()[message_id_start] = next_outgoing_message_id++;
     int chunks = (hdr->payload_size + max_long_req - 1) / max_long_req;
-    hdr->get_arg_ptr()[message_id_start + 1] = chunks;
+    hdr->get_args()[message_id_start + 1] = chunks;
     if(hdr->payload_mode == PAYLOAD_SRCPTR) {
       //srcdatapool->record_srcptr(hdr->payload);
       gasnet_handlerarg_t srcptr_lo = ((uint64_t)(hdr->payload)) & 0x0FFFFFFFFULL;
       gasnet_handlerarg_t srcptr_hi = ((uint64_t)(hdr->payload)) >> 32;
-      hdr->get_arg_ptr()[message_id_start + 2] = srcptr_lo;
-      hdr->get_arg_ptr()[message_id_start + 3] = srcptr_hi;
+      hdr->get_args()[message_id_start + 2] = srcptr_lo;
+      hdr->get_args()[message_id_start + 3] = srcptr_hi;
     } else {
-      hdr->get_arg_ptr()[message_id_start + 2] = 0;
-      hdr->get_arg_ptr()[message_id_start + 3] = 0;
+      hdr->get_args()[message_id_start + 2] = 0;
+      hdr->get_args()[message_id_start + 3] = 0;
     }
       
     for (int i = (chunks-1); i >= 0; i--)
@@ -1541,11 +1541,11 @@ protected:
 	     gasnet_mynode(), peer, hdr->num_args, hdr->msgid,
 	     ((char*)hdr->payload)+(i*max_long_req), size, 
 	     ((char*)dest_ptr)+(i*max_long_req),
-	     hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-	     hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-	     hdr->get_arg_ptr()[6], hdr->get_arg_ptr()[7], hdr->get_arg_ptr()[8],
-	     hdr->get_arg_ptr()[9], hdr->get_arg_ptr()[10], hdr->get_arg_ptr()[11],
-	     hdr->get_arg_ptr()[12], hdr->get_arg_ptr()[13], hdr->get_arg_ptr()[14], hdr->get_arg_ptr()[15]);
+	     hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+	     hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+	     hdr->get_args()[6], hdr->get_args()[7], hdr->get_args()[8],
+	     hdr->get_args()[9], hdr->get_args()[10], hdr->get_args()[11],
+	     hdr->get_args()[12], hdr->get_args()[13], hdr->get_args()[14], hdr->get_args()[15]);
       fflush(stdout);
 #endif
 #ifdef TRACE_MESSAGES
@@ -1562,135 +1562,135 @@ protected:
         assert(false);
         //gasnet_AMRequestLongAsync1(peer, hdr->msgid, 
         //                      hdr->payload, msg_size, dest_ptr,
-        //                      hdr->get_arg_ptr()[0]);
+        //                      hdr->get_args()[0]);
         break;
 
       case 2:
         CHECK_GASNET( gasnet_AMRequestLongAsync2(peer, hdr->msgid, 
                               ((char*)hdr->payload)+(i*max_long_req), size, 
                               ((char*)dest_ptr)+(i*max_long_req),
-                              hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1]) );
+                              hdr->get_args()[0], hdr->get_args()[1]) );
         break;
 
       case 3:
         CHECK_GASNET( gasnet_AMRequestLongAsync3(peer, hdr->msgid, 
                               ((char*)hdr->payload)+(i*max_long_req), size, 
                               ((char*)dest_ptr)+(i*max_long_req),
-                              hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2]) );
+                              hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2]) );
         break;
 
       case 4:
         CHECK_GASNET( gasnet_AMRequestLongAsync4(peer, hdr->msgid, 
                               ((char*)hdr->payload)+(i*max_long_req), size, 
                               ((char*)dest_ptr)+(i*max_long_req),
-                              hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-                              hdr->get_arg_ptr()[3]) );
+                              hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+                              hdr->get_args()[3]) );
         break;
       case 5:
         CHECK_GASNET (gasnet_AMRequestLongAsync5(peer, hdr->msgid,
                               ((char*)hdr->payload)+(i*max_long_req), size,
                               ((char*)dest_ptr)+(i*max_long_req),
-                              hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-                              hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4]) );
+                              hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+                              hdr->get_args()[3], hdr->get_args()[4]) );
         break;
       case 6:
         CHECK_GASNET( gasnet_AMRequestLongAsync6(peer, hdr->msgid, 
                               ((char*)hdr->payload)+(i*max_long_req), size, 
                               ((char*)dest_ptr)+(i*max_long_req),
-                              hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-                              hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5]) );
+                              hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+                              hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5]) );
         break;
       case 7:
         CHECK_GASNET( gasnet_AMRequestLongAsync7(peer, hdr->msgid,
                               ((char*)hdr->payload)+(i*max_long_req), size, 
                               ((char*)dest_ptr)+(i*max_long_req),
-                              hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-                              hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-                              hdr->get_arg_ptr()[6]) );
+                              hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+                              hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+                              hdr->get_args()[6]) );
         break;
       case 8:
         CHECK_GASNET( gasnet_AMRequestLongAsync8(peer, hdr->msgid,
                               ((char*)hdr->payload)+(i*max_long_req), size, 
                               ((char*)dest_ptr)+(i*max_long_req),
-                              hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-                              hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-                              hdr->get_arg_ptr()[6], hdr->get_arg_ptr()[7]) );
+                              hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+                              hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+                              hdr->get_args()[6], hdr->get_args()[7]) );
         break;
       case 9:
         CHECK_GASNET( gasnet_AMRequestLongAsync9(peer, hdr->msgid,
                               ((char*)hdr->payload)+(i*max_long_req), size, 
                               ((char*)dest_ptr)+(i*max_long_req),
-                              hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-                              hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-                              hdr->get_arg_ptr()[6], hdr->get_arg_ptr()[7], hdr->get_arg_ptr()[8]) );
+                              hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+                              hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+                              hdr->get_args()[6], hdr->get_args()[7], hdr->get_args()[8]) );
         break;
       case 10:
         CHECK_GASNET( gasnet_AMRequestLongAsync10(peer, hdr->msgid,
                               ((char*)hdr->payload)+(i*max_long_req), size, 
                               ((char*)dest_ptr)+(i*max_long_req),
-                              hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-                              hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-                              hdr->get_arg_ptr()[6], hdr->get_arg_ptr()[7], hdr->get_arg_ptr()[8],
-                              hdr->get_arg_ptr()[9]) );
+                              hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+                              hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+                              hdr->get_args()[6], hdr->get_args()[7], hdr->get_args()[8],
+                              hdr->get_args()[9]) );
         break;
       case 11:
         CHECK_GASNET( gasnet_AMRequestLongAsync11(peer, hdr->msgid,
                               ((char*)hdr->payload)+(i*max_long_req), size, 
                               ((char*)dest_ptr)+(i*max_long_req),
-                              hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-                              hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-                              hdr->get_arg_ptr()[6], hdr->get_arg_ptr()[7], hdr->get_arg_ptr()[8],
-                              hdr->get_arg_ptr()[9], hdr->get_arg_ptr()[10]) );
+                              hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+                              hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+                              hdr->get_args()[6], hdr->get_args()[7], hdr->get_args()[8],
+                              hdr->get_args()[9], hdr->get_args()[10]) );
         break;
       case 12:
         CHECK_GASNET( gasnet_AMRequestLongAsync12(peer, hdr->msgid,
                               ((char*)hdr->payload)+(i*max_long_req), size, 
                               ((char*)dest_ptr)+(i*max_long_req),
-                              hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-                              hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-                              hdr->get_arg_ptr()[6], hdr->get_arg_ptr()[7], hdr->get_arg_ptr()[8],
-                              hdr->get_arg_ptr()[9], hdr->get_arg_ptr()[10], hdr->get_arg_ptr()[11]) );
+                              hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+                              hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+                              hdr->get_args()[6], hdr->get_args()[7], hdr->get_args()[8],
+                              hdr->get_args()[9], hdr->get_args()[10], hdr->get_args()[11]) );
         break;
       case 13:
         CHECK_GASNET( gasnet_AMRequestLongAsync13(peer, hdr->msgid,
                               ((char*)hdr->payload)+(i*max_long_req), size, 
                               ((char*)dest_ptr)+(i*max_long_req),
-                              hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-                              hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-                              hdr->get_arg_ptr()[6], hdr->get_arg_ptr()[7], hdr->get_arg_ptr()[8],
-                              hdr->get_arg_ptr()[9], hdr->get_arg_ptr()[10], hdr->get_arg_ptr()[11],
-                              hdr->get_arg_ptr()[12]) );
+                              hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+                              hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+                              hdr->get_args()[6], hdr->get_args()[7], hdr->get_args()[8],
+                              hdr->get_args()[9], hdr->get_args()[10], hdr->get_args()[11],
+                              hdr->get_args()[12]) );
         break;
       case 14:
         CHECK_GASNET( gasnet_AMRequestLongAsync14(peer, hdr->msgid,
                               ((char*)hdr->payload)+(i*max_long_req), size, 
                               ((char*)dest_ptr)+(i*max_long_req),
-                              hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-                              hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-                              hdr->get_arg_ptr()[6], hdr->get_arg_ptr()[7], hdr->get_arg_ptr()[8],
-                              hdr->get_arg_ptr()[9], hdr->get_arg_ptr()[10], hdr->get_arg_ptr()[11],
-                              hdr->get_arg_ptr()[12], hdr->get_arg_ptr()[13]) );
+                              hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+                              hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+                              hdr->get_args()[6], hdr->get_args()[7], hdr->get_args()[8],
+                              hdr->get_args()[9], hdr->get_args()[10], hdr->get_args()[11],
+                              hdr->get_args()[12], hdr->get_args()[13]) );
         break;
       case 15:
         CHECK_GASNET( gasnet_AMRequestLongAsync15(peer, hdr->msgid,
                               ((char*)hdr->payload)+(i*max_long_req), size, 
                               ((char*)dest_ptr)+(i*max_long_req),
-                              hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-                              hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-                              hdr->get_arg_ptr()[6], hdr->get_arg_ptr()[7], hdr->get_arg_ptr()[8],
-                              hdr->get_arg_ptr()[9], hdr->get_arg_ptr()[10], hdr->get_arg_ptr()[11],
-                              hdr->get_arg_ptr()[12], hdr->get_arg_ptr()[13], hdr->get_arg_ptr()[14]) );
+                              hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+                              hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+                              hdr->get_args()[6], hdr->get_args()[7], hdr->get_args()[8],
+                              hdr->get_args()[9], hdr->get_args()[10], hdr->get_args()[11],
+                              hdr->get_args()[12], hdr->get_args()[13], hdr->get_args()[14]) );
         break;
       case 16:
         CHECK_GASNET( gasnet_AMRequestLongAsync16(peer, hdr->msgid,
                               ((char*)hdr->payload+(i*max_long_req)), size, 
                               ((char*)dest_ptr)+(i*max_long_req),
-                              hdr->get_arg_ptr()[0], hdr->get_arg_ptr()[1], hdr->get_arg_ptr()[2],
-                              hdr->get_arg_ptr()[3], hdr->get_arg_ptr()[4], hdr->get_arg_ptr()[5],
-                              hdr->get_arg_ptr()[6], hdr->get_arg_ptr()[7], hdr->get_arg_ptr()[8],
-                              hdr->get_arg_ptr()[9], hdr->get_arg_ptr()[10], hdr->get_arg_ptr()[11],
-                              hdr->get_arg_ptr()[12], hdr->get_arg_ptr()[13], hdr->get_arg_ptr()[14],
-                              hdr->get_arg_ptr()[15]) );
+                              hdr->get_args()[0], hdr->get_args()[1], hdr->get_args()[2],
+                              hdr->get_args()[3], hdr->get_args()[4], hdr->get_args()[5],
+                              hdr->get_args()[6], hdr->get_args()[7], hdr->get_args()[8],
+                              hdr->get_args()[9], hdr->get_args()[10], hdr->get_args()[11],
+                              hdr->get_args()[12], hdr->get_args()[13], hdr->get_args()[14],
+                              hdr->get_args()[15]) );
         break;
 
       default:
