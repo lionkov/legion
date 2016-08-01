@@ -1035,12 +1035,11 @@ namespace Realm {
     int payload_mode;
   };
     
-    
   /*static*/ void EventSubscribeMessageType::send_request(NodeId target,
 							  Event event,
 							  Event::gen_t previous_gen) {
     fabric->send(new EventSubscribeMessage(target,
-					   fabric->get_id(),
+					   gasnet_mynode(),
 					   event,
 					   previous_gen));
   }
@@ -1179,29 +1178,28 @@ namespace Realm {
 						       const Event::gen_t *poisoned_generations) { 
         
     FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_KEEP,
-							    (void*) poisoned_generations,
-							    num_poisoned*sizeof(Event::gen_t));
+							     (void*) poisoned_generations,
+							     num_poisoned*sizeof(Event::gen_t));
 
     fabric->send(new EventUpdateMessage(target, event, payload));
   }
 
 
-  void EventUpdateMessageType::BroadcastHelper::apply(NodeId target) {
-    fabric->send(new EventUpdateMessage(target, event, payload));    
-  }
-  
-  void EventUpdateMessageType::BroadcastHelper::broadcast(const NodeSet& targets) {
-    assert((payload->get_mode() != PAYLOAD_FREE) && "cannot use PAYLOAD_FREE with broadcast!");
-    targets.map(*this);
-  }
+  // TODO
+  // /*static*/ void EventUpdateMessage::broadcast_request(const NodeSet& targets, Event event,
+  // 							int num_poisoned,
+  // 							const Event::gen_t *poisoned_generations)
+  // {
+  //   MediumBroadcastHelper<EventUpdateMessage> args;
 
-  void EventUpdateMessageType::broadcast_request(const NodeSet& targets,
-						 Event event,
-						 int num_poisoned,
-						 const Event::gen_t* poisoned_generations) {
-    BroadcastHelper helper(event, num_poisoned, poisoned_generations, PAYLOAD_KEEP);
-    helper.broadcast(targets);    
-  }
+  //   args.event = event;
+
+  //   args.broadcast(targets,
+  // 		   poisoned_generations, num_poisoned * sizeof(Event::gen_t),
+  // 		   PAYLOAD_KEEP);
+  // }
+
+
 
   void GenEventImpl::process_update(Event::gen_t current_gen,
 				    const Event::gen_t *new_poisoned_generations,

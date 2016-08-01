@@ -41,14 +41,10 @@ class FabPayload {
 	
  public:
   FabPayload(int m) : mode(m) { }
-
   virtual ~FabPayload(void) { }
 
   // Return payload size 
   virtual size_t size(void) = 0;
-
-  // gets payload mode
-  int get_mode() { return mode; }
   
   // Return direct pointer to payload
   virtual void* ptr(void) = 0;
