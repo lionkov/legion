@@ -254,7 +254,7 @@ namespace Realm {
     };
 
     void request(Message* m);
-    static void send_request(gasnet_node_t target, Reservation lock,
+    static void send_request(NodeId gasnet_node_t target, Reservation lock,
 			     unsigned mode, void* data, size_t datalen,
 			     int payload_mode);
   };

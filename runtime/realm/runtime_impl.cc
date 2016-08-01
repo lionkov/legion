@@ -1281,7 +1281,7 @@ namespace Realm {
 	gasnet_coll_gather(GASNET_TEAM_ALL, root, all_events, &wait_on, sizeof(Event), GASNET_COLL_FLAGS);
 
 	// step 2: merge all the events
-	std::set<Event> event_set;
+	std::set<Event> event_set;+
 	for(int i = 0; i < gasnet_nodes(); i++) {
 	  //log_collective.info() << "ev " << i << ": " << all_events[i];
 	  if(all_events[i].exists())
