@@ -124,10 +124,17 @@ namespace Realm {
       ID::IDType id;
     };
 
+    struct BroadcastHelper : public RequestArgs {
+      BroadcastHelper(int _owner, ID::IDType _id)
+	: RequestArgs(_owner, _id) { }
+      inline void apply(NodeId target);
+      void broadcast(const NodeSet& targets);
+    };
+    
+
     void request(Message* m);
     static void send_request(NodeId target, ID::IDType id);
-    // TODO
-    //static void broadcast_request(const NodeSet& targets, ID::IDType id);
+    static void broadcast_request(const NodeSet& targets, ID::IDType id);
   };
 
   class MetadataInvalidateMessage : public Message {
@@ -135,6 +142,11 @@ namespace Realm {
   MetadataInvalidateMessage(NodeId dest, int owner, ID::IDType id)
     : Message(dest, METADATA_INVALIDATE_MSGID, &args, NULL),
       args(owner, id) { }
+
+  MetadataInvalidateMessage(NodeId dest, MetadataInvalidateMessageType::RequestArgs* _args)
+    : Message(dest, METADATA_INVALIDATE_MSGID, &args, NULL),
+      args(_args->owner, _args->id) { }
+
 
     MetadataInvalidateMessageType::RequestArgs args;
   };
@@ -145,8 +157,8 @@ namespace Realm {
     : MessageType(METADATA_INVALIDATE_ACK_MSGID, sizeof(RequestArgs), false, true) { }
       
     struct RequestArgs {
-    RequestArgs(NodeId _node, ID::IDType _id)
-    : node(_node), id(_id) { }
+      RequestArgs(NodeId _node, ID::IDType _id)
+	: node(_node), id(_id) { }
       NodeId node;
       ID::IDType id;
     };
@@ -157,8 +169,8 @@ namespace Realm {
 
   class MetadataInvalidateAckMessage : public Message {
   public:
-  MetadataInvalidateAckMessage(NodeId dest, NodeId node, ID::IDType id)
-    : Message(dest, METADATA_INVALIDATE_ACK_MSGID, &args, NULL),
+    MetadataInvalidateAckMessage(NodeId dest, NodeId node, ID::IDType id)
+      : Message(dest, METADATA_INVALIDATE_ACK_MSGID, &args, NULL),
       args(node, id) { }
 
     MetadataInvalidateAckMessageType::RequestArgs args;

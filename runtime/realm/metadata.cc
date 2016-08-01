@@ -311,32 +311,20 @@ namespace Realm {
 							      ID::IDType id) {
     fabric->send(new MetadataInvalidateMessage(target, fabric->get_id(), id));
   }
-  /* TODO -- implement broadcast */
-  
-  // template <typename T>
-  // struct BroadcastHelper : public T::RequestArgs {
-  //   inline void apply(gasnet_node_t target)
-  //   {
-  //     T::ActiveMessage::request(target, *this);
-  //   }
 
-  //   void broadcast(const NodeSet& targets)
-  //   {
-  //     targets.map(*this);
-  //   }
-  // };
-  
-  // /*static*/ void MetadataInvalidateMessage::broadcast_request(const NodeSet& targets,
-  // 							       ID::IDType id)
-  // {
-  //   BroadcastHelper<MetadataInvalidateMessage> args;
+  void MetadataInvalidateMessageType::BroadcastHelper::apply(NodeId target) {
+    fabric->send(new MetadataInvalidateMessage(target, fabric->get_id(), id));
+  }
 
-  //   args.owner = gasnet_mynode();
-  //   args.id = id;
-  //   args.broadcast(targets);
-  // }
-
+  void MetadataInvalidateMessageType::BroadcastHelper::broadcast(const NodeSet& targets) {
+    targets.map(*this);
+  }
   
+  /*static*/ void MetadataInvalidateMessageType::broadcast_request(const NodeSet& targets,
+								   ID::IDType id) {
+    BroadcastHelper args(fabric->get_id(), id);
+    args.broadcast(targets);
+  }
 
   void MetadataInvalidateAckMessageType::request(Message* m) {
     RequestArgs* args = (RequestArgs*) m->get_arg_ptr();

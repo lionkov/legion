@@ -21,7 +21,7 @@
 #include "mem_impl.h"
 #include "inst_impl.h"
 
-#include "activemsg.h"
+//#include "activemsg.h"
 
 #include "cmdline.h"
 

@@ -279,7 +279,7 @@ namespace Realm {
       Reservation actual;
       Reservation dummy;
     };
-
+    
     void request(Message* m);
     static void send_request(NodeId target, Reservation lock);
   };
@@ -297,4 +297,3 @@ namespace Realm {
 #include "rsrv_impl.inl"
 
 #endif // ifndef REALM_RSRV_IMPL_H
-
