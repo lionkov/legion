@@ -615,7 +615,7 @@ class DetailedMessageTiming {
 public:
   DetailedMessageTiming(void)
   {
-    path = getenv("LEGION_MESSAGE_TIMING_PATH");
+    path = getenv("LEGION_MESSAGE_TIMING_PA");
     message_count = 0;
     if(path) {
       char *e = getenv("LEGION_MESSAGE_TIMING_MAX");
