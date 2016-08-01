@@ -58,6 +58,8 @@ class FabPayload {
   // Assigns iovecs at iov to point to this payload's data.
   // Returns the numer of iovecs assigned, or -1 on failure.
   virtual ssize_t iovec(struct iovec *iov, size_t iovnum) = 0;
+
+  int get_mode() { return mode; }
 };
 
 // A contiguous payload is just a congituous buffer with some length, sz.

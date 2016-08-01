@@ -305,19 +305,33 @@ namespace Realm {
   EventUpdateMessageType()
     : MessageType(EVENT_UPDATE_MSGID, sizeof(RequestArgs), true, true) { }
 
-    struct RequestArgs : public BaseMedium {
+    struct RequestArgs {
     RequestArgs(Event _event)
       : event(_event) { }
       Event event;
-      //void apply(NodeId target);
     };
 
+    struct BroadcastHelper : RequestArgs {
+    BroadcastHelper(Event _event, int num_poisoned,
+		    const Event::gen_t* poisoned_generations,
+		    int payload_mode)
+      : RequestArgs(_event),
+	payload(new FabContiguousPayload(payload_mode,
+					 (void*) poisoned_generations,
+					 num_poisoned)) { }
+      
+      FabContiguousPayload* payload;
+      void apply(NodeId target);
+      void broadcast(const NodeSet& targets);
+    };
+
+   
     void request(Message* m);
     static void send_request(NodeId target, Event event,
 			     int num_poisoned, const Event::gen_t *poisoned_generations);
-    // TODO
-    //static void broadcast_request(const NodeSet& targets, Event event,
-    //int num_poisoned, const Event::gen_t *poisoned_generations);
+    
+    static void broadcast_request(const NodeSet& targets, Event event,
+				  int num_poisoned, const Event::gen_t* poisoned_generations);
   };
 
   class EventUpdateMessage : public Message {

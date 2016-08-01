@@ -1183,21 +1183,24 @@ namespace Realm {
 
     fabric->send(new EventUpdateMessage(target, event, payload));
   }
+  
+  void EventUpdateMessageType::BroadcastHelper::apply(NodeId target) {
+    fabric->send(new EventUpdateMessage(target, event, payload));    
+  }
 
+  void EventUpdateMessageType::BroadcastHelper::broadcast(const NodeSet& targets) {
+    assert((payload->get_mode() != FAB_PAYLOAD_FREE) && "cannot use PAYLOAD_FREE with broadcast!");
+    targets.map(*this);
+  }
+  
+  
 
-  // TODO
-  // /*static*/ void EventUpdateMessage::broadcast_request(const NodeSet& targets, Event event,
-  // 							int num_poisoned,
-  // 							const Event::gen_t *poisoned_generations)
-  // {
-  //   MediumBroadcastHelper<EventUpdateMessage> args;
-
-  //   args.event = event;
-
-  //   args.broadcast(targets,
-  // 		   poisoned_generations, num_poisoned * sizeof(Event::gen_t),
-  // 		   PAYLOAD_KEEP);
-  // }
+  /*static*/ void EventUpdateMessageType::broadcast_request(const NodeSet& targets, Event event,
+							    int num_poisoned,
+							    const Event::gen_t *poisoned_generations) {
+    BroadcastHelper helper(event, num_poisoned, poisoned_generations, FAB_PAYLOAD_KEEP);
+    helper.broadcast(targets);
+  }
 
 
 
