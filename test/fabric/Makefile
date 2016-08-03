@@ -98,6 +98,7 @@ build : $(TESTS)
 
 clean :
 	rm -f $(REALM_LIB) $(REALM_OBJS) $(TESTS)
+	rm *.o
 
 fabric_libfabric_tests.o : fabric_libfabric_tests.cc
 	$(CXX) -o fabric_libfabric_tests.o $< -c -L -lrealm $(INC_FLAGS) $(CC_FLAGS) $(LEGION_LD_FLAGS)
