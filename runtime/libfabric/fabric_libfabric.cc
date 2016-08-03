@@ -104,6 +104,9 @@ bool FabFabric::init() {
     }*/
   
   std::cout << "Initializing fabric... " << std::endl;
+
+  // Init collective objects
+  event_gatherer.init(num_nodes);
   
   struct fi_info *hints;
   struct fi_cq_attr rx_cqattr; memset(&rx_cqattr, 0, sizeof(rx_cqattr));

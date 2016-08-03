@@ -8,10 +8,14 @@
 #include "activemsg.h"
 #include "payload.h"
 #include "logging.h"
+#include "event.h"
 #include <cstdlib>
 #include <sys/uio.h>
 #include <stdint.h>
 #include <cstring>
+#include <stdatomic.h>
+#include <pthread.h>
+#include <semaphore.h>
 
 #define NELEM(x) (sizeof(x) / sizeof(x[0]))
 #define MAX_MESSAGE_TYPES 256
@@ -108,8 +112,8 @@ class Fabric {
 
   // Send messages / collectives  
   virtual int send(Message* m) = 0;
+  virtual Realm::Event* gather(NodeId root);
   //virtual int broadcast(Message* m);
-  //virtual int gather();
 
   // Query fabriic parameters
   virtual NodeId get_id() = 0;
@@ -119,8 +123,7 @@ class Fabric {
   virtual int get_max_send() = 0;
   virtual void wait_for_shutdown() = 0;
 
-  
-  virtual void progress(bool wait) = 0;
+
   // virtual bool incoming(Message *) = 0;
   virtual void *memalloc(size_t size) = 0;
   virtual void memfree(void *) = 0;
@@ -131,6 +134,11 @@ class Fabric {
     static Realm::Logger log("fabric");
     return log;
   }
+
+ protected:
+  // Handles current in-progress Event gather. You need to initialize it once number of
+  // nodes are known
+  Gatherer<Realm::Event> event_gatherer;
 };
 
 // Global fabric singleton
@@ -172,6 +180,52 @@ class Message {
   
 };
 
+/* 
+   Gathers incoming message contents into a single array on the 
+   root node. Nonroot nodes should not use this class, they should instead
+   simply send an EventGatherMessage (or other type) to the root.
+
+   The Fabric will contain a single Gather object, which will be reused
+   for each gather operation.
+
+   Currently, only one gather may be in progress at a time on a given node, 
+   otherwise behavior is undefined. The Gatherer attempts to enforce one-at-a-time
+   behavior via the following rules:
+   
+   - If an entry apprears to be written twice, crash
+   - If the wrong number of entries are received, crash
+   - The object may be reused by calling reset(). However,
+   if the object is reused before recoving the gather data, crash.
+
+   The wait() function will block until all gather messages are recieved, 
+   and returns a pointer to the filled gather buffer. This buffer must be 
+   deallocated by the receiver using delete[].
+*/
+
+template <typename T> 
+class Gatherer {
+ public:
+  Gatherer(size_t _num_nodes);
+  ~Gatherer(); // Deallocates internal buffer only if it was never
+  // returned by wait() on this object
+  
+  T* wait(); // Wait until all gather items have been recieved;
+  // return pointer to filled buffer. The receiver of this buffer takes
+  // ownership and is responsible for deallocating the gather buffer using delete[].
+
+  void add_entry(T& entry, NodeId sender);  // register gather data from node sender
+  
+ protected:
+  NodeId root; // ID of root / gathering node 
+  size_t num_nodes; // Number of nodes in the fabric
+  atomic_size_t num_recvd; // counter of number of entries recieved
+  sem_t all_recvd_sem;
+  T* buf; // gather buffer for all gather entries
+  bool* recvd_flags; // tracks whether a given gather entry was recieved
+  atomic_bool_t wait_complete; // true if all data was received and the buf pointer was returned
+  bool initialized;
+  void reset(); // Ready this object for a new gather. Invalid if the current gather is incomplete.
+};
 
 // extern FabricMemory *fabric_memory;
 
