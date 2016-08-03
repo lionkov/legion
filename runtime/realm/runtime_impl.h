@@ -305,35 +305,7 @@ namespace Realm {
 
       RuntimeShutdownMessageType::RequestArgs args;
     };
-
-
-    class EventGatherMessageType : public MessageType {
-    public:
-      EventGatherMessageType()
-	: MessageType(EVENT_GATHER_MSGID, sizeof(RequestArgs), false, true) { }
-
-      struct RequestArgs {
-      RequestArgs(Event* _event, NodeId _sender)
-	: event(_event), sender(_sender) { }
-	Event* event;
-	NodeId sender;
-      };
-
-      void request(Message* m);
-      static void send_request(NodeId dest, Event* event);
-    };
-
-    class EventGatherMessage : public Message {
-    public:
-    EventGatherMessage(NodeId dest, Event* _event, NodeId sender)
-      : Message(dest, EVENT_GATHER_MSGID, &args, NULL),
-	args(_event, sender) { }
-
-      EventGatherMessageType::RequestArgs args;
-    };
-    
-    
-    
+     
 }; // namespace Realm
 
 #endif // ifndef REALM_RUNTIME_IMPL_H

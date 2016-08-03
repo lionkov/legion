@@ -921,3 +921,21 @@ std::string FabFabric::tostr() {
 
   return sstream.str();
 }
+
+// If called by root, will wait for all gather entries to complete and
+// returns the gathered array.
+// Otherwise, sends event data to root and returns NULL.
+Realm::Event* FabFabric::gather_events(Realm::Event& event, NodeId root) {
+  if (id == root) {
+    event_gatherer.add_entry(event, id);
+    return event_gatherer.wait();
+  } else {
+    send(new EventGatherMessage(root, event, id));
+  }
+  return NULL;
+}
+
+// Register and incoming gather event with the gatherer
+void FabFabric::recv_gather_event(Realm::Event& event, NodeId sender) {
+  event_gatherer.add_entry(event, sender);
+}

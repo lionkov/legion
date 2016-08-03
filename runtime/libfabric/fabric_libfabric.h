@@ -95,6 +95,8 @@ class FabMutex {
     NodeId get_id();
     uint32_t get_num_nodes();
     int send(Message* m);
+    Realm::Event* gather_events(Realm::Event& event, NodeId root);
+    void recv_gather_event(Realm::Event& event, NodeId sender);
     bool incoming(Message *);
     void *memalloc(size_t size);
     void memfree(void *);
@@ -113,9 +115,9 @@ class FabMutex {
     // parameters
     NodeId	id;
     uint32_t	num_nodes;
-    int	max_send;
-    int	pend_num;
-    int num_progress_threads;
+    int	        max_send;
+    int	        pend_num;
+    int         num_progress_threads;
 
     
     // Fabric objects

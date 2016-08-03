@@ -1933,25 +1933,16 @@ namespace Realm {
   Node::Node(void)
   {
   }
-
+  
+  
   void RuntimeShutdownMessageType::request(Message* m) {
     RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
     log_runtime.info("received shutdown request from node %d", args->initiating_node);
     get_runtime()->shutdown(false);
   }
-
+  
   /*static*/ void RuntimeShutdownMessageType::send_request(NodeId target) {
     fabric->send(new RuntimeShutdownMessage(target, fabric->get_id(), 0));
   }
-  
-  // Messages for collective communication
-  void EventGatherMessageType::send_request(NodeId dest, Event* event) {
-    fabric->send(new EventGatherMessage(dest, event, fabric->get_id()));
-  }
-
-  void EventGatherMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
-    //fabric->recv_gather(args->event, args->sender);
-  };
   
 }; // namespace Realm
