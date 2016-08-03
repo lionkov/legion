@@ -383,17 +383,6 @@ uint32_t FabFabric::get_num_nodes()
   return num_nodes;
 }
 
-int FabFabric::send(NodeId dest, MessageId id, void *args, FabPayload *payload)
-{
-  Message *m;
-
-  m = new Message(dest, id, args, payload);
-  m->sndid = id;
-  m->rcvid = dest;
-
-  return send(m);
-}
-
 int FabFabric::send(Message* m)
 {
   int ret, e, n;
