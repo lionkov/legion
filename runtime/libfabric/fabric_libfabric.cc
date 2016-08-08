@@ -9,7 +9,7 @@
   }
 */
 
-FabFabric::FabFabric() : id(0), num_nodes(2), max_send(1024*1024), pend_num(16),
+FabFabric::FabFabric() : id(0), num_nodes(1), max_send(1024*1024), pend_num(16),
 			 num_progress_threads(0),
 			 progress_threads(NULL),
 			 tx_handler_thread(NULL),
@@ -81,7 +81,9 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
   YOU MUST REGISTER ALL DESIRED MESSAGE TYPES BEFORE CALLING 
   THIS FUNCTION.
 
-  Inputs: none
+  Inputs: manually_set_addresses -- if true, register this node only.
+  You must use the set_address_vector call to manually pass in other addresses
+  before using this fabric.
 
   Returns: true on success, false on failure.
 
@@ -91,7 +93,7 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
   buffers for all message types. 
 */ 
 
-bool FabFabric::init() {
+bool FabFabric::init(bool manually_set_addresses) {
 
   int ret;
 
@@ -226,88 +228,39 @@ bool FabFabric::init() {
   memset(addr, 0, sizeof(addr));
   addrlen = 64;
 
-  // getname should be called after fi_enable
+  // getname must be called after fi_enable
   // this call will set addr, and update addrlen to reflect the true address length
   ret = fi_getname((fid_t) ep, &addr, &addrlen);
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_getname", __FILE__, __LINE__));
   
-  
-  //sockaddr_in addr;
-  //  size_t addrlen = sizeof(addr);
-  /*
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = 2;
-    addr.sin_port = htons(8080);
-    inet_aton("127.0.0.1", &addr.sin_addr);		 
-    fi_setname((fid_t) ep, &addr, addrlen);
-  */
-  
-  // INSERT ADDRESS IN TO AV
+  // GET ADDRESSES AND INSERT INTO AV
   fi_addrs = (fi_addr_t*) malloc(num_nodes * sizeof(fi_addr_t));
   memset(fi_addrs, 0, sizeof(fi_addr_t*)*num_nodes);
-  // inserting only this address for now, since PMI_Allgather is not working
+  void* addrs;
   
-  // Contact the address change server, wait for all other nodes to post
-  // their addresses, and load results into addrs array:
-  // void* addrs = exchange_addresses();
-  // if (ret < 0)
-  //   return init_fail(hints, fi, "address exchange failed");
-
-  // // Load addresses into AV
-  // ret = fi_av_insert(av, addrs, num_nodes, fi_addrs, 0, NULL);
-  // if (ret < 0) 
-  //   return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));
-
-  // // test code -- add own data twice
-  void* addrs = malloc(addrlen*num_nodes);
-  memcpy(addrs, addr, addrlen);
-  char* p = (char*) addrs + addrlen;
-  memcpy(p, addr, addrlen);
+  if(!manually_set_addresses) {
+    // Contact the address change server, wait for all other nodes to post
+    // their addresses, and load results into addrs array:
+    std::cout << "Exchanging addresses... " << std::endl;
+    addrs = exchange_addresses();
+    if (ret < 0)
+      return init_fail(hints, fi, "address exchange failed");
+  } else {
+    // Insert only this node's address. The complete AV will need to be set later
+    // using set_address_vector.
+    num_nodes = 1;
+    std::cout << "WARNING -- address vector not set. You must set it manually to access other fabrics"
+	      << std::endl;
+    addrs = (void*) malloc(addrlen);
+    memcpy(addrs, addr, addrlen);
+  }
   
+  // Load addresses into AV
   ret = fi_av_insert(av, addrs, num_nodes, fi_addrs, 0, NULL);
   if (ret < 0) 
     return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));
-  
-  //ret = fi_av_insert(av, &addr, 1, fi_addrs, 0, NULL);
-  //if (ret < 0) 
-  //return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));
-
-  
-  /*
-
-  // void* addrs = malloc(num_nodes * addrlen);
-
-  // ASK -- most pmi.h implementations do not have PMI_Allgather,
-  // do we really need this?
-  
-  //PMI_Allgather(addr, addrs, addrlen);
-
-  // Hard code this node as fi_addrs[0], since PMI_Allgather isn't working yeto  //memcpy(&addrs, &addr, addrlen);
-  //std::cout << (unsigned long) addrs[0] << std::endl;
-  std::cout << addr << std::endl;
-  std::cout << num_nodes << std::endl;
-
- // Temporyary buffer for addresses
-  uint8_t addrbuf[4096];
-  fi_addr_t fi_addr;
-  int buflen = sizeof(addrbuf);
-  //ret = av_create_address_list(src_addr_str, 0, 1, addrbuf, 0, buflen, addrlen);
-  
-  if (ret < 0)
-    return init_fail(hints, fi, "ERROR -- av_create_address_list failed");
-  
-  if (!fi_addrs)
-    return init_fail(hints, fi, "ERROR -- malloc fi_addrs failed");
-  
-  ret = fi_av_insert(av, addrbuf, num_nodes, fi_addrs, 0, &avctx);
-  // Original code checked for number of entries inserted; as far as I can
-  // tell fabric does not return this info
-  if (ret < 0) 
-    return init_fail(hints, fi, fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__));
-  free(addr);
-  */
-
+ 
   // post tagged message for message types without payloads
   for(int i = 0; i < MAX_MESSAGE_TYPES; ++i) {
     MessageType* mt = mts[i];
@@ -587,7 +540,7 @@ bool FabFabric::incoming(Message *m)
     len = m->siov[0].iov_len;
     
     msgid = *(MessageId *) data;
-    mtype = fabric->mts[msgid];
+    mtype = mts[msgid];
     m->mtype = mtype;
     data += sizeof(msgid);
     len -= sizeof(msgid);
@@ -739,9 +692,6 @@ std::string FabFabric::fi_error_str(const int ret, const std::string call,
   return sstream.str();
 }
 
-/*
- * Create an address list
- */
 
 int FabFabric::av_create_address_list(char *first_address, int base, int num_addr,
 				      void *addr_array, int offset, int len, int addrlen)
@@ -843,7 +793,7 @@ size_t FabFabric::get_iov_limit(MessageId id) {
 // wait until all other nodes have also reported. Must
 // know the total number of nodes before hand. Will find
 // this nodes address, and place it and all other addresses
-// in the addrs array. This nodes ID will be assigned.
+// in the addrs array. This node's ID will be assigned.
 
 // returns a pointer to the addrs array on success, or NULL
 // on failure.
@@ -858,6 +808,7 @@ void* FabFabric::exchange_addresses() {
   size_t len = 256;
   char buf[256];
   std::cout << "My address: " << fi_av_straddr(av, addr, buf, &len) << std::endl;
+
 
   // Connect fan-in sender socket
   std::stringstream sstream;
@@ -894,6 +845,8 @@ void* FabFabric::exchange_addresses() {
     }
     p += addrlen;
   }
+
+  std::cout << "Exchanged, id assigned: " << id << std::endl;
   
   zmq_close(sender);
   zmq_close(receiver);
@@ -939,3 +892,42 @@ Realm::Event* FabFabric::gather_events(Realm::Event& event, NodeId root) {
 void FabFabric::recv_gather_event(Realm::Event& event, NodeId sender) {
   event_gatherer.add_entry(event, sender);
 }
+
+
+// Set the address vector to the one provided, and reset this Fabric's
+// ID and node count to reflect its position in the new address vector.
+//
+// This function is currently intended for testing, where you may wish to pre-configure
+// a fabric to test.
+//
+// Returns code of the av_insert call on success, will terminate on failure.
+int FabFabric::set_address_vector(void* addrs, size_t addrlen, NodeId new_id, uint32_t new_num_nodes) {
+  int ret;
+  // Remove all addresses from the AV
+  fi_av_remove(av, fi_addrs, num_nodes, 0);
+  // Update fabric paramters
+  id = new_id;
+  num_nodes = new_num_nodes;
+
+  free(fi_addrs);
+  fi_addrs = (fi_addr_t*) malloc(num_nodes * sizeof(fi_addr_t));
+  memset(fi_addrs, 0, sizeof(fi_addr_t*)*num_nodes);
+
+  
+  ret = fi_av_insert(av, addrs, num_nodes, fi_addrs, 0, NULL);
+
+  if (ret < 0) {
+    std::cerr << "ERROR -- set_address_vector() failed" << std::endl;
+    std::cerr << "Fabric error: " << fi_error_str(ret, "fi_av_insert", __FILE__, __LINE__) << std::endl;
+    exit(1); 
+  }
+
+  return ret;
+}
+
+// Write this node's address into buf. Returns this node's address length.
+size_t FabFabric::get_address(char buf[64]) {
+  memcpy(buf, addr, addrlen);
+  return addrlen;
+}
+

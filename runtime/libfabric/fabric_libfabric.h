@@ -90,7 +90,7 @@ class FabMutex {
     
     void register_options(Realm::CommandLineParser &cp);
     bool add_message_type(MessageType *mt, const std::string tag);
-    bool init();
+    bool init(bool manually_set_addresses = false);
     void shutdown();
     NodeId get_id();
     uint32_t get_num_nodes();
@@ -111,6 +111,12 @@ class FabMutex {
     virtual size_t get_iov_limit(MessageId id);
     std::string tostr();
 
+    // Reset the ENTIRE address vector with a new one. Primarily for
+    // testing
+    int set_address_vector(void* addrs, size_t addrlen, NodeId new_id, uint32_t new_num_nodes);
+    size_t get_address(char buf[64]);
+
+    
   protected:
     // parameters
     NodeId	id;
@@ -131,9 +137,9 @@ class FabMutex {
     struct fid_av* av;
     struct fi_context* avctx;
     struct fi_info* fi;
-    fi_addr_t* fi_addrs;
+    fi_addr_t* fi_addrs; // array of addresses in fabric format
     char addr[64]; // this node's address
-    size_t addrlen; // length of all addresses in this fabric
+    size_t addrlen; // length of addresses in this fabric
     
     pthread_t* progress_threads;
     pthread_t* tx_handler_thread;
@@ -168,5 +174,5 @@ class FabMutex {
 
   //typedef FabMutex Mutex;
   //typedef FabCondVar CondVar;
- 
+
 #endif // ifndef FABRIC_LIBFABRIC_H

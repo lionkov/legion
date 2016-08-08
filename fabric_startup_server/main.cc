@@ -55,44 +55,43 @@ int main(int argc, char* argv[]) {
   sstream << "tcp://*:" << SEND_PORT;
   zmq_bind(sender, sstream.str().c_str());
   std::cout << "Sending on: " << sstream.str().c_str() << std::endl;
-  while(true) {
-    int count = 0;
-    cout << "Waiting for " << nclients << " runtimes..." << endl;
-    
-
-    // Wait for all clients to post their addresses
-    while(count < nclients) {
-      char buf[256];
-      ret = zmq_recv(receiver, buf, 256, 0);
-      assert(ret >= 0);
-      
-      // Let first client decide the address length. If any
-      // clients disagree, something has gone wrong
-      if (count == 0) {
-	addrlen = ret;
-	addrs = (char*) malloc(addrlen*nclients);
-      } else if (ret != addrlen) {
-	std::cerr << "ERROR -- address lengths do not agree. Expected: "
-		  << addrlen << " Saw: " << ret << std::endl;
-	unexpected_shutdown(ret);
-      }
-   
-      memcpy(addrs+count*addrlen, buf, addrlen);
-      
-      cout << "Received request from runtime: " << count << endl;
-      ++count;
-    }
-
-    // Send completed address info to each client
-    for(int i = 0; i < nclients; ++i) {
-      zmq_send(sender, addrs, addrlen*nclients, 0);
-    }
   
-    if(addrs) {
-      free(addrs);
-      addrs = NULL;
+  int count = 0;
+  cout << "Waiting for " << nclients << " runtimes..." << endl;
+  // Wait for all clients to post their addresses
+  while(count < nclients) {
+    char buf[256];
+    ret = zmq_recv(receiver, buf, 256, 0);
+    assert(ret >= 0);
+      
+    // Let first client decide the address length. If any
+    // clients disagree, something has gone wrong
+    if (count == 0) {
+      addrlen = ret;
+      addrs = (char*) malloc(addrlen*nclients);
+    } else if (ret != addrlen) {
+      std::cerr << "ERROR -- address lengths do not agree. Expected: "
+		<< addrlen << " Saw: " << ret << std::endl;
+      unexpected_shutdown(ret);
     }
+   
+    memcpy(addrs+count*addrlen, buf, addrlen);
+      
+    cout << "Received request from runtime: " << count << endl;
+    ++count;
   }
+  cout << "All runtimes checked in. " << endl;
+
+  // Send completed address info to each client
+  for(int i = 0; i < nclients; ++i) {
+    zmq_send(sender, addrs, addrlen*nclients, 0);
+  }
+  
+  if(addrs) {
+    free(addrs);
+    addrs = NULL;
+  }
+ 
  
   zmq_close(sender);
   zmq_close(receiver);

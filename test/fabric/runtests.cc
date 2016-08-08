@@ -10,10 +10,16 @@
 #include <string>
 #include <vector>
 
+#define NUM_FABRICS 3
+
+
+#include "fabric.h"
+#include "libfabric/fabric_libfabric.cc"
 #include "fabric_libfabric_tests.h"
 
 int main(int argc, char* argv[]) {
 
+  bool run;
   std::vector<std::string> cmdline;
   /*
   if(*argc > 1) {
@@ -23,18 +29,28 @@ int main(int argc, char* argv[]) {
   }
   */
 
-  for (int i = 1; i < argc; ++i)
-    cmdline.push_back(argv[i]);
+  if (argc < 2) {
+    std::cout << "Usage: run_tests [y/n] <legion options>" << std::endl;
+    exit(1);
+  }
+
+  if (strncmp(argv[1], "y", 1) == 0)
+    run = true;
+  else if (strncmp(argv[1], "n", 1) == 0)
+    run = false;
+  else {
+    std::cout << "Usage: run_tests [y/n] <legion options>" << std::endl;
+    exit(1);
+  }
   
   FabTester tester;
-  tester.init(cmdline);
+  
+  for (int i = 1; i < argc; ++i)
+    cmdline.push_back(argv[i]);
+
+  tester.init(cmdline, false);
+
   tester.run();
-    
+  
   return 0;
 }
-
-
-
-
-
-

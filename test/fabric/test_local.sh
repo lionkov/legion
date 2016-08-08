@@ -1,0 +1,23 @@
+#! /bin/bash
+
+EXCHANGE_HOST=localhost
+EXCHANGE_RECV=8081
+EXCHANGE_SEND=8080
+NUM_NODES=3
+
+echo "Starting tests..."
+../../fabric_startup_server/exchange $NUM_NODES &
+
+# start the runtime that will actually do a test. This is registered first so it will have ID 0.
+./runtests y -ll:exchange_server_host $EXCHANGE_HOST -ll:exchange_server_send_port $EXCHANGE_SEND -ll:exchange_server_recv_port $EXCHANGE_RECV -ll:num_nodes $NUM_NODES &
+
+# Wait a bit so head runtime will actually get ID 0, without being swiped by another node.
+sleep 1
+
+# start all the passive RTS
+for ((c=1; c<$NUM_NODES; c++))
+do
+    echo "Starting listener" $c
+    ./runtests n -ll:exchange_server_host $EXCHANGE_HOST -ll:exchange_server_send_port $EXCHANGE_SEND -ll:exchange_server_recv_port $EXCHANGE_RECV -ll:num_nodes $NUM_NODES > /dev/null & 
+done
+

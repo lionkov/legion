@@ -56,7 +56,7 @@ class Fabric {
   ~Fabric() { }
   MessageType* mts[MAX_MESSAGE_TYPES];
   virtual bool add_message_type(MessageType *mt, const std::string tag) = 0;
-  virtual bool init() = 0;
+  virtual bool init(bool manually_set_addresses = false) = 0;
   virtual void shutdown() = 0;
 
   // Send messages / collectives  

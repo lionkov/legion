@@ -17,6 +17,7 @@
 
 */
 
+Fabric* fabric = NULL;
 
 void print_strided(void* buf, int linesz, int linecnt, int stride) {
   assert(stride != 0); 
@@ -30,11 +31,9 @@ void print_strided(void* buf, int linesz, int linecnt, int stride) {
   }
 }
 
-
-// global from fabric.h
-Fabric* fabric = NULL;
-
-int FabTester::init(std::vector<std::string> cmdline) {
+// Initialize the fabric. If manually_set_addresses is true, instead of exchanging addresses,
+// you will need to pass in an address vector before using this fabric.
+int FabTester::init(std::vector<std::string> cmdline, bool manually_set_addresses) {
   fabric = new FabFabric();
   Realm::CommandLineParser cp;
   fabric->register_options(cp);
@@ -45,15 +44,9 @@ int FabTester::init(std::vector<std::string> cmdline) {
     exit(1);
   }
   
-
-  std::cout << "Adding message types... " << std::endl;
-  fabric->add_message_type(new TestMessageType(), "Test Message");
-  fabric->add_message_type(new TestPayloadMessageType(), "Test Payload Message");
-  fabric->add_message_type(new TestTwoDPayloadMessageType(), "Test 2D Payload Message");
-  fabric->add_message_type(new TestArglessTwoDPayloadMessageType(), "Test Argless 2D Payload Message");
-  fabric->add_message_type(new TestSpanPayloadMessageType(), "Test Span Payload Message");
+  add_message_types();
   bool ret;
-  ret = fabric->init();
+  ret = fabric->init(manually_set_addresses);
   
   if (!ret) {
     std::cout << "ERROR -- Fabric init failed." << std::endl;
@@ -65,16 +58,45 @@ int FabTester::init(std::vector<std::string> cmdline) {
 }
 
 
-/* Run tests on the fabric object. Must be called after init.
+void FabTester::add_message_types() {
+  fabric->add_message_type(new TestMessageType(), "Test Message");
+  fabric->add_message_type(new TestPayloadMessageType(), "Test Payload Message");
+  fabric->add_message_type(new TestTwoDPayloadMessageType(), "Test 2D Payload Message");
+  fabric->add_message_type(new TestArglessTwoDPayloadMessageType(), "Test Argless 2D Payload Message");
+  fabric->add_message_type(new TestSpanPayloadMessageType(), "Test Span Payload Message");
+}
+
+/*
+  Run tests on the fabric object. Must be called after init.
 
    inputs: none
-   returns: 0 on success, otherwise an error code.
-
-   Error codes:
+   returns: 0 on success, otherwise returns the number of failed tests
    
 */
    
 int FabTester::run() {
+  int errors = 0;
+  /*
+  std::cout << std::endl << std::endl << "running: test_message_loopback" << std::endl;
+  if (test_message_loopback() != 0) {
+    errors += 1;
+    std::cout << "ERROR -- test_message_loopback -- FAILED" << std::endl;    
+  } else {
+    std::cout << "test_message_loopback -- OK" << std::endl;    
+  }
+  */
+  std::cout << std::endl << std::endl << "running: test_gather_local" << std::endl;
+  if (test_gather() != 0) {
+    errors += 1;
+    std::cout << "ERROR -- test_gather_local -- FAILED" << std::endl;    
+  } else {
+    std::cout << "test_gather_local -- OK" << std::endl;    
+  }
+    
+  return errors;
+}
+
+int FabTester::test_message_loopback() {
   
   int ret;
   std::cout << "Attempting to send a message. You should see some output. " << std::endl << std::endl;
@@ -150,7 +172,7 @@ int FabTester::run() {
     sleep(st);
     ++count;
     if (mode == FAB_PAYLOAD_COPY) {
-      delete paybuf;
+      free(paybuf);
       delete[] twodbuf;
       
       // deallocate sl contents
@@ -169,7 +191,10 @@ int FabTester::run() {
   
   std::cout << std::endl << std::endl << "Done." << std::endl;
   return 0;
+  
 }
+
+
 
 void FabTester::testFabTwoDPayload() {
   char* buf = new char[64];
@@ -191,7 +216,7 @@ void FabTester::testFabTwoDPayload() {
 }
 
 // Puts some junk in a span list, returns number of spans added
-size_t FabTester::fill_spans(SpanList& sl) {
+size_t fill_spans(SpanList& sl) {
   char* buf1 = (char*) malloc(64);
   char* buf2 = (char*) malloc(64);
   char* buf3 = (char*) malloc(64);
@@ -251,4 +276,19 @@ void TestSpanPayloadMessageType::request(Message* m) {
   std::cout << (char*) m->payload->ptr()+64 << std::endl;
   std::cout << (char*) m->payload->ptr()+96 << std::endl;
   std::cout << std::endl;
+}
+
+
+// Perform an Event gather from all other nodes in the system
+// onto node 0.
+int FabTester::test_gather() {
+  Realm::Event e;
+  e.id = fabric->get_id();
+  std::cout << "Created event with ID: " << e.id << std::endl;
+  Realm::Event* events = fabric->gather_events(e, 0);
+  std::cout << "Node " << fabric->get_id() << ": gather complete" << std::endl;
+  
+  
+    
+  return 1;
 }
