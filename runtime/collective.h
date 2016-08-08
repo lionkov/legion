@@ -21,20 +21,19 @@
 
 /* 
    Gathers incoming message contents into a single array on the 
-   root node. Nonroot nodes should not use this class, they should instead
-   simply send an EventGatherMessage (or other type) to the root.
+   root node. It is used internally by Fabrics.
 
    The Fabric will contain a single Gather object, which will be reused
    for each gather operation.
 
    Currently, only one gather may be in progress at a time on a given node, 
-   otherwise behavior is undefined. The Gatherer attempts to enforce one-at-a-time
-   behavior via the following rules:
+   otherwise behavior is undefined. The Gatherer will attempt to detect violations
+   of this rule via the following mechanisms:
    
    - If an entry apprears to be written twice, crash
    - If the wrong number of entries are received, crash
    - The object may be reused by calling reset(). However,
-   if the object is reused before recoving the gather data, crash.
+     if reset() is called when a gather is not yet complete, crash.
 
    The wait() function will block until all gather messages are recieved, 
    and returns a pointer to the filled gather buffer. This buffer must be 
@@ -43,18 +42,31 @@
 
 template <typename T> 
 class Gatherer {
- public:
-  Gatherer(); // Default constructor -- will not initialize
-  Gatherer(uint32_t _num_nodes); 
-  ~Gatherer(); // Deallocates internal buffer only if it was never
+ public:      
+  // Default constructor -- will not initialize
+  Gatherer();
+
+  // Initializes to a fabric with _num_nodes nodes
+  Gatherer(uint32_t _num_nodes);
+  
+  // Deallocates internal buffer only if it was never
   // returned by wait() on this object
-  void init(uint32_t _num_nodes); // must be called if default constructor is used
-  T* wait(); // Wait until all gather items have been recieved;
+  ~Gatherer();
+  
+  // must be called if default constructor is used
+  void init(uint32_t _num_nodes);
+
+  // Wait until all gather items have been recieved;
   // return pointer to filled buffer. The receiver of this buffer takes
   // ownership and is responsible for deallocating the gather buffer using delete[].
-  void destroy(); // Destroy this gather object -- it may be reinitialized later.
-  // Will result in undefined behavior if a gather is in-progress.
-  void add_entry(T& entry, NodeId sender);  // register gather data from node sender
+  T* wait();
+  
+  // Destroy this gather object -- it may be reinitialized later.
+  // Invalid if gather is in-progress.
+  void destroy();
+  
+  // register gather data from node sender
+  void add_entry(T& entry, NodeId sender);
   
  protected:
   NodeId root; // ID of root / gathering node 
@@ -64,7 +76,7 @@ class Gatherer {
   bool* recvd_flags; // tracks whether a given gather entry was recieved
   atomic_bool wait_complete; // true if all data was received and the buf pointer was returned
   atomic_bool all_recvd; // True when all entries have been recieved
-  atomic_bool initialized;
+  atomic_bool initialized; // True if initialized
   void reset(); // Ready this object for a new gather. Invalid if the current gather is incomplete.
 };
 
@@ -111,7 +123,8 @@ Gatherer<T>::~Gatherer() {
 // may result in undefined behavior. You may re-initialize a gatherer after destroying it.
 template <typename T>
 void Gatherer<T>::destroy() {
-  if (atomic_load(&initialized)) { 
+  if (atomic_load(&initialized)) {
+    
     if (atomic_load(&wait_complete))
       delete[] buf;
   
@@ -168,6 +181,81 @@ void Gatherer<T>::reset() {
   buf = new T[num_nodes];
   atomic_store(&wait_complete, false);
   atomic_store(&all_recvd, false);
+}
+
+/* 
+   Coordinates Broadcast requests. The Broadcast root will send data to each 
+   other node in the fabric; all other nodes will wait until broadcast data is 
+   received. All calls will return data of type T.
+   
+   The Fabric will contain a single Broadcaster object, which will be reused
+   for each broadcast operation.
+
+   Currently, only one broadcast may be in progress at a time on a given node, 
+   otherwise behavior is undefined. The Broadcaster will attempt to enforce 
+   this by crashing if a Broadcast is recieved from the wrong node.
+
+   The wait() function will block until a Broadcast messages are recieved, 
+   and returns data within.
+   
+   The Broadcaster does not need to be initialized, and does not return any
+   dynamically allocated data.
+
+ */
+template <typename T>
+class Broadcaster {
+public:
+  Broadcaster();
+  ~Broadcaster() { };
+  // Wait for a broadcast to arrive from node Sender
+  T wait(NodeId _sender);
+  void add_entry(T& entry, NodeId _sender);
+  void reset();
+  
+private:
+  // Records the currently held broadcast data
+  T data;
+  // Records who sent the current broadcast data
+  NodeId sender;
+  
+  atomic_bool wait_complete;
+  atomic_bool data_recvd;
+};
+
+
+template <typename T>
+Broadcaster<T>::Broadcaster() {
+  atomic_init(&wait_complete, false);
+  atomic_init(&data_recvd, false);
+}
+
+template <typename T>
+void Broadcaster<T>::add_entry(T& entry, NodeId _sender) {
+  assert((atomic_load(&data_recvd) == false) && "Can't add data to a broadcast that hasn't finished"); 
+  sender = _sender;
+  data = entry;
+  atomic_store(&data_recvd, true);
+}
+
+// Wait for a broadcast from a given sender.
+template <typename T>
+T Broadcaster<T>::wait(NodeId _sender) {
+  // spin wait until data is recevied
+  while(atomic_load(&data_recvd) == false)
+    ;
+  // Sanity check -- did we get data from the right sender?
+  // If not, there are multiple broadcasts going on
+  assert((sender == _sender) && "Receieved broadcast from unexpected root");
+  atomic_store(&wait_complete, true);
+  return data;
+}
+
+// Reset this Broadcaster -- must be called in between each Broadcast event
+template <typename T>
+void Broadcaster<T>::reset() {
+  assert((atomic_load(&wait_complete == true)) && "Cannot reset incomplete broadcast");
+  atomic_store(&wait_complete, false);
+  atomic_store(&data_recvd, false);
 }
 
 #endif // COLLECTIVE_H

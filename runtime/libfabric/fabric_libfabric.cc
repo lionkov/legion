@@ -900,6 +900,25 @@ void FabFabric::recv_gather_event(Realm::Event& event, NodeId sender) {
 }
 
 
+// If called by root, sends the event to all other nodes in the fabric. The
+// resulting event will be stored in the event parameter.
+void FabFabric::broadcast_events(Realm::Event& event, NodeId root) {
+  if (id == root) {
+    for (NodeId i=0; i<num_nodes; ++i) {
+      if (i != id) // No need to send to self
+	fabric->send(new EventBroadcastMessage(root, event, id));
+    }		    
+  } else {
+    event = event_broadcaster.wait(root);    
+  }   
+}
+
+void FabFabric::recv_broadcast_event(Realm::Event& event, NodeId sender) {
+  event_broadcaster.add_entry(event, sender);
+}
+
+
+
 // Set the address vector to the one provided, and reset this Fabric's
 // ID and node count to reflect its position in the new address vector.
 //

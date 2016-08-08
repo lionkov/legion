@@ -66,7 +66,8 @@ class Fabric {
   // Otherwise, sends data to root and returns NULL.
   virtual Realm::Event* gather_events(Realm::Event& event, NodeId root) = 0;
   virtual void recv_gather_event(Realm::Event& event, NodeId sender) = 0;
-  //virtual int broadcast(Message* m);
+  virtual void broadcast_events(Realm::Event& event, NodeId root) = 0;
+  virtual void recv_broadcast_event(Realm::Event& event, NodeId sender) = 0;
 
   // Query fabriic parameters
   virtual NodeId get_id() = 0;
@@ -92,6 +93,9 @@ class Fabric {
   // Handles current in-progress Event gather. You need to initialize it once number of
   // nodes are known
   Gatherer<Realm::Event> event_gatherer;
+
+  // Handles current Broadcast. Does not need to be initialized
+  Broadcaster<Realm::Event> event_broadcaster;
 };
 
 // Global fabric singleton
@@ -160,6 +164,33 @@ class EventGatherMessage : public Message {
 
   EventGatherMessageType::RequestArgs args;
 };
+
+// EventBroadcastMessage -- register and incoming Event for broadcast
+class EventBroadcastMessageType : public MessageType {
+ public:
+ EventBroadcastMessageType()
+   : MessageType(EVENT_GATHER_MSGID, sizeof(RequestArgs), false, true) { }
+
+  struct RequestArgs {
+  RequestArgs(Realm::Event& _event, NodeId _sender)
+  : event(_event), sender(_sender) { }
+    Realm::Event event;
+    NodeId sender;
+  };
+
+  void request(Message* m);
+  static void send_request(NodeId dest, Realm::Event& event);
+};
+
+class EventBroadcastMessage : public Message {
+ public:
+ EventBroadcastMessage(NodeId dest, Realm::Event& _event, NodeId sender)
+   : Message(dest, EVENT_GATHER_MSGID, &args, NULL),
+    args(_event, sender) { }
+
+  EventBroadcastMessageType::RequestArgs args;
+};
+
 
 // extern FabricMemory *fabric_memory;
 

@@ -96,7 +96,9 @@ class FabMutex {
     uint32_t get_num_nodes();
     int send(Message* m);
     Realm::Event* gather_events(Realm::Event& event, NodeId root);
+    void broadcast_events(Realm::Event& event, NodeId root);
     void recv_gather_event(Realm::Event& event, NodeId sender);
+    void recv_broadcast_event(Realm::Event& event, NodeId sender);
     bool incoming(Message *);
     void *memalloc(size_t size);
     void memfree(void *);

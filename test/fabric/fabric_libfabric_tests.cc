@@ -209,7 +209,8 @@ int FabTester::test_message_loopback() {
     size_t linecnt = 6;
     ptrdiff_t stride = 1;
     FabTwoDPayload* twodpayload
-      = new FabTwoDPayload(mode, twodbuf,
+      = new FabTwoDPayload(mode,
+			   twodbuf,
     			   linesz,
     			   linecnt,
     			   stride);

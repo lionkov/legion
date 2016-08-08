@@ -14,3 +14,13 @@ void EventGatherMessageType::request(Message* m) {
   RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
   fabric->recv_gather_event(args->event, args->sender);
 };
+
+
+void EventBroadcastMessageType::send_request(NodeId dest, Realm::Event& event) {
+  fabric->send(new EventBroadcastMessage(dest, event, fabric->get_id()));
+}
+
+void EventBroadcastMessageType::request(Message* m) {
+  RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
+  fabric->recv_broadcast_event(args->event, args->sender);
+};
