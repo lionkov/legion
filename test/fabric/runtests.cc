@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
 	  cmdline[i - 1] = (*argv)[i];
   }
   */
-
+  /*
   if (argc < 2) {
     std::cout << "Usage: run_tests [y/n] <legion options>" << std::endl;
     exit(1);
@@ -42,6 +42,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Usage: run_tests [y/n] <legion options>" << std::endl;
     exit(1);
   }
+  */
   
   FabTester tester;
   
@@ -49,8 +50,10 @@ int main(int argc, char* argv[]) {
     cmdline.push_back(argv[i]);
 
   tester.init(cmdline, false);
-
+  
   tester.run();
+  
+  tester.wait_for_shutdown();
   
   return 0;
 }

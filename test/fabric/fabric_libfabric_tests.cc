@@ -64,6 +64,8 @@ void FabTester::add_message_types() {
   fabric->add_message_type(new TestTwoDPayloadMessageType(), "Test 2D Payload Message");
   fabric->add_message_type(new TestArglessTwoDPayloadMessageType(), "Test Argless 2D Payload Message");
   fabric->add_message_type(new TestSpanPayloadMessageType(), "Test Span Payload Message");
+  fabric->add_message_type(new PingPongMessageType(), "Ping Pong Message");
+  fabric->add_message_type(new PingPongAckType(), "Ping Pong Ack");
 }
 
 /*
@@ -76,6 +78,7 @@ void FabTester::add_message_types() {
    
 int FabTester::run() {
   int errors = 0;
+
   /*
   std::cout << std::endl << std::endl << "running: test_message_loopback" << std::endl;
   if (test_message_loopback() != 0) {
@@ -85,16 +88,85 @@ int FabTester::run() {
     std::cout << "test_message_loopback -- OK" << std::endl;    
   }
   */
-  std::cout << std::endl << std::endl << "running: test_gather_local" << std::endl;
+  
+  std::cout << std::endl << std::endl << "running: test_message_pingpong" << std::endl;
+  if (test_message_pingpong() != 0) {
+    errors += 1;
+    std::cout << "ERROR -- test_message_pingpong -- FAILED" << std::endl;    
+  } else {
+    std::cout << "test_message_pingpong -- OK" << std::endl;    
+  }
+  
+  
+  std::cout << std::endl << std::endl << "running: test_gather" << std::endl;
   if (test_gather() != 0) {
     errors += 1;
     std::cout << "ERROR -- test_gather_local -- FAILED" << std::endl;    
   } else {
     std::cout << "test_gather_local -- OK" << std::endl;    
   }
-    
+  
+  
   return errors;
 }
+
+// Perform an Event gather from all other nodes in the system
+// onto node 0.
+int FabTester::test_gather() {
+  Realm::Event e;
+  e.id = fabric->get_id();
+
+  // Check that each gather event has the correct ID
+  Realm::Event* events = fabric->gather_events(e, 0);
+  int errors = 0;
+  
+  if (fabric->get_id() == 0) {
+    for(NodeId i=0; i<fabric->get_num_nodes(); ++i) {
+      if (events[i].id != i) {
+	std::cerr << "ERROR in test_gather() -- expected event ID " << i
+		  << " , got " << events[i].id << std::endl;
+	++errors;
+      }
+    }
+  }
+  
+  return (errors == 0) ? 0 : 1;
+}
+
+
+
+// The root node sends a message to each other node. When recieved, this message will
+// prompt the other node to send a message back, containing that node's ID.
+int FabTester::test_message_pingpong() {
+  NodeId my_id = fabric->get_id();
+  size_t num_nodes = fabric->get_num_nodes();
+  bool* ack_table = new bool[num_nodes];
+  
+  for (int i=0; i<num_nodes;++i)
+    ack_table[i] = false;
+
+  for(NodeId i = 0; i < num_nodes; ++i)
+    fabric->send(new PingPongMessage(i, my_id, ack_table));
+
+  // Give all message a change to send
+  sleep(3);
+
+  int errors;
+  
+  // Check that all messages acked
+  for(int i=0; i<num_nodes; ++i) {
+    if (ack_table[i] == false) {
+      std::cerr << "ERROR in test_message_pingpong() -- ack_table["
+		<< i << "] was not set" << std::endl;
+      errors += 1;
+    }
+  }
+
+  delete[] ack_table;
+  return (errors == 0) ? 0 : 1;
+}
+
+
 
 int FabTester::test_message_loopback() {
   
@@ -105,6 +177,7 @@ int FabTester::test_message_loopback() {
 
   int st = 0;
   int count = 0;
+  NodeId target = (fabric->get_id() + 1) % fabric->get_num_nodes();
   
   while (count < 10) {
     void* paybuf = malloc(64);
@@ -147,7 +220,7 @@ int FabTester::test_message_loopback() {
     FabSpanPayload* spanpayload =
       new FabSpanPayload(mode, *sl);
 
-    NodeId target = (fabric->get_id() + 1) % fabric->get_num_nodes();
+   
 
     
     std::cout << "Node " << fabric->get_id() << " sending to: " << target << "..." << std::endl;
@@ -279,16 +352,14 @@ void TestSpanPayloadMessageType::request(Message* m) {
 }
 
 
-// Perform an Event gather from all other nodes in the system
-// onto node 0.
-int FabTester::test_gather() {
-  Realm::Event e;
-  e.id = fabric->get_id();
-  std::cout << "Created event with ID: " << e.id << std::endl;
-  Realm::Event* events = fabric->gather_events(e, 0);
-  std::cout << "Node " << fabric->get_id() << ": gather complete" << std::endl;
-  
-  
-    
-  return 1;
+// Sends a message back to the sender with this node's ID
+void PingPongMessageType::request(Message* m) {
+  RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
+  fabric->send(new PingPongAck(args->sender, fabric->get_id(), args->ack_table));
 }
+
+void PingPongAckType::request(Message* m) {
+  RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
+  args->ack_table[args->sender] = true;
+}
+

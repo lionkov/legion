@@ -10,13 +10,14 @@
 #define COLLECTIVE_H
 
 #include "fabric_types.h"
+#include <iostream>
 #include <stdint.h>
 #include <cstring>
 #include <cassert>
 #include <stdatomic.h>
 #include <pthread.h>
 #include <semaphore.h>
-
+#include <unistd.h>
 
 /* 
    Gathers incoming message contents into a single array on the 
@@ -59,7 +60,6 @@ class Gatherer {
   NodeId root; // ID of root / gathering node 
   uint32_t num_nodes; // Number of nodes in the fabric
   atomic_uint_fast32_t num_recvd; // counter of number of entries recieved
-  pthread_mutex_t wait_mut;
   T* buf; // gather buffer for all gather entries
   bool* recvd_flags; // tracks whether a given gather entry was recieved
   atomic_bool wait_complete; // true if all data was received and the buf pointer was returned
@@ -104,7 +104,6 @@ void Gatherer<T>::init(uint32_t _num_nodes) {
 template <typename T>
 Gatherer<T>::~Gatherer() {
   destroy();
-  pthread_mutex_destroy(&wait_mut);
 }
 
 // Destroy this gatherer. If no one else has taken ownership of the
@@ -150,10 +149,9 @@ T* Gatherer<T>::wait() {
   assert(atomic_load(&initialized) && "Cannot wait on uninitialized gather object");
   // Spin wait until all entries have arrived
   while(atomic_load(&all_recvd) == false)
-    ; 
+    ;
   assert (atomic_load(&num_recvd) == num_nodes && "Wrong number of entries were recieved on gather");
   T* temp = buf; // reset will reassign buf
-  pthread_mutex_unlock(&wait_mut);
   reset(); 
   return temp;
 }

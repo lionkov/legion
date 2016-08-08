@@ -104,6 +104,10 @@ bool FabFabric::init(bool manually_set_addresses) {
     std::cerr << "ERROR -- could not query PMI to determine network properties" << std::endl;
     return false;
     }*/
+
+  // Add internal message types
+  add_message_type(new EventGatherMessageType(), "Event Gather Message");
+
   
   std::cout << "Initializing fabric... " << std::endl;
 
@@ -470,8 +474,8 @@ void FabFabric::progress(bool wait) {
     }
     
     if (ret < 0) {   // An error occured
-      if (ret == -FI_EAGAIN && !wait) 
-	return; // Try again only if we do not wait
+      if (ret == -FI_EAGAIN && wait) 
+	continue; // Try again only if we do not wait
       else
 	return; // Return on all other errors
     }
@@ -526,6 +530,9 @@ bool FabFabric::incoming(Message *m)
 {
   if (m->mtype != NULL) {
     // tagged message
+    if (mts[m->mtype->id] == NULL)
+      std::cerr << "WARNING -- unknown message type received -- " << std::endl;
+    
     post_tagged(m->mtype);
   } else {
     MessageType* mtype;
@@ -546,7 +553,7 @@ bool FabFabric::incoming(Message *m)
     len -= sizeof(msgid);
     
     if (mtype == NULL) {
-      fprintf(stderr, "invalid message type: %d\n", msgid);
+      std::cerr << "WARNING -- unknown message type received" << std::endl;
       return false;
     }
 
@@ -556,7 +563,6 @@ bool FabFabric::incoming(Message *m)
       len -= mtype->argsz;
     }
     
-    // TODO -- will need to respect other payload modes
     m->payload = new FabContiguousPayload(PAYLOAD_KEEP, data, len);
   }
 

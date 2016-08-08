@@ -39,7 +39,9 @@ public:
   
   void testFabTwoDPayload();
   int test_message_loopback();
+  int test_message_pingpong();
   int test_gather();
+  void wait_for_shutdown() { fabric->wait_for_shutdown(); }
   
 protected:
   void add_message_types();
@@ -176,3 +178,65 @@ public:
 
   TestSpanPayloadMessageType::RequestArgs args;
 };
+
+
+class PingPongMessageType : public MessageType {
+public: 
+  PingPongMessageType()
+    : MessageType(6, /* msgId */
+		  sizeof(RequestArgs),
+		  false, /* has payload */
+		  true /*in order */ ){ }
+
+  struct RequestArgs {
+    RequestArgs(NodeId _sender,
+		bool* _ack_table)
+      : sender(_sender),
+	ack_table(_ack_table) { }
+    NodeId sender;
+    bool* ack_table;
+  };
+  
+  void request(Message* m);
+};
+
+class PingPongMessage : public Message {
+public:
+  PingPongMessage(NodeId dest, NodeId sender, bool* ack_table)
+    : Message(dest, 6, &args, NULL),
+      args(sender, ack_table) { }
+
+  PingPongMessageType::RequestArgs args;
+};
+
+
+
+class PingPongAckType : public MessageType {
+public: 
+  PingPongAckType()
+    : MessageType(7, /* msgId */
+		  sizeof(RequestArgs),
+		  false, /* has payload */
+		  true /*in order */ ){ }
+
+  struct RequestArgs {
+    RequestArgs(NodeId _sender,
+		bool* _ack_table)
+      : sender(_sender),
+	ack_table(_ack_table) { }
+    NodeId sender;
+    bool* ack_table;
+  };
+
+  void request(Message* m);
+};
+
+class PingPongAck : public Message {
+public:
+  PingPongAck(NodeId dest, NodeId sender, bool* ack_table)
+    : Message(dest, 7, &args, NULL),
+      args(sender, ack_table) { }
+
+  PingPongAckType::RequestArgs args;
+};
+
