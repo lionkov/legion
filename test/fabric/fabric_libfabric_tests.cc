@@ -97,22 +97,30 @@ int FabTester::run() {
     std::cout << "test_message_pingpong -- OK" << std::endl;    
   }
   
-  
   std::cout << std::endl << std::endl << "running: test_gather" << std::endl;
-  if (test_gather() != 0) {
+  if (test_gather(3) != 0) {
     errors += 1;
-    std::cout << "ERROR -- test_gather_local -- FAILED" << std::endl;    
+    std::cout << "ERROR -- test_gather -- FAILED" << std::endl;    
   } else {
-    std::cout << "test_gather_local -- OK" << std::endl;    
+    std::cout << "test_gather -- OK" << std::endl;    
   }
   
+  std::cout << std::endl << std::endl << "running: test_broadcast" << std::endl;
+  if (test_broadcast(3) != 0) {
+    errors += 1;
+    std::cout << "ERROR -- test_broadcast -- FAILED" << std::endl;    
+  } else {
+    std::cout << "test_broadcast -- OK" << std::endl;    
+  }
   
   return errors;
 }
 
 // Perform an Event gather from all other nodes in the system
-// onto node 0.
-int FabTester::test_gather() {
+// onto node 0. 
+int FabTester::test_gather(int runs) {
+  if (runs <= 0)
+    return 0;
   Realm::Event e;
   e.id = fabric->get_id();
 
@@ -129,9 +137,60 @@ int FabTester::test_gather() {
       }
     }
   }
+
+  // Root broadcasts to all other nodes that this gather is done,
+  // synchronizing for the next broadcast.
+  fabric->broadcast_events(e, 0);
+  
+  
+  
+  
+  errors += test_gather(runs-1);
   
   return (errors == 0) ? 0 : 1;
 }
+
+// Have 0 broadcast to all other nodes. Then, gather back to the root
+// and check that data is correct.
+int FabTester::test_broadcast(int runs) {
+  if (runs <= 0)
+    return 0;
+  
+  Realm::Event e;
+  if (fabric->get_id() == 0)
+    e.id = 12345; 
+
+  int errors = 0;
+
+  // Root broadcasts to all.
+  fabric->broadcast_events(e, 0);
+  // All nodes now have an event with id 12345.
+  e.gen = fabric->get_id();
+  // We should now get an array of events where each event
+  // has ID 12345 and gen correspondes to the node.
+
+  Realm::Event* es = fabric->gather_events(e, 0);
+  
+  if(fabric->get_id() == 0) {
+    for (size_t i=0; i<fabric->get_num_nodes(); ++i)  {
+      if (es[i].id != 12345) {
+	std::cerr << "ERROR in test_broadcast() -- expected event " << i
+		  << " to have ID 12345, got: " << es[i].id << std::endl;
+	++errors;
+      }
+      if (es[i].gen != i) {
+	std::cerr << "ERROR in test_broadcast() -- expected event " << i
+		  << " to have gen " << i << " got " << es[i].gen << std::endl;
+	++errors;
+      }
+    }
+    delete[] es;
+  }
+
+  errors += test_broadcast(runs-1);
+  return (errors == 0) ? 0 : 1;
+}
+
 
 
 
@@ -149,9 +208,9 @@ int FabTester::test_message_pingpong() {
     fabric->send(new PingPongMessage(i, my_id, ack_table));
 
   // Give all message a change to send
-  sleep(3);
+  sleep(2);
 
-  int errors;
+  int errors  = 0;
   
   // Check that all messages acked
   for(int i=0; i<num_nodes; ++i) {

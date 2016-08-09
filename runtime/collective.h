@@ -181,6 +181,7 @@ void Gatherer<T>::reset() {
   buf = new T[num_nodes];
   atomic_store(&wait_complete, false);
   atomic_store(&all_recvd, false);
+  atomic_store(&num_recvd, 0);
 }
 
 /* 
@@ -195,20 +196,21 @@ void Gatherer<T>::reset() {
    otherwise behavior is undefined. The Broadcaster will attempt to enforce 
    this by crashing if a Broadcast is recieved from the wrong node.
 
-   The wait() function will block until a Broadcast messages are recieved, 
-   and returns data within.
+   The wait() function will spin until a Broadcast messages are recieved 
+   from the expected node, and then return the received data.
    
    The Broadcaster does not need to be initialized, and does not return any
-   dynamically allocated data.
+   dynamically allocated data. Internally, the broadcast will hold only one 
+   piece of received data at a time.
 
  */
 template <typename T>
 class Broadcaster {
 public:
   Broadcaster();
-  ~Broadcaster() { };
+  ~Broadcaster();
   // Wait for a broadcast to arrive from node Sender
-  T wait(NodeId _sender);
+  void wait(T& t, NodeId _sender);
   void add_entry(T& entry, NodeId _sender);
   void reset();
   
@@ -226,36 +228,46 @@ private:
 template <typename T>
 Broadcaster<T>::Broadcaster() {
   atomic_init(&wait_complete, false);
-  atomic_init(&data_recvd, false);
+  atomic_init(&data_recvd, false); 
 }
 
 template <typename T>
+Broadcaster<T>::~Broadcaster() {
+}
+
+
+template <typename T>
 void Broadcaster<T>::add_entry(T& entry, NodeId _sender) {
-  assert((atomic_load(&data_recvd) == false) && "Can't add data to a broadcast that hasn't finished"); 
+  assert((atomic_load(&data_recvd) == false) && "This Broadcast has already received data");
   sender = _sender;
   data = entry;
   atomic_store(&data_recvd, true);
 }
 
-// Wait for a broadcast from a given sender.
+// Wait for a broadcast from a given sender, return in t.
 template <typename T>
-T Broadcaster<T>::wait(NodeId _sender) {
+void Broadcaster<T>::wait(T& t, NodeId _sender) {
+  assert((atomic_load(&wait_complete) == false) && "Can't wait on complete broadcast");
   // spin wait until data is recevied
   while(atomic_load(&data_recvd) == false)
     ;
   // Sanity check -- did we get data from the right sender?
   // If not, there are multiple broadcasts going on
   assert((sender == _sender) && "Receieved broadcast from unexpected root");
+  t = data;
   atomic_store(&wait_complete, true);
-  return data;
+  reset();
 }
 
 // Reset this Broadcaster -- must be called in between each Broadcast event
 template <typename T>
 void Broadcaster<T>::reset() {
-  assert((atomic_load(&wait_complete == true)) && "Cannot reset incomplete broadcast");
-  atomic_store(&wait_complete, false);
+  assert((atomic_load(&data_recvd)==true)
+	 && (atomic_load(&wait_complete)==true)
+	 && "Can't reset Broadcaster that has not complete");
+  
   atomic_store(&data_recvd, false);
+  atomic_store(&wait_complete, false);
 }
 
 #endif // COLLECTIVE_H

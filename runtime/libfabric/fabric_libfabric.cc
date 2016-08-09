@@ -107,6 +107,7 @@ bool FabFabric::init(bool manually_set_addresses) {
 
   // Add internal message types
   add_message_type(new EventGatherMessageType(), "Event Gather Message");
+  add_message_type(new EventBroadcastMessageType(), "Event Broadcast Message");
 
   
   std::cout << "Initializing fabric... " << std::endl;
@@ -906,18 +907,16 @@ void FabFabric::broadcast_events(Realm::Event& event, NodeId root) {
   if (id == root) {
     for (NodeId i=0; i<num_nodes; ++i) {
       if (i != id) // No need to send to self
-	fabric->send(new EventBroadcastMessage(root, event, id));
+	fabric->send(new EventBroadcastMessage(i, event, id));
     }		    
   } else {
-    event = event_broadcaster.wait(root);    
+    event_broadcaster.wait(event, root);
   }   
 }
 
 void FabFabric::recv_broadcast_event(Realm::Event& event, NodeId sender) {
   event_broadcaster.add_entry(event, sender);
 }
-
-
 
 // Set the address vector to the one provided, and reset this Fabric's
 // ID and node count to reflect its position in the new address vector.
@@ -938,7 +937,6 @@ int FabFabric::set_address_vector(void* addrs, size_t addrlen, NodeId new_id, ui
   fi_addrs = (fi_addr_t*) malloc(num_nodes * sizeof(fi_addr_t));
   memset(fi_addrs, 0, sizeof(fi_addr_t*)*num_nodes);
 
-  
   ret = fi_av_insert(av, addrs, num_nodes, fi_addrs, 0, NULL);
 
   if (ret < 0) {

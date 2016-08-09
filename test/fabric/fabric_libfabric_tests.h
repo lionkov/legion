@@ -40,7 +40,8 @@ public:
   void testFabTwoDPayload();
   int test_message_loopback();
   int test_message_pingpong();
-  int test_gather();
+  int test_gather(int runs);
+  int test_broadcast(int runs);
   void wait_for_shutdown() { fabric->wait_for_shutdown(); }
   
 protected:
@@ -239,4 +240,3 @@ public:
 
   PingPongAckType::RequestArgs args;
 };
-

@@ -169,7 +169,7 @@ class EventGatherMessage : public Message {
 class EventBroadcastMessageType : public MessageType {
  public:
  EventBroadcastMessageType()
-   : MessageType(EVENT_GATHER_MSGID, sizeof(RequestArgs), false, true) { }
+   : MessageType(EVENT_BROADCAST_MSGID, sizeof(RequestArgs), false, true) { }
 
   struct RequestArgs {
   RequestArgs(Realm::Event& _event, NodeId _sender)
@@ -185,7 +185,7 @@ class EventBroadcastMessageType : public MessageType {
 class EventBroadcastMessage : public Message {
  public:
  EventBroadcastMessage(NodeId dest, Realm::Event& _event, NodeId sender)
-   : Message(dest, EVENT_GATHER_MSGID, &args, NULL),
+   : Message(dest, EVENT_BROADCAST_MSGID, &args, NULL),
     args(_event, sender) { }
 
   EventBroadcastMessageType::RequestArgs args;
