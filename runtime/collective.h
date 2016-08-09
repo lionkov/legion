@@ -6,15 +6,21 @@
 // Implementation of classes for storing and manging collective operations.
 // Objects represent a collective in-progress.
 
+// Makes use of lockfree reader-writer queues from: https://github.com/cameron314/readerwriterqueue.git
+// See atomicops.h and readerwriterqueue.h for licensing information
+
 #ifndef COLLECTIVE_H
 #define COLLECTIVE_H
 
-#include "fabric_types.h"
+// TODO -- convert to atomic queues?
+//#include "fabric_types.h"
+//#include "atomicops.h"
+#include <atomic>
+#include "readerwriterqueue.h"
 #include <iostream>
 #include <stdint.h>
 #include <cstring>
 #include <cassert>
-#include <stdatomic.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <unistd.h>
@@ -71,12 +77,13 @@ class Gatherer {
  protected:
   NodeId root; // ID of root / gathering node 
   uint32_t num_nodes; // Number of nodes in the fabric
-  atomic_uint_fast32_t num_recvd; // counter of number of entries recieved
+  std::atomic<std::uint32_t> num_recvd; // counter of number of entries recieved
   T* buf; // gather buffer for all gather entries
   bool* recvd_flags; // tracks whether a given gather entry was recieved
-  atomic_bool wait_complete; // true if all data was received and the buf pointer was returned
-  atomic_bool all_recvd; // True when all entries have been recieved
-  atomic_bool initialized; // True if initialized
+  
+  std::atomic<bool> wait_complete; // true if all data was received and the buf pointer was returned
+  std::atomic<bool> all_recvd; // True when all entries have been recieved
+  std::atomic<bool> initialized; // True if initialized
   void reset(); // Ready this object for a new gather. Invalid if the current gather is incomplete.
 };
 
@@ -88,10 +95,9 @@ Gatherer<T>::Gatherer(uint32_t _num_nodes) {
 // Use if you want to initialize later
 template <typename T>
 Gatherer<T>::Gatherer()
-  : num_nodes(0), initialized(false) {
-  atomic_store(&initialized, false);
+  : num_nodes(0) {
+  initialized.store(false);
 }
-
 
 // Initialize this object to accomodate gathers from a network
 // of _num_nodes size
@@ -99,18 +105,16 @@ template <typename T>
 void Gatherer<T>::init(uint32_t _num_nodes) {
   assert((atomic_load(&initialized) == false) && "Gather object was already initialized.");
   num_nodes = _num_nodes;
-  
-  atomic_init(&all_recvd, false);
-  atomic_init(&num_recvd, 0);
-  atomic_init(&wait_complete, false);
-  
+  all_recvd.store(false);
+  wait_complete.store(false);
+  num_recvd.store(0);
   buf = new T[num_nodes];
-
   recvd_flags = new bool[num_nodes];
+  
   for(int i=0; i<num_nodes; ++i)
     recvd_flags[i] = false;
 
-  atomic_store(&initialized, true);
+  initialized.store(true);
 }
 
 template <typename T>
@@ -123,22 +127,20 @@ Gatherer<T>::~Gatherer() {
 // may result in undefined behavior. You may re-initialize a gatherer after destroying it.
 template <typename T>
 void Gatherer<T>::destroy() {
-  if (atomic_load(&initialized)) {
-    
-    if (atomic_load(&wait_complete))
+  if (initialized.load()) {
+    if (wait_complete) {
       delete[] buf;
-  
+    }
     delete[] recvd_flags;
+    initialized.store(false);
   }
-
-  atomic_store(&initialized, false);
 }
 
 
 // add gather data for node sender to the buffer
 template <typename T>
 void Gatherer<T>::add_entry(T& entry, NodeId sender) {
-  assert(atomic_load(&initialized) && "Gather must be initialized before adding entries");
+  assert(initialized.load() && "Gather must be initialized before adding entries");
   assert((sender >= 0) && (sender < num_nodes) && "Sender ID out of range");
   // Sanity check -- try to detect if this entry has already
   // been written. Not guaranteed to detect this condition,
@@ -146,12 +148,12 @@ void Gatherer<T>::add_entry(T& entry, NodeId sender) {
   assert((recvd_flags[sender] == false) && "Gather entry for this sender was already received");
   buf[sender] = entry;
   recvd_flags[sender] = true;
-  uint32_t old = atomic_fetch_add(&num_recvd, 1);
+  uint32_t old = num_recvd.fetch_add(1);
   
   // Another sanity check -- see if too many entries have been recorded
   assert((old < num_nodes) && "More gather entries received than nodes in this fabric");
   if(old == num_nodes-1)
-    atomic_store(&all_recvd, true);
+    all_recvd.store(true);
 }
 
 // Block until all gather entries are received. Return pointer to the
@@ -159,11 +161,11 @@ void Gatherer<T>::add_entry(T& entry, NodeId sender) {
 // function and must be deallocated using delete[].
 template <typename T>
 T* Gatherer<T>::wait() {
-  assert(atomic_load(&initialized) && "Cannot wait on uninitialized gather object");
+  assert(initialized.load() && "Cannot wait on uninitialized gather object");
   // Spin wait until all entries have arrived
   while(atomic_load(&all_recvd) == false)
     ;
-  assert (atomic_load(&num_recvd) == num_nodes && "Wrong number of entries were recieved on gather");
+  assert (num_recvd.load() == num_nodes && "Wrong number of entries were recieved on gather");
   T* temp = buf; // reset will reassign buf
   reset(); 
   return temp;
@@ -174,14 +176,14 @@ T* Gatherer<T>::wait() {
 // function.
 template <typename T>
 void Gatherer<T>::reset() {
-  assert(atomic_load(&initialized) && "Cannot reset uninitialized gather object");
-  assert((atomic_exchange(&wait_complete, false) == false) && "Cannot reset a gather in-progress");
+  assert(initialized.load() && "Cannot reset uninitialized gather object");
+  assert((wait_complete.exchange(false) == false) && "Cannot reset a gather in-progress");
   for(int i=0; i<num_nodes; ++i) 
     recvd_flags[i] = false;
   buf = new T[num_nodes];
-  atomic_store(&wait_complete, false);
-  atomic_store(&all_recvd, false);
-  atomic_store(&num_recvd, 0);
+  wait_complete.store(false);
+  all_recvd.store(false);
+  num_recvd.store(0);
 }
 
 /* 
@@ -219,55 +221,52 @@ private:
   T data;
   // Records who sent the current broadcast data
   NodeId sender;
-  
-  atomic_bool wait_complete;
-  atomic_bool data_recvd;
-};
 
+  std::atomic<bool> wait_complete;
+  std::atomic<bool> data_recvd;
+};
 
 template <typename T>
 Broadcaster<T>::Broadcaster() {
-  atomic_init(&wait_complete, false);
-  atomic_init(&data_recvd, false); 
+  wait_complete.store(false);
+  data_recvd.store(false);
 }
 
 template <typename T>
 Broadcaster<T>::~Broadcaster() {
 }
 
-
 template <typename T>
 void Broadcaster<T>::add_entry(T& entry, NodeId _sender) {
-  assert((atomic_load(&data_recvd) == false) && "This Broadcast has already received data");
+  assert((data_recvd.load() == false) && "This Broadcast has already received data");
   sender = _sender;
   data = entry;
-  atomic_store(&data_recvd, true);
+  data_recvd.store(true);
 }
 
 // Wait for a broadcast from a given sender, return in t.
 template <typename T>
 void Broadcaster<T>::wait(T& t, NodeId _sender) {
-  assert((atomic_load(&wait_complete) == false) && "Can't wait on complete broadcast");
+  assert((wait_complete.load() == false) && "Can't wait on complete broadcast");
   // spin wait until data is recevied
-  while(atomic_load(&data_recvd) == false)
+  while (data_recvd.load() == false)
     ;
   // Sanity check -- did we get data from the right sender?
   // If not, there are multiple broadcasts going on
   assert((sender == _sender) && "Receieved broadcast from unexpected root");
   t = data;
-  atomic_store(&wait_complete, true);
+  wait_complete.store(true);
   reset();
 }
 
 // Reset this Broadcaster -- must be called in between each Broadcast event
 template <typename T>
 void Broadcaster<T>::reset() {
-  assert((atomic_load(&data_recvd)==true)
-	 && (atomic_load(&wait_complete)==true)
+  assert((data_recvd.load() == true)
+	 && (wait_complete.load() ==true)
 	 && "Can't reset Broadcaster that has not complete");
-  
-  atomic_store(&data_recvd, false);
-  atomic_store(&wait_complete, false);
+  data_recvd.store(false);
+  wait_complete.store(false);
 }
 
 #endif // COLLECTIVE_H
