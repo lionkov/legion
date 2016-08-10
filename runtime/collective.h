@@ -198,7 +198,7 @@ void Gatherer<T>::reset() {
 
    Currently, only one broadcast may be in progress at a time on a given node, 
    otherwise behavior is undefined. The Broadcaster will attempt to enforce 
-   this by crashing if a Broadcast is recieved from the wrong node.
+   this by crashing if a Broadcast is received from the wrong node.
 
    The wait() function will spin until a Broadcast messages are recieved 
    from the expected node, and then return the received data.

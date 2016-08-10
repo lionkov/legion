@@ -7,7 +7,6 @@
 #include "fabric_types.h"
 #include "collective.h"
 #include "cmdline.h"
-#include "activemsg.h"
 #include "payload.h"
 #include "logging.h"
 #include "event.h"
@@ -15,6 +14,8 @@
 #include <sys/uio.h>
 #include <stdint.h>
 #include <cstring>
+
+#define MAX_MESSAGE_TYPES 256
 
 class Message;
 
@@ -52,7 +53,7 @@ class MessageType {
 class Fabric {
  public:
   // all message types need to be added before init() is called
-  Fabric() : log(NULL) { }
+  Fabric() : log(NULL), num_msgs_added(0) { }
   ~Fabric() { }
   MessageType* mts[MAX_MESSAGE_TYPES];
   virtual bool add_message_type(MessageType *mt, const std::string tag) = 0;
@@ -96,6 +97,7 @@ class Fabric {
 
   // Handles current Broadcast. Does not need to be initialized
   Broadcaster<Realm::Event> event_broadcaster;
+  uint32_t num_msgs_added; // Keeps track of number of messages added
 };
 
 // Global fabric singleton

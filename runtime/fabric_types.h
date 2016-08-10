@@ -11,7 +11,6 @@
 #include <stdint.h>
 
 #define NELEM(x) (sizeof(x) / sizeof(x[0]))
-#define MAX_MESSAGE_TYPES 256
 
 enum MessageIds {
       FIRST_AVAILABLE = 140,
