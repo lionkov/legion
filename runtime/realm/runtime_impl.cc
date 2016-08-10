@@ -21,8 +21,6 @@
 #include "mem_impl.h"
 #include "inst_impl.h"
 
-//#include "activemsg.h"
-
 #include "cmdline.h"
 
 #include "codedesc.h"
@@ -400,7 +398,7 @@ namespace Realm {
     Memory RuntimeImpl::next_local_memory_id(void)
     {
       Memory m = ID(ID::ID_MEMORY, 
-		    gasnet_mynode(), 
+		    fabric->get_id(), 
 		    num_local_memories++, 0).convert<Memory>();
       return m;
     }
@@ -408,7 +406,7 @@ namespace Realm {
     Processor RuntimeImpl::next_local_processor_id(void)
     {
       Processor p = ID(ID::ID_PROCESSOR, 
-		       gasnet_mynode(), 
+		       fabric->get_id(), 
 		       num_local_processors++).convert<Processor>();
       return p;
     }
@@ -416,19 +414,19 @@ namespace Realm {
     void RuntimeImpl::add_memory(MemoryImpl *m)
     {
       // right now expect this to always be for the current node and the next memory ID
-      assert((ID(m->me).node() == gasnet_mynode()) &&
-	     (ID(m->me).index_h() == nodes[gasnet_mynode()].memories.size()));
+      assert((ID(m->me).node() == fabric->get_id()) &&
+	     (ID(m->me).index_h() == nodes[fabric->get_id()].memories.size()));
 
-      nodes[gasnet_mynode()].memories.push_back(m);
+      nodes[fabric->get_id()].memories.push_back(m);
     }
 
     void RuntimeImpl::add_processor(ProcessorImpl *p)
     {
       // right now expect this to always be for the current node and the next processor ID
-      assert((ID(p->me).node() == gasnet_mynode()) &&
-	     (ID(p->me).index() == nodes[gasnet_mynode()].processors.size()));
+      assert((ID(p->me).node() == fabric->get_id()) &&
+	     (ID(p->me).index() == nodes[fabric->get_id()].processors.size()));
 
-      nodes[gasnet_mynode()].processors.push_back(p);
+      nodes[fabric->get_id()].processors.push_back(p);
     }
 
     void RuntimeImpl::add_dma_channel(DMAChannel *c)
@@ -519,90 +517,26 @@ namespace Realm {
       LegionRuntime::Arrays::Mapping<3,1>::register_mapping<LegionRuntime::Arrays::FortranArrayLinearization<3> >();
       LegionRuntime::Arrays::Mapping<1,1>::register_mapping<LegionRuntime::Arrays::Translation<1> >();
 
-      DetailedTimer::init_timers();
-
-      // gasnet_init() must be called before parsing command line arguments, as some
-      //  spawners (e.g. the ssh spawner for gasnetrun_ibv) start with bogus args and
-      //  fetch the real ones from somewhere during gasnet_init()
-
-      
-#ifdef USE_GASNET
-      // SJT: WAR for issue on Titan with duplicate cookies on Gemini
-      //  communication domains
-      char *orig_pmi_gni_cookie = getenv("PMI_GNI_COOKIE");
-      std::cout << "PMI_GNI_COOKIE" << std::endl;
-      std::cout << orig_pmi_gni_cookie << std::endl;
-      if(orig_pmi_gni_cookie) {
-	char new_pmi_gni_cookie[32];
-	snprintf(new_pmi_gni_cookie, 32, "%d", 1+atoi(orig_pmi_gni_cookie));
-	setenv("PMI_GNI_COOKIE", new_pmi_gni_cookie, 1 /*overwrite*/);
-      }
-      // SJT: another GASNET workaround - if we don't have GASNET_IB_SPAWNER set, assume it was MPI
-      // (This is called GASNET_IB_SPAWNER for versions <= 1.24 and GASNET_SPAWNER for versions >= 1.26)
-      if(!getenv("GASNET_IB_SPAWNER") && !getenv("GASNET_SPAWNER")) {
-	setenv("GASNET_IB_SPAWNER", "mpi", 0 /*no overwrite*/);
-	setenv("GASNET_SPAWNER", "mpi", 0 /*no overwrite*/);
-      }
-
-      // and one more... disable GASNet's probing of pinnable memory - it's
-      //  painfully slow on most systems (the gemini conduit doesn't probe
-      //  at all, so it's ok)
-      // we can do this because in gasnet_attach() we will ask for exactly as
-      //  much as we need, and we can detect failure there if that much memory
-      //  doesn't actually exist
-      // inconveniently, we have to set a PHYSMEM_MAX before we call
-      //  gasnet_init and we don't have our argc/argv until after, so we can't
-      //  set PHYSMEM_MAX correctly, but setting it to something really big to
-      //  prevent all the early checks from failing gets us to that final actual
-      //  alloc/pin in gasnet_attach ok
-      {
-	// the only way to control this is with environment variables, so set
-	//  them unless the user has already set them (in which case, we assume
-	//  they know what they're doing)
-	// do handle the case where NOPROBE is set to 1, but PHYSMEM_MAX isn't
-	const char *e = getenv("GASNET_PHYSMEM_NOPROBE");
-	if(!e || (atoi(e) > 0)) {
-	  if(!e)
-	    setenv("GASNET_PHYSMEM_NOPROBE", "1", 0 /*no overwrite*/);
-	  if(!getenv("GASNET_PHYSMEM_MAX")) {
-	    // just because it's fun to read things like this 20 years later:
-	    // "nobody will ever build a system with more than 1 TB of RAM..."
-	    setenv("GASNET_PHYSMEM_MAX", "1T", 0 /*no overwrite*/);
-	  }
-	}
-      }
-
-      // and yet another GASNet workaround: the Infiniband conduit seems to
-      //  have a problem with AMRDMA mode, consuming receive buffers even for
-      //  request targets that are in AMRDMA mode - disable the mode by default
-#ifdef GASNET_CONDUIT_IBV
-      if(!getenv("GASNET_AMRDMA_MAX_PEERS"))
-        setenv("GASNET_AMRDMA_MAX_PEERS", "0", 0 /*no overwrite*/);
-#endif
-#endif
+      DetailedTimer::init_timers();       
 
 #ifdef DEBUG_REALM_STARTUP
       { // we don't have rank IDs yet, so everybody gets to spew
         char s[80];
         gethostname(s, 79);
-        strcat(s, " enter gasnet_init");
+        strcat(s, "enter fabric init");
         TimeStamp ts(s, false);
         fflush(stdout);
       }
 #endif
 
       // Initialize global fabric manager
-      std::cout << "CREATING FABRIC" << std::endl;
       fabric = new FabFabric();
-
-
       
-      CHECK_GASNET( gasnet_init(argc, argv) );
 #ifdef DEBUG_REALM_STARTUP
       { // once we're convinced there isn't skew here, reduce this to rank 0
         char s[80];
         gethostname(s, 79);
-        strcat(s, " exit gasnet_init");
+        strcat(s, " exit fabric init");
         TimeStamp ts(s, false);
         fflush(stdout);
       }
@@ -657,10 +591,8 @@ namespace Realm {
       cp.add_option_int("-ll:gsize", gasnet_mem_size_in_mb)
 	.add_option_int("-ll:rsize", reg_mem_size_in_mb)
 	.add_option_int("-ll:dsize", disk_mem_size_in_mb)
-	.add_option_int("-ll:stacksize", stack_size_in_mb)
 	.add_option_int("-ll:dma", dma_worker_threads)
 	.add_option_int("-ll:amsg", active_msg_worker_threads)
-	.add_option_int("-ll:ahandlers", active_msg_handler_threads)
 	.add_option_int("-ll:dummy_rsrv_ok", dummy_reservation_ok)
 	.add_option_bool("-ll:show_rsrv", show_reservations);
 
@@ -786,48 +718,6 @@ namespace Realm {
             
       gasnet_handlerentry_t handlers[128];
       int hcount = 0;
-      //hcount += NodeAnnounceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Node Announce AM");
-      //hcount += SpawnTaskMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Spawn Task AM");
-      //hcount += LockRequestMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Request AM");
-      //hcount += LockReleaseMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Release AM");
-      //hcount += LockGrantMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Lock Grant AM");
-      //hcount += EventSubscribeMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Event Subscribe AM");
-      //hcount += EventTriggerMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Event Trigger AM");
-      //hcount += EventUpdateMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Event Update AM");
-      //hcount += RemoteMemAllocRequest::Request::add_handler_entries(&handlers[hcount], "Remote Memory Allocation Request AM");
-      //hcount += RemoteMemAllocRequest::Response::add_handler_entries(&handlers[hcount], "Remote Memory Allocation Response AM");
-      //hcount += CreateInstanceRequest::Request::add_handler_entries(&handlers[hcount], "Create Instance Request AM");
-      //hcount += CreateInstanceRequest::Response::add_handler_entries(&handlers[hcount], "Create Instance Response AM");
-      //hcount += RemoteCopyMessage::add_handler_entries(&handlers[hcount], "Remote Copy AM");
-      //hcount += RemoteFillMessage::add_handler_entries(&handlers[hcount], "Remote Fill AM");
-      //hcount += ValidMaskRequestMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Valid Mask Request AM");
-      //hcount += ValidMaskDataMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Valid Mask Data AM");
-#ifdef DETAILED_TIMING
-      // hcount += TimerDataRequestMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Roll-up Request AM");
-      //hcount += TimerDataResponseMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Roll-up Data AM");
-      //hcount += ClearTimersMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Clear Timer Request AM");
-#endif
-      //hcount += DestroyInstanceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Destroy Instance AM");
-      //hcount += RemoteWriteMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Write AM");
-      //hcount += RemoteReduceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Reduce AM");
-      //hcount += RemoteSerdezMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Serdez AM");
-      //hcount += RemoteWriteFenceMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Write Fence AM");
-      //hcount += RemoteWriteFenceAckMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Write Fence Ack AM");
-      //hcount += DestroyLockMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Destroy Lock AM");
-      //hcount += RemoteReduceListMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Remote Reduction List AM");
-      //hcount += RuntimeShutdownMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Machine Shutdown AM");
-      //hcount += BarrierAdjustMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Adjust AM");
-      //hcount += BarrierSubscribeMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Subscribe AM");
-      //      hcount += BarrierTriggerMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Trigger AM");
-      //hcount += BarrierMigrationMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Barrier Migration AM");
-      // hcount += MetadataRequestMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Request AM"); 
-      //hcount += MetadataResponseMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Response AM");
-      // hcount += MetadataInvalidateMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Invalidate AM");
-      //      hcount += MetadataInvalidateAckMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Metadata Inval Ack AM");
-      //hcount += RegisterTaskMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Register Task AM");
-      //hcount += RegisterTaskCompleteMessage::ActiveMessage::add_handler_entries(&handlers[hcount], "Register Task Complete AM");
-      //hcount += TestMessage::add_handler_entries(&handlers[hcount], "Test AM");
-      //hcount += TestMessage2::add_handler_entries(&handlers[hcount], "Test 2 AM");
 
       init_endpoints(handlers, hcount, 
 		     gasnet_mem_size_in_mb, reg_mem_size_in_mb,
@@ -925,7 +815,7 @@ namespace Realm {
       std::cout << "We're using gasnet" << std::endl;
       #endif
       fabric->init();
-      
+
       Node *n = &nodes[gasnet_mynode()];
 
       // create memories and processors for all loaded module
