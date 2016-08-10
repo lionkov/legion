@@ -69,6 +69,9 @@ class Fabric {
   virtual void recv_gather_event(Realm::Event& event, NodeId sender) = 0;
   virtual void broadcast_events(Realm::Event& event, NodeId root) = 0;
   virtual void recv_broadcast_event(Realm::Event& event, NodeId sender) = 0;
+  virtual void barrier_wait(uint32_t id) = 0;
+  virtual void barrier_notify(uint32_t id) = 0;
+  virtual void recv_barrier_notify(uint32_t barrier_id, NodeId sender) = 0;
 
   // Query fabriic parameters
   virtual NodeId get_id() = 0;
@@ -77,7 +80,6 @@ class Fabric {
   virtual size_t get_iov_limit(MessageId id) = 0;
   virtual int get_max_send() = 0;
   virtual void wait_for_shutdown() = 0;
-
 
   // virtual bool incoming(Message *) = 0;
   virtual void *memalloc(size_t size) = 0;
@@ -191,6 +193,32 @@ class EventBroadcastMessage : public Message {
     args(_event, sender) { }
 
   EventBroadcastMessageType::RequestArgs args;
+};
+
+
+class BarrierNotifyMessageType : public MessageType {
+ public:
+ BarrierNotifyMessageType()
+   : MessageType(EVENT_BROADCAST_MSGID, sizeof(RequestArgs), false, true) { }
+
+  struct RequestArgs {
+    RequestArgs(uint32_t _barrier_id, NodeId _sender)
+      : barrier_id(_barrier_id), sender(_sender) { }
+    uint32_t barrier_id;
+    NodeId sender;
+  };
+
+  void request(Message* m);
+  static void send_request(NodeId dest, uint32_t barrier_id);
+};
+
+class BarrierNotifyMessage : public Message {
+ public:
+  BarrierNotifyMessage(NodeId dest, uint32_t barrier_id, NodeId sender)
+    : Message(dest, EVENT_BROADCAST_MSGID, &args, NULL),
+      args(barrier_id, sender) { }
+
+  BarrierNotifyMessageType::RequestArgs args;
 };
 
 

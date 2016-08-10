@@ -13,11 +13,11 @@ FabFabric::FabFabric() : id(0), num_nodes(1), max_send(1024*1024), pend_num(16),
 			 num_progress_threads(1),
 			 progress_threads(NULL),
 			 tx_handler_thread(NULL),
+			 stacksize_in_mb(32),
 			 stop_flag(false),
 			 exchange_server_send_port(8080),
 			 exchange_server_recv_port(8081),
-			 exchange_server_host("127.0.0.1"),
-			 stacksize_in_mb(32) {
+			 exchange_server_host("127.0.0.1") {
   for (int i = 0; i < MAX_MESSAGE_TYPES; ++i)
     mts[i] = NULL;
 }
@@ -353,7 +353,6 @@ int FabFabric::send(Message* m)
 {
   int ret, e, n;
   MessageType *mt;
-  struct iovec *iov;
   size_t sz = 0;
   
   mt = m->mtype;
@@ -374,8 +373,6 @@ int FabFabric::send(Message* m)
     m->iov = &m->siov[0];
     int pidx = m->mtype->argsz==0 ? 1 : 2;
     if (m->payload) {
-      void *buf;
-
       e = NELEM(m->siov) - pidx;
       n = m->payload->get_iovs_required();
       if (n < 0)
@@ -872,8 +869,6 @@ void* FabFabric::exchange_addresses() {
 
 // Dump the parameters of this Fabric to a string
 std::string FabFabric::tostr() {
-  size_t len = 256;
-  char buf[256];
   std::stringstream sstream;
   sstream << "FabFabric object: \n"
 	  << "    id: " << id << "\n"
@@ -963,3 +958,15 @@ size_t FabFabric::get_address(char buf[64]) {
   return addrlen;
 }
 
+
+void FabFabric::barrier_wait(uint32_t id) {
+  // TODO
+}
+
+void FabFabric::barrier_notify(uint32_t id) {
+  // TODO
+}
+
+void FabFabric::recv_barrier_notify(uint32_t id, NodeId sender) {
+  // TODO
+}

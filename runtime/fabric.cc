@@ -13,7 +13,7 @@ void EventGatherMessageType::send_request(NodeId dest, Realm::Event& event) {
 void EventGatherMessageType::request(Message* m) {
   RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
   fabric->recv_gather_event(args->event, args->sender);
-};
+}
 
 
 void EventBroadcastMessageType::send_request(NodeId dest, Realm::Event& event) {
@@ -23,4 +23,13 @@ void EventBroadcastMessageType::send_request(NodeId dest, Realm::Event& event) {
 void EventBroadcastMessageType::request(Message* m) {
   RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
   fabric->recv_broadcast_event(args->event, args->sender);
-};
+}
+
+void BarrierNotifyMessageType::send_request(NodeId dest, uint32_t barrier_id) {
+  fabric->send(new BarrierNotifyMessage(dest, barrier_id, fabric->get_id()));
+}
+
+void BarrierNotifyMessageType::request(Message* m) {
+  RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
+  fabric->recv_barrier_notify(args->barrier_id, args->sender);
+}
