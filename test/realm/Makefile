@@ -37,7 +37,7 @@ NVCC_FLAGS	:=
 GASNET_FLAGS	:=
 LD_FLAGS	:= r
 
-CXX := g++
+CXX := clang++
 
 # we're going to include runtime.mk to get variable settings, but then
 #  do our own build steps
@@ -49,7 +49,7 @@ include $(LG_RT_DIR)/runtime.mk
 override CC_FLAGS := $(filter-out -DBOUNDS_CHECKS, \
                      $(filter-out -DPRIVILEGE_CHECKS, \
                      $(filter-out -DLEGION_SPY, \
-                       $(CC_FLAGS))))
+                     $(CC_FLAGS))))
 
 TESTS := serializing test_profiling ctxswitch barrier_reduce taskreg memspeed
 TESTS_SINGLENODE := proc_group
