@@ -10,11 +10,8 @@
 // See atomicops.h and readerwriterqueue.h for licensing information
 
 #ifndef COLLECTIVE_H
-#define COLLECTIVE_H
-
-// TODO -- convert to atomic queues?
+#define COLLECTIVE_H 
 //#include "fabric_types.h"
-//#include "atomicops.h"
 #include <atomic>
 #include "atomicops.h"
 #include "readerwriterqueue.h"
@@ -23,8 +20,6 @@
 #include <stdint.h>
 #include <cstring>
 #include <cassert>
-#include <pthread.h>
-#include <semaphore.h>
 #include <unistd.h>
 
 /* 
