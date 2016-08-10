@@ -16,8 +16,10 @@
 //#include "fabric_types.h"
 //#include "atomicops.h"
 #include <atomic>
+#include "atomicops.h"
 #include "readerwriterqueue.h"
 #include <iostream>
+#include <utility>
 #include <stdint.h>
 #include <cstring>
 #include <cassert>
@@ -202,71 +204,38 @@ void Gatherer<T>::reset() {
    from the expected node, and then return the received data.
    
    The Broadcaster does not need to be initialized, and does not return any
-   dynamically allocated data. Internally, the broadcast will hold only one 
-   piece of received data at a time.
+   dynamically allocated data. Internally, the Broadcaster stores requests in a FIFO
+   queue.
 
  */
 template <typename T>
 class Broadcaster {
 public:
-  Broadcaster();
-  ~Broadcaster();
+  Broadcaster()
+    : queue(100) { };
+  ~Broadcaster() { };
   // Wait for a broadcast to arrive from node Sender
-  void wait(T& t, NodeId _sender);
-  void add_entry(T& entry, NodeId _sender);
-  void reset();
+  void wait(T& t, NodeId sender);
+  void add_entry(T& entry, NodeId sender);
   
 private:
-  // Records the currently held broadcast data
-  T data;
-  // Records who sent the current broadcast data
-  NodeId sender;
-
-  std::atomic<bool> wait_complete;
-  std::atomic<bool> data_recvd;
+  // Contains received data and the sender.
+  moodycamel::BlockingReaderWriterQueue<std::pair<T, NodeId>> queue;  
 };
 
 template <typename T>
-Broadcaster<T>::Broadcaster() {
-  wait_complete.store(false);
-  data_recvd.store(false);
-}
-
-template <typename T>
-Broadcaster<T>::~Broadcaster() {
-}
-
-template <typename T>
-void Broadcaster<T>::add_entry(T& entry, NodeId _sender) {
-  assert((data_recvd.load() == false) && "This Broadcast has already received data");
-  sender = _sender;
-  data = entry;
-  data_recvd.store(true);
+void Broadcaster<T>::add_entry(T& entry, NodeId sender) {
+  bool success = queue.try_enqueue(std::pair<T, NodeId>(entry, sender));
+  assert((success) && "Error -- Broadcast queue full!");  
 }
 
 // Wait for a broadcast from a given sender, return in t.
 template <typename T>
-void Broadcaster<T>::wait(T& t, NodeId _sender) {
-  assert((wait_complete.load() == false) && "Can't wait on complete broadcast");
-  // spin wait until data is recevied
-  while (data_recvd.load() == false)
-    ;
-  // Sanity check -- did we get data from the right sender?
-  // If not, there are multiple broadcasts going on
-  assert((sender == _sender) && "Receieved broadcast from unexpected root");
-  t = data;
-  wait_complete.store(true);
-  reset();
-}
-
-// Reset this Broadcaster -- must be called in between each Broadcast event
-template <typename T>
-void Broadcaster<T>::reset() {
-  assert((data_recvd.load() == true)
-	 && (wait_complete.load() ==true)
-	 && "Can't reset Broadcaster that has not complete");
-  data_recvd.store(false);
-  wait_complete.store(false);
-}
+void Broadcaster<T>::wait(T& t, NodeId sender) {
+  std::pair<T, NodeId> p;
+  queue.wait_dequeue(p);
+  assert((p.second == sender) && "Error -- received broadcast from unexpected root");
+  t = p.first;
+} 
 
 #endif // COLLECTIVE_H

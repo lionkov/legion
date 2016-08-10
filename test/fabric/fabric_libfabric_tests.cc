@@ -98,7 +98,7 @@ int FabTester::run() {
   }
   
   std::cout << std::endl << std::endl << "running: test_gather" << std::endl;
-  if (test_gather(3) != 0) {
+  if (test_gather(100) != 0) {
     errors += 1;
     std::cout << "ERROR -- test_gather -- FAILED" << std::endl;    
   } else {
@@ -106,7 +106,7 @@ int FabTester::run() {
   }
   
   std::cout << std::endl << std::endl << "running: test_broadcast" << std::endl;
-  if (test_broadcast(3) != 0) {
+  if (test_broadcast(100) != 0) {
     errors += 1;
     std::cout << "ERROR -- test_broadcast -- FAILED" << std::endl;    
   } else {
@@ -164,6 +164,7 @@ int FabTester::test_broadcast(int runs) {
 
   // Root broadcasts to all.
   fabric->broadcast_events(e, 0);
+      
   // All nodes now have an event with id 12345.
   e.gen = fabric->get_id();
   // We should now get an array of events where each event
@@ -208,7 +209,7 @@ int FabTester::test_message_pingpong() {
     fabric->send(new PingPongMessage(i, my_id, ack_table));
 
   // Give all message a change to send
-  sleep(2);
+  sleep(1);
 
   int errors  = 0;
   

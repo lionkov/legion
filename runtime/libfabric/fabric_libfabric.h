@@ -125,7 +125,6 @@ class FabMutex {
     uint32_t	num_nodes;
     int	        max_send;
     int	        pend_num;
-    int         num_progress_threads;
 
     
     // Fabric objects
@@ -142,9 +141,15 @@ class FabMutex {
     fi_addr_t* fi_addrs; // array of addresses in fabric format
     char addr[64]; // this node's address
     size_t addrlen; // length of addresses in this fabric
-    
+
+    // Threads -- progress threads execute handlers,
+    // tx_handler_thread cleans up sent messages
+    int num_progress_threads;
+    pthread_attr_t thread_attrs;
     pthread_t* progress_threads;
     pthread_t* tx_handler_thread;
+    size_t stacksize_in_mb;
+    
     bool stop_flag;
     
     int exchange_server_send_port;

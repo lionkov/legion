@@ -10,13 +10,14 @@
 */
 
 FabFabric::FabFabric() : id(0), num_nodes(1), max_send(1024*1024), pend_num(16),
-			 num_progress_threads(0),
+			 num_progress_threads(1),
 			 progress_threads(NULL),
 			 tx_handler_thread(NULL),
 			 stop_flag(false),
 			 exchange_server_send_port(8080),
 			 exchange_server_recv_port(8081),
-			 exchange_server_host("127.0.0.1") {
+			 exchange_server_host("127.0.0.1"),
+			 stacksize_in_mb(32) {
   for (int i = 0; i < MAX_MESSAGE_TYPES; ++i)
     mts[i] = NULL;
 }
@@ -29,6 +30,10 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
   cp.add_option_int("-ll:exchange_server_send_port", exchange_server_send_port);
   cp.add_option_int("-ll:exchange_server_recv_port", exchange_server_recv_port);
   cp.add_option_string("-ll:exchange_server_host", exchange_server_host);
+
+  // progress / cleanup thread options
+  cp.add_option_int("-ll:stacksize", stacksize_in_mb);
+  cp.add_option_int("-ll:handlers", num_progress_threads);
 }
 
 /* 
@@ -286,7 +291,7 @@ bool FabFabric::init(bool manually_set_addresses) {
   fi_freeinfo(hints);
   free(addrs);
  
-  start_progress_threads(1, 0);
+  start_progress_threads(num_progress_threads, 0);
   
   return true;
 }
@@ -645,12 +650,15 @@ void FabFabric::print_fi_info(fi_info* fi) {
 void FabFabric::start_progress_threads(const int count, const size_t stack_size) {
   num_progress_threads = count;
   progress_threads = new pthread_t[count];
+  pthread_attr_init(&thread_attrs);
+  pthread_attr_setstacksize(&thread_attrs, stacksize_in_mb*1024*1024);
+  
   for (int i = 0; i < count; ++i) {
-    pthread_create(&progress_threads[i], NULL, &FabFabric::bootstrap_progress, this);
+    pthread_create(&progress_threads[i], &thread_attrs, &FabFabric::bootstrap_progress, this);
   }
   // tx handler thread will clean up messages that have been sent
   tx_handler_thread = new pthread_t;
-  pthread_create(tx_handler_thread, NULL, &FabFabric::bootstrap_handle_tx, this);
+  pthread_create(tx_handler_thread, &thread_attrs, &FabFabric::bootstrap_handle_tx, this);
 }
 
 void FabFabric::free_progress_threads() {
@@ -873,6 +881,7 @@ std::string FabFabric::tostr() {
 	  << "    max_send: "  << max_send  << "\n"
 	  << "    pend_num: "  << pend_num  << "\n"
 	  << "    num_progress_threads: " << num_progress_threads << "\n"
+	  << "    stacksize_in_mb: " << stacksize_in_mb << "\n"
 	  << "    exchange_server_host: " << exchange_server_host << "\n"
     	  << "    exchange_server_send_port: " << exchange_server_send_port << "\n"
 	  << "    exchange_server_recv_port: " << exchange_server_recv_port << "\n"
