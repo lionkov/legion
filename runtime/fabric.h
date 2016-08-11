@@ -60,6 +60,7 @@ class Fabric {
   virtual bool add_message_type(MessageType *mt, const std::string tag) = 0;
   virtual bool init(bool manually_set_addresses = false) = 0;
   virtual void shutdown() = 0;
+  virtual void synchronize_clocks() = 0;
 
   // Send messages / collectives  
   virtual int send(Message* m) = 0;
@@ -74,7 +75,7 @@ class Fabric {
   virtual void barrier_notify(uint32_t barrier_id) = 0;
   virtual void recv_barrier_notify(uint32_t barrier_id, NodeId sender) = 0;
 
-  // Query fabriic parameters
+  // Query fabric parameters
   virtual NodeId get_id() = 0;
   virtual uint32_t get_num_nodes() = 0;
   virtual size_t get_iov_limit() = 0;

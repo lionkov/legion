@@ -32,6 +32,7 @@
 	do { fprintf(stderr, call "(): %s:%d, ret=%d (%s)\n", __FILE__, __LINE__, \
 			(int) retv, fi_strerror((int) -retv)); } while (0)
 
+#define CLOCK_SYNC_BARRIER_ID 1234;
 
 class FabMutex {
  public:
@@ -92,6 +93,7 @@ class FabMutex {
     bool add_message_type(MessageType *mt, const std::string tag);
     bool init(bool manually_set_addresses = false);
     void shutdown();
+    void synchronize_clocks();
     NodeId get_id();
     uint32_t get_num_nodes();
     int send(Message* m);

@@ -678,6 +678,7 @@ void FabFabric::free_progress_threads() {
 
 // For testing purposes -- just wait for the progress threads to complete.
 void FabFabric::wait_for_shutdown() {
+  while()
   for (int i = 0; i < num_progress_threads; ++i)
     pthread_join(progress_threads[i], NULL);
   std::cout << "OK, all threads done" << std::endl;
@@ -982,4 +983,17 @@ void FabFabric::barrier_notify(uint32_t barrier_id) {
 
 void FabFabric::recv_barrier_notify(uint32_t barrier_id, NodeId sender) {
   barrier_waiter.notify(barrier_id, sender);
+}
+
+void FabFabric::synchronize_clocks() {
+  // Use barriers to ATTEMPT synchronization. This is how Realm accomplished
+  // synchronization previously. Could be improved?
+
+  barrier_notify(CLOCK_SYNC_BARRIER_ID);
+  barrier_wait(CLOCK_SYNC_BARRIER_ID);  
+  barrier_notify(CLOCK_SYNC_BARRIER_ID+1);
+  barrier_wait(CLOCK_SYNC_BARRIER_ID+1);
+  Realm::Clock::set_zero_time();
+  barrier_notify(CLOCK_SYNC_BARRIER_ID+2);
+  barrier_wait(CLOCK_SYNC_BARRIER_ID+2);
 }
