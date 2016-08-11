@@ -161,7 +161,7 @@ int FabTester::test_gather(int runs) {
 }
 
 // Have 0 broadcast to all other nodes. Then, gather back to the root
-// and check that data is correct.
+// and check that data is correct.z
 int FabTester::test_broadcast(int runs) {
   if (runs <= 0)
     return 0;

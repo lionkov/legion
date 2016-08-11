@@ -678,7 +678,6 @@ void FabFabric::free_progress_threads() {
 
 // For testing purposes -- just wait for the progress threads to complete.
 void FabFabric::wait_for_shutdown() {
-  while()
   for (int i = 0; i < num_progress_threads; ++i)
     pthread_join(progress_threads[i], NULL);
   std::cout << "OK, all threads done" << std::endl;

@@ -2,6 +2,7 @@
 #define FABRIC_LIBFABRIC_H
 #include "fabric.h"
 #include "cmdline.h"
+#include "timers.h"
 #include <iostream>
 #include <cstdio>
 #include <pthread.h>
@@ -32,7 +33,7 @@
 	do { fprintf(stderr, call "(): %s:%d, ret=%d (%s)\n", __FILE__, __LINE__, \
 			(int) retv, fi_strerror((int) -retv)); } while (0)
 
-#define CLOCK_SYNC_BARRIER_ID 1234;
+#define CLOCK_SYNC_BARRIER_ID 1234
 
 class FabMutex {
  public:
