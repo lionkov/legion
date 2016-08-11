@@ -113,12 +113,14 @@ bool FabFabric::init(bool manually_set_addresses) {
   // Add internal message types
   add_message_type(new EventGatherMessageType(), "Event Gather Message");
   add_message_type(new EventBroadcastMessageType(), "Event Broadcast Message");
+  add_message_type(new BarrierNotifyMessageType(), "Barrier Notify Message");
 
   
   std::cout << "Initializing fabric... " << std::endl;
 
   // Init collective objects
   event_gatherer.init(num_nodes);
+  barrier_waiter.init(num_nodes);
   
   struct fi_info *hints;
   struct fi_cq_attr rx_cqattr; memset(&rx_cqattr, 0, sizeof(rx_cqattr));
@@ -660,14 +662,18 @@ void FabFabric::start_progress_threads(const int count, const size_t stack_size)
 
 void FabFabric::free_progress_threads() {
   stop_flag = true;
-  for (int i = 0; i < num_progress_threads; ++i) 
-    pthread_join(progress_threads[i], NULL);
-  pthread_join(*tx_handler_thread, NULL);
-  if (progress_threads)
+  if(progress_threads) { 
+    for (int i = 0; i < num_progress_threads; ++i) 
+      pthread_join(progress_threads[i], NULL);
     delete[] progress_threads;
-  if(tx_handler_thread)
+    progress_threads = NULL;
+  }
+
+  if(tx_handler_thread) { 
+    pthread_join(*tx_handler_thread, NULL);
     delete(tx_handler_thread);
-  
+    tx_handler_thread = NULL;
+  }
 }
 
 // For testing purposes -- just wait for the progress threads to complete.

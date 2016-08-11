@@ -42,6 +42,7 @@ public:
   int test_message_pingpong();
   int test_gather(int runs);
   int test_broadcast(int runs);
+  int test_barrier(int runs);
   void wait_for_shutdown() { fabric->wait_for_shutdown(); }
   
 protected:

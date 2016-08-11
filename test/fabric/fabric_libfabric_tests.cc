@@ -113,7 +113,20 @@ int FabTester::run() {
     std::cout << "test_broadcast -- OK" << std::endl;    
   }
   
+  std::cout << std::endl << std::endl << "running: test_barrier" << std::endl;
+  if (test_barrier(100) != 0) {
+    errors += 1;
+    std::cout << "ERROR -- test_barrier -- FAILED" << std::endl;    
+  } else {
+    std::cout << "test_barrier -- OK" << std::endl;    
+  }
   return errors;
+
+
+  // Wait for all other RTs to complete, then shut down
+  fabric->barrier_notify(0);
+  fabric->barrier_wait(0);
+  fabric->shutdown();
 }
 
 // Perform an Event gather from all other nodes in the system
@@ -141,10 +154,7 @@ int FabTester::test_gather(int runs) {
   // Root broadcasts to all other nodes that this gather is done,
   // synchronizing for the next broadcast.
   fabric->broadcast_events(e, 0);
-  
-  
-  
-  
+ 
   errors += test_gather(runs-1);
   
   return (errors == 0) ? 0 : 1;
@@ -193,7 +203,17 @@ int FabTester::test_broadcast(int runs) {
 }
 
 
+int FabTester::test_barrier(int runs) {
+  if (runs <= 0)
+    return 0;
 
+  // Internal assertions should catch any problems,
+  // so just run repeatedly and see if this works
+  
+  fabric->barrier_notify(runs);
+  fabric->barrier_wait(runs);
+  return test_barrier(runs-1);
+}
 
 // The root node sends a message to each other node. When recieved, this message will
 // prompt the other node to send a message back, containing that node's ID.

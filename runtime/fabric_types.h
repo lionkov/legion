@@ -54,7 +54,8 @@ enum MessageIds {
       REGISTER_TASK_MSGID, 
       REGISTER_TASK_COMPLETE_MSGID, 
       EVENT_GATHER_MSGID,
-      EVENT_BROADCAST_MSGID
+      EVENT_BROADCAST_MSGID,
+      BARRIER_NOTIFY_MSGID
 };
 
 typedef uint8_t MessageId;

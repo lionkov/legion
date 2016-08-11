@@ -23,7 +23,7 @@ sleep 1
 for ((c=1; c<$NUM_NODES; c++))
 do
     echo "Starting listener" $c
-    ./runtests n -ll:exchange_server_host $EXCHANGE_HOST -ll:exchange_server_send_port $EXCHANGE_SEND -ll:exchange_server_recv_port $EXCHANGE_RECV -ll:num_nodes $NUM_NODES -ll:handlers $HANDLER_COUNT -ll:stacksize $STACK_SIZE  > /dev/null & 
+    ./runtests n -ll:exchange_server_host $EXCHANGE_HOST -ll:exchange_server_send_port $EXCHANGE_SEND -ll:exchange_server_recv_port $EXCHANGE_RECV -ll:num_nodes $NUM_NODES -ll:handlers $HANDLER_COUNT -ll:stacksize $STACK_SIZE > /dev/null & 
 done
 
 echo "All runtimes launched... "

@@ -204,7 +204,7 @@ class EventBroadcastMessage : public Message {
 class BarrierNotifyMessageType : public MessageType {
  public:
  BarrierNotifyMessageType()
-   : MessageType(EVENT_BROADCAST_MSGID, sizeof(RequestArgs), false, true) { }
+   : MessageType(BARRIER_NOTIFY_MSGID, sizeof(RequestArgs), false, true) { }
 
   struct RequestArgs {
     RequestArgs(uint32_t _barrier_id, NodeId _sender)
@@ -220,7 +220,7 @@ class BarrierNotifyMessageType : public MessageType {
 class BarrierNotifyMessage : public Message {
  public:
   BarrierNotifyMessage(NodeId dest, uint32_t barrier_id, NodeId sender)
-    : Message(dest, EVENT_BROADCAST_MSGID, &args, NULL),
+    : Message(dest, BARRIER_NOTIFY_MSGID, &args, NULL),
       args(barrier_id, sender) { }
 
   BarrierNotifyMessageType::RequestArgs args;
