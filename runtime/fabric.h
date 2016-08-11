@@ -6,6 +6,7 @@
 // been fully removed, this will be moved back in to fabric.h / msg.h
 #include "fabric_types.h"
 #include "collective.h"
+#include "barrier.h"
 #include "cmdline.h"
 #include "payload.h"
 #include "logging.h"
@@ -69,8 +70,8 @@ class Fabric {
   virtual void recv_gather_event(Realm::Event& event, NodeId sender) = 0;
   virtual void broadcast_events(Realm::Event& event, NodeId root) = 0;
   virtual void recv_broadcast_event(Realm::Event& event, NodeId sender) = 0;
-  virtual void barrier_wait(uint32_t id) = 0;
-  virtual void barrier_notify(uint32_t id) = 0;
+  virtual void barrier_wait(uint32_t barrier_id) = 0;
+  virtual void barrier_notify(uint32_t barrier_id) = 0;
   virtual void recv_barrier_notify(uint32_t barrier_id, NodeId sender) = 0;
 
   // Query fabriic parameters
@@ -99,6 +100,10 @@ class Fabric {
 
   // Handles current Broadcast. Does not need to be initialized
   Broadcaster<Realm::Event> event_broadcaster;
+
+  // Handles barriers. Must be initialized once number of nodes is known.
+  BarrierWaiter barrier_waiter;
+  
   uint32_t num_msgs_added; // Keeps track of number of messages added
 };
 

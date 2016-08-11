@@ -959,14 +959,21 @@ size_t FabFabric::get_address(char buf[64]) {
 }
 
 
-void FabFabric::barrier_wait(uint32_t id) {
-  // TODO
+void FabFabric::barrier_wait(uint32_t barrier_id) {
+  barrier_waiter.wait(barrier_id);
 }
 
-void FabFabric::barrier_notify(uint32_t id) {
-  // TODO
+// Sends a barrier notification to everyone including self
+void FabFabric::barrier_notify(uint32_t barrier_id) {
+  for (NodeId i=0; i<num_nodes; ++i) {
+    if (i != id) {
+      fabric->send(new BarrierNotifyMessage(i, barrier_id, id));
+    } else {
+      barrier_waiter.notify(barrier_id, id);
+    }
+  }
 }
 
-void FabFabric::recv_barrier_notify(uint32_t id, NodeId sender) {
-  // TODO
+void FabFabric::recv_barrier_notify(uint32_t barrier_id, NodeId sender) {
+  barrier_waiter.notify(barrier_id, sender);
 }

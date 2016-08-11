@@ -342,6 +342,7 @@ CC_FLAGS += -std=c++11
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/fabric.cc
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/payload.cc	
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/libfabric/fabric_libfabric.cc
+LOW_RUNTIME_SRC += $(LG_RT_DIR)/barrier.cc
 
 GPU_RUNTIME_SRC +=
 else

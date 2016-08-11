@@ -99,8 +99,8 @@ class FabMutex {
     void broadcast_events(Realm::Event& event, NodeId root);
     void recv_gather_event(Realm::Event& event, NodeId sender);
     void recv_broadcast_event(Realm::Event& event, NodeId sender);
-    void barrier_wait(uint32_t id);
-    void barrier_notify(uint32_t id);
+    void barrier_wait(uint32_t barrier_id);
+    void barrier_notify(uint32_t barrier_id);
     void recv_barrier_notify(uint32_t barrier_id, NodeId sender);
 
 

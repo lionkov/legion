@@ -20,6 +20,8 @@
 #include <cstring>
 #include <cassert>
 #include <unistd.h>
+#include <algorithm>
+#include <iterator>
 
 
 
@@ -28,12 +30,18 @@
    
    A single barrier in progress. BarrierWaiter will manage one BarrierWaiterEntry for 
    each open barrier ID. 
+
 */
 
 class BarrierWaiterEntry {
 public:
-  BarrierWaiterEntry(uint32_t _barrier_id, uint32_t _num_nodes);
+  BarrierWaiterEntry(uint32_t _num_nodes);
+  BarrierWaiterEntry(const BarrierWaiterEntry& other);
+  BarrierWaiterEntry(BarrierWaiterEntry&& other);
   ~BarrierWaiterEntry();
+
+  BarrierWaiterEntry& operator=(const BarrierWaiterEntry& rhs);
+  BarrierWaiterEntry& operator=(BarrierWaiterEntry&& rhs);
   
   // Spinwait until all notifications are received
   void wait();
@@ -41,12 +49,15 @@ public:
   
 protected:
   uint32_t num_nodes; // Number of nodes in the fabric
-  std::atomic<std::uint32_t> num_recvd; // counter of number of entries recieved
   bool* recvd_flags; // tracks whether a given gather entry was recieved
   
-  std::atomic<bool> wait_complete; // true if all data was received and the buf pointer was returned
-  std::atomic<bool> all_recvd; // True when all entries have been recieved
-  void reset(); // Ready this object for a new gather. Invalid if the current gather is incomplete.
+  std::atomic<bool> wait_complete; // True if all data checked in, and wait completed successfully
+  std::atomic<uint32_t> num_recvd;
+  std::atomic<bool> all_recvd;
+  
+  // Ready this object for a new gather. Invalid if the current gather is incomplete.
+  // Must be called between each use.
+  void reset();
 };
 
 /* 
@@ -72,8 +83,7 @@ class BarrierWaiter {
 public:
   // Default constructor -- will not initialize
   BarrierWaiter();
-
-  ~BarrierWaiter();
+  ~BarrierWaiter() { }; 
 
   // Initialize on construction
   BarrierWaiter(uint32_t _num_nodes);
@@ -81,15 +91,13 @@ public:
   // Initialize to given node count
   void init(uint32_t _num_nodes);
   void wait(uint32_t barrier_id);
-  void notify(unint32_t barrier_id, NodeId sender);
+  void notify(uint32_t barrier_id, NodeId sender);
   
 protected:
-  std::atomic<bool> initialized;
+  bool initialized;
   uint32_t num_nodes;
   std::map<uint32_t, BarrierWaiterEntry> barriers_in_progress;
 };
-
-
 
 
 #endif // BARRIER_H

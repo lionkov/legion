@@ -10,8 +10,9 @@
 // See atomicops.h and readerwriterqueue.h for licensing information
 
 #ifndef COLLECTIVE_H
-#define COLLECTIVE_H 
-//#include "fabric_types.h"
+#define COLLECTIVE_H
+
+#include "fabric_types.h"
 #include <atomic>
 #include "atomicops.h"
 #include "readerwriterqueue.h"
