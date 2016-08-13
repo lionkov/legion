@@ -62,6 +62,9 @@ class Fabric {
   virtual void shutdown() = 0;
   virtual void synchronize_clocks() = 0;
 
+  // call on fatal error - clean up RT and exit
+  virtual void fatal_shutdown(int code) = 0;
+
   // Send messages / collectives  
   virtual int send(Message* m) = 0;
 

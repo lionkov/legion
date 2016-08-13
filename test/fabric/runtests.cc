@@ -19,7 +19,6 @@
 
 int main(int argc, char* argv[]) {
 
-  bool run;
   std::vector<std::string> cmdline;
   /*
   if(*argc > 1) {

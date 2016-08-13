@@ -95,6 +95,7 @@ public:
   bool init(bool manually_set_addresses = false);
   void shutdown();
   void synchronize_clocks();
+  void fatal_shutdown(int code);
   NodeId get_id();
   uint32_t get_num_nodes();
   int send(Message* m);

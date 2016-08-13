@@ -996,3 +996,10 @@ void FabFabric::synchronize_clocks() {
   barrier_notify(CLOCK_SYNC_BARRIER_ID+2);
   barrier_wait(CLOCK_SYNC_BARRIER_ID+2);
 }
+
+
+// Shut down / clean up the RT and exit with requested code
+void FabFabric::fatal_shutdown(int code) {
+  shutdown();
+  exit(code);
+}

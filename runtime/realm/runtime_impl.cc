@@ -16,25 +16,16 @@
 // Runtime implementation for Realm
 
 #include "runtime_impl.h"
-
 #include "proc_impl.h"
 #include "mem_impl.h"
 #include "inst_impl.h"
-
 #include "cmdline.h"
-
 #include "codedesc.h"
-
 #include "utils.h"
 
 // For doing backtraces
 #include <execinfo.h> // symbols
 #include <cxxabi.h>   // demangling
-
-#ifndef USE_GASNET
-/*extern*/ void *fake_gasnet_mem_base = 0;
-/*extern*/ size_t fake_gasnet_mem_size = 0;
-#endif
 
 // remote copy active messages from from lowlevel_dma.h for now
 #include "lowlevel_dma.h"
@@ -265,8 +256,7 @@ namespace Realm {
   //
 
   CoreModule::CoreModule(void)
-    : Module("core")
-    , num_cpu_procs(1), num_util_procs(1), num_io_procs(0)
+    : Module("core")    , num_cpu_procs(1), num_util_procs(1), num_io_procs(0)
     , concurrent_io_threads(1)  // Legion does not support values > 1 right now
     , sysmem_size_in_mb(512), stack_size_in_mb(2)
   {}
@@ -654,19 +644,19 @@ namespace Realm {
 	}
 
       // Check that we have enough resources for the number of nodes we are using
-      if (gasnet_nodes() > MAX_NUM_NODES)
+      if (fabric->get_num_nodes() > MAX_NUM_NODES)
       {
         fprintf(stderr,"ERROR: Launched %d nodes, but runtime is configured "
-                       "for at most %d nodes. Update the 'MAX_NUM_NODES' macro "
-                       "in legion_config.h", gasnet_nodes(), MAX_NUM_NODES);
-        gasnet_exit(1);
+		"for at most %d nodes. Update the 'MAX_NUM_NODES' macro "
+		"in legion_config.h", fabric->get_num_nodes(), MAX_NUM_NODES);
+	fabric->fatal_shutdown(1);
       }
-      if (gasnet_nodes() > ((1 << ID::NODE_BITS) - 1))
+      if (fabric->get_num_nodes() > ((1 << ID::NODE_BITS) - 1))
       {
         fprintf(stderr,"ERROR: Launched %d nodes, but low-level IDs are only "
                        "configured for at most %d nodes. Update the allocation "
-                       "of bits in ID", gasnet_nodes(), (1 << ID::NODE_BITS) - 1);
-        gasnet_exit(1);
+                       "of bits in ID", fabric->get_num_nodes(), (1 << ID::NODE_BITS) - 1);
+	fabric->fatal_shutdown(1);
       }
 
       // initialize barrier timestamp
@@ -715,40 +705,31 @@ namespace Realm {
       fabric->add_message_type(new ValidMaskDataMessageType(), "Valid Mask Data Request");
       fabric->add_message_type(new LegionRuntime::LowLevel::RemoteCopyMessageType(), "Remote Copy");
       fabric->add_message_type(new LegionRuntime::LowLevel::RemoteFillMessageType(), "Remote Fill");
+
+      fabric->synchronize_clocks();
             
-      gasnet_handlerentry_t handlers[128];
-      int hcount = 0;
-
-      init_endpoints(handlers, hcount, 
-		     gasnet_mem_size_in_mb, reg_mem_size_in_mb,
-		     core_reservations,
-		     *argc, (const char **)*argv);
-
-#ifdef USE_GASNET
-      // this needs to happen after init_endpoints
-      gasnet_coll_init(0, 0, 0, 0, 0);
-#endif
-
-#ifndef USE_GASNET
+#ifndef USE_FABRIC
       // network initialization is also responsible for setting the "zero_time"
-      //  for relative timing - no synchronization necessary in non-gasnet case
+      //  for relative timing - no synchronization necessary in non-networked case
       Realm::Clock::set_zero_time();
 #endif
 
-      // Put this here so that it complies with the GASNet specification and
-      // doesn't make any calls between gasnet_init and gasnet_attach
-      gasnet_set_waitmode(GASNET_WAIT_BLOCK);
 
-      nodes = new Node[gasnet_nodes()];
+      nodes = new Node[fabric->get_num_nodes()];
 
       // create allocators for local node events/locks/index spaces
       {
-	Node& n = nodes[gasnet_mynode()];
-	local_event_free_list = new EventTableAllocator::FreeList(n.events, gasnet_mynode());
-	local_barrier_free_list = new BarrierTableAllocator::FreeList(n.barriers, gasnet_mynode());
-	local_reservation_free_list = new ReservationTableAllocator::FreeList(n.reservations, gasnet_mynode());
-	local_index_space_free_list = new IndexSpaceTableAllocator::FreeList(n.index_spaces, gasnet_mynode());
-	local_proc_group_free_list = new ProcessorGroupTableAllocator::FreeList(n.proc_groups, gasnet_mynode());
+	Node& n = nodes[fabric->get_num_nodes()];
+	local_event_free_list = new EventTableAllocator::FreeList(n.events,
+								  fabric->get_id());
+	local_barrier_free_list = new BarrierTableAllocator::FreeList(n.barriers,
+								      fabric->get_id());
+	local_reservation_free_list = new ReservationTableAllocator::FreeList(n.reservations,
+									      fabric->get_id());
+	local_index_space_free_list = new IndexSpaceTableAllocator::FreeList(n.index_spaces,
+									     fabric->get_id());
+	local_proc_group_free_list = new ProcessorGroupTableAllocator::FreeList(n.proc_groups,
+										fabric->get_id());
       }
 
 #ifdef DEADLOCK_TRACE
@@ -773,12 +754,6 @@ namespace Realm {
         signal(SIGBUS,  realm_backtrace);
       }
       
-      start_polling_threads(active_msg_worker_threads);
-
-      start_handler_threads(active_msg_handler_threads,
-			    core_reservations,
-			    stack_size_in_mb << 20);
-
       LegionRuntime::LowLevel::create_builtin_dma_channels(this);
 
       LegionRuntime::LowLevel::start_dma_worker_threads(dma_worker_threads,
@@ -805,18 +780,19 @@ namespace Realm {
       //gasnet_seginfo_t seginfos = new gasnet_seginfo_t[num_nodes];
       //CHECK_GASNET( gasnet_getSegmentInfo(seginfos, num_nodes) );
 
-      if(gasnet_mem_size_in_mb > 0)
-	global_memory = new GASNetMemory(ID(ID::ID_MEMORY, 0, ID::ID_GLOBAL_MEM, 0).convert<Memory>(), gasnet_mem_size_in_mb << 20);
+      /* TODO -- convert global memory? Should we even have it? */
+      if(gasnet_mem_size_in_mb > 0) {
+	assert(false && "Global memory not implemented yet");
+	global_memory = new GASNetMemory(ID(ID::ID_MEMORY, 0, ID::ID_GLOBAL_MEM, 0).convert<Memory>(),
+					 gasnet_mem_size_in_mb << 20);
+      }
       else
 	global_memory = 0;
-
-
-      #ifdef USE_GASNET
-      std::cout << "We're using gasnet" << std::endl;
-      #endif
+      
+      
       fabric->init();
 
-      Node *n = &nodes[gasnet_mynode()];
+      Node *n = &nodes[fabric->get_id()];
 
       // create memories and processors for all loaded module
       for(std::vector<Module *>::const_iterator it = modules.begin();
@@ -831,17 +807,18 @@ namespace Realm {
 
       LocalCPUMemory *regmem;
       if(reg_mem_size_in_mb > 0) {
-	gasnet_seginfo_t *seginfos = new gasnet_seginfo_t[gasnet_nodes()];
-	CHECK_GASNET( gasnet_getSegmentInfo(seginfos, gasnet_nodes()) );
-	char *regmem_base = ((char *)(seginfos[gasnet_mynode()].addr)) + (gasnet_mem_size_in_mb << 20);
+	assert(false && "LocalCPUMemory not implemented yet");
+	/*
+	char *regmem_base = ((char *)(seginfos[fabric->get_id()].addr)) + (gasnet_mem_size_in_mb << 20);
 	delete[] seginfos;
 	regmem = new LocalCPUMemory(ID(ID::ID_MEMORY,
-				       gasnet_mynode(),
+				       fabric->get_id(),
 				       n->memories.size(), 0).convert<Memory>(),
 				    reg_mem_size_in_mb << 20,
 				    regmem_base,
 				    true);
 	n->memories.push_back(regmem);
+	*/
       } else
 	regmem = 0;
 
@@ -849,7 +826,7 @@ namespace Realm {
       DiskMemory *diskmem;
       if(disk_mem_size_in_mb > 0) {
         diskmem = new DiskMemory(ID(ID::ID_MEMORY,
-                                    gasnet_mynode(),
+				    fabric->get_id(),
                                     n->memories.size(), 0).convert<Memory>(),
                                  disk_mem_size_in_mb << 20,
                                  "disk_file.tmp");
@@ -859,15 +836,15 @@ namespace Realm {
 
       FileMemory *filemem;
       filemem = new FileMemory(ID(ID::ID_MEMORY,
-                                 gasnet_mynode(),
-                                 n->memories.size(), 0).convert<Memory>());
+				  fabric->get_id(),
+				  n->memories.size(), 0).convert<Memory>());
       n->memories.push_back(filemem);
 
 #ifdef USE_HDF
       // create HDF memory
       HDFMemory *hdfmem;
       hdfmem = new HDFMemory(ID(ID::ID_MEMORY,
-                                gasnet_mynode(),
+				fabric->get_id(),
                                 n->memories.size(), 0).convert<Memory>());
       n->memories.push_back(hdfmem);
 #endif
@@ -1081,15 +1058,15 @@ namespace Realm {
 	assert(apos < ADATA_SIZE);
 
 #ifdef DEBUG_REALM_STARTUP
-	if(gasnet_mynode() == 0) {
+	if(fabric->get_id() == 0) {
 	  TimeStamp ts("sending announcements", false);
 	  fflush(stdout);
 	}
 #endif
 
 	// now announce ourselves to everyone else
-	for(unsigned i = 0; i < gasnet_nodes(); i++)
-	  if(i != gasnet_mynode())
+	for(unsigned i = 0; i < fabric->get_num_nodes(); ++i)
+	  if(i != fabric->get_id())
 	    NodeAnnounceMessageType::send_request(i,
 					      num_procs,
 					      num_memories,
@@ -1099,13 +1076,13 @@ namespace Realm {
 	NodeAnnounceMessageType::await_all_announcements();
 
 #ifdef DEBUG_REALM_STARTUP
-	if(gasnet_mynode() == 0) {
+	if(fabric->get_id() == 0) {
 	  TimeStamp ts("received all announcements", false);
 	  fflush(stdout);
 	}
 #endif
       }
-
+ 
       return true;
     }
 
@@ -1129,92 +1106,68 @@ namespace Realm {
     int priority;
   };
 
-#define DEBUG_COLLECTIVES
 
-#if defined(USE_GASNET) && defined(DEBUG_COLLECTIVES)
-  static const int GASNET_COLL_FLAGS = GASNET_COLL_IN_MYSYNC | GASNET_COLL_OUT_MYSYNC | GASNET_COLL_LOCAL;
-  
-  template <typename T>
-  static void broadcast_check(const T& val, const char *name)
-  {
-    T bval;
-    gasnet_coll_broadcast(GASNET_TEAM_ALL, &bval, 0, const_cast<T *>(&val), sizeof(T), GASNET_COLL_FLAGS);
-    if(val != bval) {
-      log_collective.fatal() << "collective mismatch on node " << gasnet_mynode() << " for " << name << ": " << val << " != " << bval;
-      assert(false);
-    }
-  }
-#endif
 
     Event RuntimeImpl::collective_spawn(Processor target_proc, Processor::TaskFuncID task_id, 
 					const void *args, size_t arglen,
 					Event wait_on /*= Event::NO_EVENT*/, int priority /*= 0*/)
     {
-      log_collective.info() << "collective spawn: proc=" << target_proc << " func=" << task_id << " priority=" << priority << " before=" << wait_on;
+      log_collective.info() << "collective spawn: proc=" << target_proc
+			    << " func=" << task_id << " priority="
+			    << priority << " before=" << wait_on;
 
-#ifdef USE_GASNET
-#ifdef DEBUG_COLLECTIVES
-      broadcast_check(target_proc, "target_proc");
-      broadcast_check(task_id, "task_id");
-      broadcast_check(priority, "priority");
-#endif
-
+#ifdef USE_FABRIC
+      
       // root node will be whoever owns the target proc
       int root = ID(target_proc).node();
 
-      if(gasnet_mynode() == root) {
+      if(fabric->get_id() == root) {
 	// ROOT NODE
 
 	// step 1: receive wait_on from every node
-	Event *all_events = 0;
-	all_events = new Event[gasnet_nodes()];
-	gasnet_coll_gather(GASNET_TEAM_ALL, root, all_events, &wait_on, sizeof(Event), GASNET_COLL_FLAGS);
+	Event* all_events = fabric->gather_events(wait_on, root);
 
 	// step 2: merge all the events
 	std::set<Event> event_set;
-	for(int i = 0; i < gasnet_nodes(); i++) {
+	for(int i = 0; i < fabric->num_nodes(); i++) {
 	  //log_collective.info() << "ev " << i << ": " << all_events[i];
 	  if(all_events[i].exists())
 	    event_set.insert(all_events[i]);
 	}
 	delete[] all_events;
-
 	Event merged_event = Event::merge_events(event_set);
-	log_collective.info() << "merged precondition: proc=" << target_proc << " func=" << task_id << " priority=" << priority << " before=" << merged_event;
-
+	log_collective.info() << "merged precondition: proc=" << target_proc
+			      << " func=" << task_id << " priority=" << priority
+			      << " before=" << merged_event;
 	// step 3: run the task
 	Event finish_event = target_proc.spawn(task_id, args, arglen, merged_event, priority);
-
 	// step 4: broadcast the finish event to everyone
-	gasnet_coll_broadcast(GASNET_TEAM_ALL, &finish_event, root, &finish_event, sizeof(Event), GASNET_COLL_FLAGS);
-
-	log_collective.info() << "collective spawn: proc=" << target_proc << " func=" << task_id << " priority=" << priority << " after=" << finish_event;
-
+	fabric->broadcast_events(finish_event, root);
+	log_collective.info() << "collective spawn: proc=" << target_proc
+			      << " func=" << task_id << " priority=" << priority
+			      << " after=" << finish_event;
 	return finish_event;
       } else {
 	// NON-ROOT NODE
-
-	// step 1: send our wait_on to the root for merging
-	gasnet_coll_gather(GASNET_TEAM_ALL, root, 0, &wait_on, sizeof(Event), GASNET_COLL_FLAGS);
-
+	// step 1: send our wait_on to the root for merging. 
+	fabric->gather_events(wait_on, root);
 	// steps 2 and 3: twiddle thumbs
-
-	// step 4: receive finish event
 	Event finish_event;
-	gasnet_coll_broadcast(GASNET_TEAM_ALL, &finish_event, root, 0, sizeof(Event), GASNET_COLL_FLAGS);
-
-	log_collective.info() << "collective spawn: proc=" << target_proc << " func=" << task_id << " priority=" << priority << " after=" << finish_event;
-
+	// step 4: wait for finish event to arrive
+	fabric->broadcast_event(finish_event, root);
+	log_collective.info() << "collective spawn: proc=" << target_proc
+			      << " func=" << task_id << " priority=" << priority
+			      << " after=" << finish_event;
 	return finish_event;
       }
-#else
-      // no GASNet, so a collective spawn is the same as a regular spawn
+#else // USE_FABRIC
+      // no networking, so a collective spawn is the same as a regular spawn
       Event finish_event = target_proc.spawn(task_id, args, arglen, wait_on, priority);
-
-      log_collective.info() << "collective spawn: proc=" << target_proc << " func=" << task_id << " priority=" << priority << " after=" << finish_event;
-
+      log_collective.info() << "collective spawn: proc=" << target_proc
+			    << " func=" << task_id << " priority="
+			    << priority << " after=" << finish_event;
       return finish_event;
-#endif
+#endif // USE_FABRIC
     }
 
     Event RuntimeImpl::collective_spawn_by_kind(Processor::Kind target_kind, Processor::TaskFuncID task_id, 
