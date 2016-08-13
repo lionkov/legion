@@ -706,13 +706,14 @@ namespace Realm {
       fabric->add_message_type(new LegionRuntime::LowLevel::RemoteCopyMessageType(), "Remote Copy");
       fabric->add_message_type(new LegionRuntime::LowLevel::RemoteFillMessageType(), "Remote Fill");
 
-      fabric->synchronize_clocks();
             
 #ifndef USE_FABRIC
       // network initialization is also responsible for setting the "zero_time"
       //  for relative timing - no synchronization necessary in non-networked case
       Realm::Clock::set_zero_time();
-#endif
+#else // USE_FABRIC
+      fabric->synchronize_clocks();
+#endif // USE_FABRIC
 
 
       nodes = new Node[fabric->get_num_nodes()];
@@ -1175,56 +1176,39 @@ namespace Realm {
 						bool one_per_node /*= false*/,
 						Event wait_on /*= Event::NO_EVENT*/, int priority /*= 0*/)
     {
-      log_collective.info() << "collective spawn: kind=" << target_kind << " func=" << task_id << " priority=" << priority << " before=" << wait_on;
+      log_collective.info() << "collective spawn: kind=" << target_kind
+			    << " func=" << task_id << " priority=" << priority
+			    << " before=" << wait_on;
 
-#ifdef USE_GASNET
-#ifdef DEBUG_COLLECTIVES
-      broadcast_check(target_kind, "target_kind");
-      broadcast_check(task_id, "task_id");
-      broadcast_check(one_per_node, "one_per_node");
-      broadcast_check(priority, "priority");
-#endif
-
+#ifdef USE_FABRIC
       // every node is involved in this one, so the root is arbitrary - we'll pick node 0
-
       Event merged_event;
-
-      if(gasnet_mynode() == 0) {
+      if(fabric->get_id() == 0) {
 	// ROOT NODE
-
 	// step 1: receive wait_on from every node
-	Event *all_events = 0;
-	all_events = new Event[gasnet_nodes()];
-	gasnet_coll_gather(GASNET_TEAM_ALL, 0, all_events, &wait_on, sizeof(Event), GASNET_COLL_FLAGS);
-
+	Event* all_events = fabric->gather_events(wait_on, root);
 	// step 2: merge all the events
 	std::set<Event> event_set;
-	for(int i = 0; i < gasnet_nodes(); i++) {
+	for(int i = 0; i < fabric->num_nodes(); i++) {
 	  //log_collective.info() << "ev " << i << ": " << all_events[i];
 	  if(all_events[i].exists())
 	    event_set.insert(all_events[i]);
 	}
 	delete[] all_events;
-
 	merged_event = Event::merge_events(event_set);
-
-	// step 3: broadcast the merged event back to everyone
-	gasnet_coll_broadcast(GASNET_TEAM_ALL, &merged_event, 0, &merged_event, sizeof(Event), GASNET_COLL_FLAGS);
-      } else {
+	fabric->broadcast(merged_event, root);
+	} else {
 	// NON-ROOT NODE
-
 	// step 1: send our wait_on to the root for merging
-	gasnet_coll_gather(GASNET_TEAM_ALL, 0, 0, &wait_on, sizeof(Event), GASNET_COLL_FLAGS);
-
+	fabric->gather_events(wait_on, root);      
 	// step 2: twiddle thumbs
-
 	// step 3: receive merged wait_on event
-	gasnet_coll_broadcast(GASNET_TEAM_ALL, &merged_event, 0, 0, sizeof(Event), GASNET_COLL_FLAGS);
+	fabric->broadcast_events(merged_event, root);
       }
-#else
+#else // USE_FABRIC
       // no GASNet, so our precondition is the only one
       Event merged_event = wait_on;
-#endif
+#endif // USE_FABRIC
 
       // now spawn 0 or more local tasks
       std::set<Event> event_set;
@@ -1237,10 +1221,11 @@ namespace Realm {
 	if((target_kind == Processor::NO_KIND) || ((*it)->kind == target_kind)) {
 	  Event e = (*it)->me.spawn(task_id, args, arglen, ProfilingRequestSet(),
 				    merged_event, priority);
-	  log_collective.info() << "spawn by kind: proc=" << (*it)->me << " func=" << task_id << " before=" << merged_event << " after=" << e;
+	  log_collective.info() << "spawn by kind: proc=" << (*it)->me
+				<< " func=" << task_id << " before="
+				<< merged_event << " after=" << e;
 	  if(e.exists())
 	    event_set.insert(e);
-
 	  if(one_per_node)
 	    break;
 	}
@@ -1248,52 +1233,45 @@ namespace Realm {
       // local merge
       Event my_finish = Event::merge_events(event_set);
 
-#ifdef USE_GASNET
-      if(gasnet_mynode() == 0) {
+#ifdef USE_FABRIC
+      if(fabric->get_id() == 0) {
 	// ROOT NODE
 
 	// step 1: receive wait_on from every node
-	Event *all_events = 0;
-	all_events = new Event[gasnet_nodes()];
-	gasnet_coll_gather(GASNET_TEAM_ALL, 0, all_events, &my_finish, sizeof(Event), GASNET_COLL_FLAGS);
-
+	Event* all_events = fabric->gather_events(my_finish, 0);
 	// step 2: merge all the events
 	std::set<Event> event_set;
-	for(int i = 0; i < gasnet_nodes(); i++) {
+	for(int i = 0; i < fabric->get_num_nodes(); i++) {
 	  //log_collective.info() << "ev " << i << ": " << all_events[i];
 	  if(all_events[i].exists())
 	    event_set.insert(all_events[i]);
 	}
 	delete[] all_events;
-
 	Event merged_finish = Event::merge_events(event_set);
-
 	// step 3: broadcast the merged event back to everyone
-	gasnet_coll_broadcast(GASNET_TEAM_ALL, &merged_finish, 0, &merged_finish, sizeof(Event), GASNET_COLL_FLAGS);
-
-	log_collective.info() << "collective spawn: kind=" << target_kind << " func=" << task_id << " priority=" << priority << " after=" << merged_finish;
-
+	fabric->broadcast_events(merged_finish, 0);
+	log_collective.info() << "collective spawn: kind="
+			      << target_kind << " func=" << task_id
+			      << " priority=" << priority << " after=" << merged_finish;
 	return merged_finish;
       } else {
 	// NON-ROOT NODE
-
 	// step 1: send our wait_on to the root for merging
-	gasnet_coll_gather(GASNET_TEAM_ALL, 0, 0, &my_finish, sizeof(Event), GASNET_COLL_FLAGS);
-
+	fabric->gather_events(my_finish, 0);
 	// step 2: twiddle thumbs
-
 	// step 3: receive merged wait_on event
 	Event merged_finish;
-	gasnet_coll_broadcast(GASNET_TEAM_ALL, &merged_finish, 0, 0, sizeof(Event), GASNET_COLL_FLAGS);
-
-	log_collective.info() << "collective spawn: kind=" << target_kind << " func=" << task_id << " priority=" << priority << " after=" << merged_finish;
-
+	fabric->broadcast_events(merged_finish, 0);
+	log_collective.info() << "collective spawn: kind=" << target_kind
+			      << " func=" << task_id << " priority="
+			      << priority << " after=" << merged_finish;
 	return merged_finish;
       }
 #else
       // no GASNet, so just return our locally merged event
-      log_collective.info() << "collective spawn: kind=" << target_kind << " func=" << task_id << " priority=" << priority << " after=" << my_finish;
-
+      log_collective.info() << "collective spawn: kind=" << target_kind
+			    << " func=" << task_id << " priority="
+			    << priority << " after=" << my_finish;
       return my_finish;
 #endif
     }
@@ -1401,7 +1379,7 @@ namespace Realm {
 
       if(local_request) {
 	log_runtime.info("shutdown request - notifying other nodes");
-	for(unsigned i = 0; i < gasnet_nodes(); i++)
+	for(unsigned i = 0; i < fabric->get_num_nodes(); i++)
 	  if(i != gasnet_mynode())
 	    RuntimeShutdownMessageType::send_request(i);
       }
