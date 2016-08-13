@@ -1444,7 +1444,7 @@ namespace Realm {
       sampling_profiler.shutdown();
 
       {
-	std::vector<ProcessorImpl *>& local_procs = nodes[gasnet_mynode()].processors;
+	std::vector<ProcessorImpl *>& local_procs = nodes[fabric->get_id()].processors;
 	for(std::vector<ProcessorImpl *>::const_iterator it = local_procs.begin();
 	    it != local_procs.end();
 	    it++)
@@ -1489,7 +1489,7 @@ namespace Realm {
 
       // delete processors, memories, nodes, etc.
       {
-	for(gasnet_node_t i = 0; i < gasnet_nodes(); i++) {
+	for(gasnet_node_t i = 0; i < fabric->get_num_nodes(); i++) {
 	  Node& n = nodes[i];
 
 	  delete_container_contents(n.memories);
@@ -1735,7 +1735,7 @@ namespace Realm {
         }
       }
       fprintf(stderr,"BACKTRACE (%d, %lx)\n----------\n%s\n----------\n", 
-              gasnet_mynode(), (unsigned long)pthread_self(), buffer);
+	      fabric->get_id(), (unsigned long)pthread_self(), buffer);
       fflush(stderr);
       free(buffer);
       free(funcname);
