@@ -12,6 +12,7 @@
 
 #define NELEM(x) (sizeof(x) / sizeof(x[0]))
 
+// Unique IDs for each type of message used by the RT
 enum MessageIds {
       FIRST_AVAILABLE = 140,
       NODE_ANNOUNCE_MSGID, 
@@ -56,6 +57,12 @@ enum MessageIds {
       EVENT_GATHER_MSGID,
       EVENT_BROADCAST_MSGID,
       BARRIER_NOTIFY_MSGID
+};
+
+// Unique IDs for each barrier opteration
+enum BarrierIds {
+  RT_WAIT_FOR_SHUTDOWN,
+  CLOCK_SYNC_BARRIER_ID,
 };
 
 typedef uint8_t MessageId;

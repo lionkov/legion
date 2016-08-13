@@ -33,8 +33,6 @@
   do { fprintf(stderr, call "(): %s:%d, ret=%d (%s)\n", __FILE__, __LINE__, \
 	       (int) retv, fi_strerror((int) -retv)); } while (0)
 
-#define CLOCK_SYNC_BARRIER_ID 1234
-
 class FabMutex {
 public:
   FabMutex(void) { pthread_mutex_init(&_lock, NULL); } 

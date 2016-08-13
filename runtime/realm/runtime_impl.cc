@@ -660,7 +660,8 @@ namespace Realm {
       }
 
       // initialize barrier timestamp
-      BarrierImpl::barrier_adjustment_timestamp = (((Barrier::timestamp_t)(gasnet_mynode())) << BarrierImpl::BARRIER_TIMESTAMP_NODEID_SHIFT) + 1;
+      BarrierImpl::barrier_adjustment_timestamp
+	= (((Barrier::timestamp_t)(gasnet_mynode())) << BarrierImpl::BARRIER_TIMESTAMP_NODEID_SHIFT) + 1;
 
       // Register all message types with fabric before calling fabric->init()
       std::cout << "ADDING MESSAGES" << std::endl;
@@ -1430,8 +1431,8 @@ namespace Realm {
 
 #ifdef USE_GASNET
       // don't start tearing things down until all processes agree
-      gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);
-      gasnet_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS);
+      fabric->barrier_notify(RT_WAIT_FOR_SHUTDOWN);
+      fabric->barrier_wait(RT_WAIT_FOR_SHUTDOWN);
 #endif
 
       // Shutdown all the threads

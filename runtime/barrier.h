@@ -70,7 +70,8 @@ protected:
 
    Simultaneous barrier operations sharing the same ID will result in undefined
    behavior. Either use unique IDs for each barrier, or, if using an anonymous barrier, 
-   do not allow multiple barrier to take place at once.
+   do not allow multiple barrier to take place at once. Unique barrier IDs are defined
+   in fabric_types.h.
 
    Because Legion uses Barriers to synchronize clocks, it is preferable to spinwait for
    notifications rather than block. Although spinwaiting may be less efficient, it should 
