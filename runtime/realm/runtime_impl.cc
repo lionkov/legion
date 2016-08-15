@@ -1489,7 +1489,7 @@ namespace Realm {
 
       // delete processors, memories, nodes, etc.
       {
-	for(gasnet_node_t i = 0; i < fabric->get_num_nodes(); i++) {
+	for(NodeId i = 0; i < fabric->get_num_nodes(); i++) {
 	  Node& n = nodes[i];
 
 	  delete_container_contents(n.memories);

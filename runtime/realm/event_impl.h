@@ -193,7 +193,7 @@ namespace Realm {
     // if delta < 0, timestamp says which positive adjustment this arrival must wait for
     void adjust_arrival(Event::gen_t barrier_gen, int delta, 
 			Barrier::timestamp_t timestamp, Event wait_on,
-			gasnet_node_t sender, bool forwarded,
+			NodeId sender, bool forwarded,
 			const void *reduce_value, size_t reduce_value_size);
 
     bool get_result(Event::gen_t result_gen, void *value, size_t value_size);
@@ -281,9 +281,9 @@ namespace Realm {
     : MessageType(EVENT_TRIGGER_MSGID, sizeof(RequestArgs), false, true) { }
     
     struct RequestArgs {
-    RequestArgs(gasnet_node_t _node, Event _event, bool _poisoned)
+    RequestArgs(NodeId _node, Event _event, bool _poisoned)
     : node(_node), event(_event), poisoned(_poisoned) { }
-      gasnet_node_t node;
+      NodeId node;
       Event event;
       bool poisoned;
     };
@@ -294,7 +294,7 @@ namespace Realm {
 
   class EventTriggerMessage : public Message {
   public:
-  EventTriggerMessage(NodeId dest, gasnet_node_t node, Event event, bool poisoned)
+  EventTriggerMessage(NodeId dest, NodeId node, Event event, bool poisoned)
     : Message(dest, EVENT_TRIGGER_MSGID, &args, NULL),
       args(node, event, poisoned) { }
     EventTriggerMessageType::RequestArgs args;
@@ -460,10 +460,10 @@ namespace Realm {
     : MessageType(BARRIER_MIGRATE_MSGID, sizeof(RequestArgs), false, true) { }
       
     struct RequestArgs {
-    RequestArgs(Barrier _barrier, gasnet_node_t _current_owner)
+    RequestArgs(Barrier _barrier, NodeId _current_owner)
     : barrier(_barrier), current_owner(_current_owner) { }
       Barrier barrier;
-      gasnet_node_t current_owner;
+      NodeId current_owner;
     };
 
     void request(Message* m);
@@ -472,7 +472,7 @@ namespace Realm {
 
   class BarrierMigrationMessage : public Message {
   public:
-  BarrierMigrationMessage(NodeId dest, Barrier barrier, gasnet_node_t current_owner)
+  BarrierMigrationMessage(NodeId dest, Barrier barrier, NodeId current_owner)
     : Message(dest, BARRIER_MIGRATE_MSGID, &args, NULL),
       args(barrier, current_owner) { }
     BarrierMigrationMessageType::RequestArgs args;

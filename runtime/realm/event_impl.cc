@@ -1014,7 +1014,7 @@ namespace Realm {
 
   template <typename T>
   struct MediumBroadcastHelper : public T::RequestArgs {
-    inline void apply(gasnet_node_t target)
+    inline void apply(NodeId target)
     {
       T::ActiveMessage::request(target, *this, payload, payload_size, payload_mode);
     }
@@ -1697,7 +1697,7 @@ static void *bytedup(const void *data, size_t datalen)
     class DeferredBarrierArrival : public EventWaiter {
     public:
       DeferredBarrierArrival(Barrier _barrier, int _delta,
-			     gasnet_node_t _sender, bool _forwarded,
+			     NodeId _sender, bool _forwarded,
 			     const void *_data, size_t _datalen)
 	: barrier(_barrier), delta(_delta),
 	  sender(_sender), forwarded(_forwarded),
@@ -1737,7 +1737,7 @@ static void *bytedup(const void *data, size_t datalen)
     protected:
       Barrier barrier;
       int delta;
-      gasnet_node_t sender;
+      NodeId sender;
       bool forwarded;
       void *data;
       size_t datalen;
@@ -1804,7 +1804,7 @@ static void *bytedup(const void *data, size_t datalen)
     // if delta < 0, timestamp says which positive adjustment this arrival must wait for
     void BarrierImpl::adjust_arrival(Event::gen_t barrier_gen, int delta, 
 				     Barrier::timestamp_t timestamp, Event wait_on,
-				     gasnet_node_t sender, bool forwarded,
+				     NodeId sender, bool forwarded,
 				     const void *reduce_value, size_t reduce_value_size)
     {
       if(!wait_on.has_triggered()) {
@@ -1855,9 +1855,9 @@ static void *bytedup(const void *data, size_t datalen)
       std::vector<RemoteNotification> remote_notifications;
       Event::gen_t oldest_previous = 0;
       void *final_values_copy = 0;
-      gasnet_node_t migration_target = (gasnet_node_t) -1;
-      gasnet_node_t forward_to_node = (gasnet_node_t) -1;
-      gasnet_node_t inform_migration = (gasnet_node_t) -1;
+      NodeId migration_target = (NodeId) -1;
+      NodeId forward_to_node = (NodeId) -1;
+      NodeId inform_migration = (NodeId) -1;
 
       do { // so we can use 'break' from the middle
 	AutoHSLLock a(mutex);
@@ -1989,7 +1989,7 @@ static void *bytedup(const void *data, size_t datalen)
 	}
       } while(0);
 
-      if(forward_to_node != (gasnet_node_t) -1) {
+      if(forward_to_node != (NodeId) -1) {
 	Barrier b = make_barrier(barrier_gen, timestamp);
 	BarrierAdjustMessageType::send_request(forward_to_node, b, delta, Event::NO_EVENT,
 					   sender, (sender != gasnet_mynode()),
@@ -1997,7 +1997,7 @@ static void *bytedup(const void *data, size_t datalen)
 	return;
       }
 
-      if(inform_migration != (gasnet_node_t) -1) {
+      if(inform_migration != (NodeId) -1) {
 	Barrier b = make_barrier(barrier_gen, timestamp);
 	BarrierMigrationMessageType::send_request(inform_migration, b, gasnet_mynode());
       }
@@ -2192,12 +2192,12 @@ static void *bytedup(const void *data, size_t datalen)
       }
     } while(0);
 
-    if(forward_to_node != (gasnet_node_t) -1) {
+    if(forward_to_node != (NodeId) -1) {
       BarrierSubscribeMessageType::send_request(forward_to_node, args->barrier_id, args->subscribe_gen,
 						args->subscriber, (args->subscriber != gasnet_mynode()));
     }
 
-    if(inform_migration != (gasnet_node_t) -1) {
+    if(inform_migration != (NodeId) -1) {
       BarrierMigrationMessageType::send_request(inform_migration, b, gasnet_mynode());
     }
 
@@ -2207,7 +2207,7 @@ static void *bytedup(const void *data, size_t datalen)
 		       args->barrier_id, previous_gen, trigger_gen);
       BarrierTriggerMessageType::send_request(args->subscriber, args->barrier_id, trigger_gen, previous_gen,
 					      impl->first_generation, impl->redop_id,
-					      (gasnet_node_t) -1 /*no migration*/, 0 /*dummy arrival count*/,
+					      (NodeId) -1 /*no migration*/, 0 /*dummy arrival count*/,
 					      final_values_copy, final_values_size);
     }
 
@@ -2245,7 +2245,7 @@ static void *bytedup(const void *data, size_t datalen)
       AutoHSLLock a(impl->mutex);
 
       // handle migration of the barrier ownership (possibly to us)
-      if(args->migration_target != (gasnet_node_t) -1) {
+      if(args->migration_target != (NodeId) -1) {
 	//log_barrier.info() << "barrier " << b << " has migrated to " << args->migration_target;
 	impl->owner = args->migration_target;
 	impl->base_arrival_count = args->base_arrival_count;

@@ -196,9 +196,9 @@ namespace Realm {
     : MessageType(LOCK_REQUEST_MSGID, sizeof(RequestArgs), false, true) { }
 
     struct RequestArgs {
-    RequestArgs(gasnet_node_t _node, Reservation _lock, unsigned _mode)
+    RequestArgs(NodeId _node, Reservation _lock, unsigned _mode)
     : node(_node), lock(_lock), mode(_mode) { }
-      gasnet_node_t node;
+      NodeId node;
       Reservation lock;
       unsigned mode;
     };

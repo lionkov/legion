@@ -200,10 +200,10 @@ namespace Realm {
       assert(ok_to_run);
 
       std::vector<Processor> local_procs;
-      std::map<gasnet_node_t, std::vector<Processor> > remote_procs;
+      std::map<NodeId, std::vector<Processor> > remote_procs;
       // is the target a single processor or a group?
       if(ID(*this).type() == ID::ID_PROCESSOR) {
-	gasnet_node_t n = ID(*this).node();
+	NodeId n = ID(*this).node();
 	if(n == gasnet_mynode())
 	  local_procs.push_back(*this);
 	else
@@ -217,7 +217,7 @@ namespace Realm {
 	    it != members.end();
 	    it++) {
 	  Processor p = *it;
-	  gasnet_node_t n = ID(p).node();
+	  NodeId n = ID(p).node();
 	  if(n == gasnet_mynode())
 	    local_procs.push_back(p);
 	  else
@@ -243,7 +243,7 @@ namespace Realm {
 	}
       }
 
-      for(std::map<gasnet_node_t, std::vector<Processor> >::const_iterator it = remote_procs.begin();
+      for(std::map<NodeId, std::vector<Processor> >::const_iterator it = remote_procs.begin();
 	  it != remote_procs.end();
 	  it++) {
 	NodeId target = it->first;
@@ -308,7 +308,7 @@ namespace Realm {
 	  assert(0);
 	}
 
-	for(gasnet_node_t target = 0; target < gasnet_nodes(); target++) {
+	for(NodeId target = 0; target < gasnet_nodes(); target++) {
 	  // skip ourselves
 	  if(target == gasnet_mynode())
 	    continue;
@@ -706,7 +706,7 @@ namespace Realm {
 		       << " proc=" << me
 		       << " finish=" << finish_event;
 
-      gasnet_node_t target = ID(me).node();
+      NodeId target = ID(me).node();
 
       get_runtime()->optable.add_remote_operation(finish_event, target);
 
