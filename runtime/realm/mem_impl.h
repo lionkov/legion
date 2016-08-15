@@ -819,7 +819,41 @@ namespace Realm {
 
   extern void do_remote_fence(Memory mem, unsigned sequence_id,
 			      unsigned count, RemoteWriteFence *fence);
-    
+
+
+  template <class T> struct HandlerReplyFuture {
+    FabMutex mutex;
+    FabCondVar cond;
+    bool valid;
+    T value;
+
+    HandlerReplyFuture(void) {
+      valid = false;
+    }
+
+    void set(T newval)
+    {
+      mutex.lock();
+      gasnet_hsl_lock(&mutex);
+      valid = true;
+      value = newval;
+      cond.broadcast();
+      mutex.unlock();
+    }
+
+    bool is_set(void) const { return valid; }
+
+    void wait(void)
+    {
+      if(valid) return; // early out
+      mutex.lock();
+      gasnet_hsl_lock(&mutex);
+      while(!valid) cond.wait();
+      mutex.unlock();
+    }
+
+    T get(void) const { return value; }
+  };    
 }; // namespace Realm
 
 #endif // ifndef REALM_MEM_IMPL_H

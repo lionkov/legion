@@ -305,7 +305,7 @@ namespace Realm {
 
       RuntimeShutdownMessageType::RequestArgs args;
     };
-     
+  
 }; // namespace Realm
 
 #endif // ifndef REALM_RUNTIME_IMPL_H
