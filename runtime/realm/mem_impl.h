@@ -823,22 +823,23 @@ namespace Realm {
 
   template <class T> struct HandlerReplyFuture {
     FabMutex mutex;
+    FabMutex condmutex;
     FabCondVar cond;
     bool valid;
     T value;
 
-    HandlerReplyFuture(void) {
+    HandlerReplyFuture(void)
+      : cond(condmutex) {
       valid = false;
     }
 
     void set(T newval)
     {
       mutex.lock();
-      gasnet_hsl_lock(&mutex);
       valid = true;
       value = newval;
       cond.broadcast();
-      mutex.unlock();
+      mutex.lock();
     }
 
     bool is_set(void) const { return valid; }
@@ -847,9 +848,8 @@ namespace Realm {
     {
       if(valid) return; // early out
       mutex.lock();
-      gasnet_hsl_lock(&mutex);
       while(!valid) cond.wait();
-      mutex.unlock();
+      mutex.lock();
     }
 
     T get(void) const { return value; }
