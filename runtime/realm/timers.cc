@@ -53,9 +53,9 @@ namespace Realm {
 
     void MultiNodeRollUp::execute(void)
     {
-      count_left = gasnet_nodes()-1;
+      count_left = fabric->get_num_nodes()-1;
 
-      for(unsigned i = 0; i < gasnet_nodes(); i++)
+      for(unsigned i = 0; i < fabric->get_num_nodes(); i++)
         if(i != fabric->get_id())
 	  fabric->send(new TimerDataRequestMessage(i, this));
       //TimerDataRequestMessage::send_request(i, this);
@@ -160,7 +160,7 @@ namespace Realm {
 	ClearTimerRequestArgs args;
 	args.sender = fabric->get_id();
 	
-	for(int i = 0; i < gasnet_nodes(); i++)
+	for(int i = 0; i < fabric->get_num_nodes(); i++)
 	  if(i != fabric->get_id())
 	    ClearTimerRequestMessage::request(i, args);
       }

@@ -623,7 +623,7 @@ namespace Realm {
     : MemoryImpl(_me, 0 /* we'll calculate it below */, MKIND_GLOBAL,
 		 MEMORY_STRIDE, Memory::GLOBAL_MEM)
   {
-    num_nodes = gasnet_nodes();
+    num_nodes = fabric->get_num_nodes();
     seginfos = new gasnet_seginfo_t[num_nodes];
     CHECK_GASNET( gasnet_getSegmentInfo(seginfos, num_nodes) );
       

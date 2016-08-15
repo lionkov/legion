@@ -39,7 +39,7 @@ namespace Realm {
 
     size_t Machine::get_address_space_count(void) const
     {
-      return gasnet_nodes();
+      return fabric->get_num_nodes();
     }
 
     void Machine::get_all_memories(std::set<Memory>& mset) const

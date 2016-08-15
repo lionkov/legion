@@ -19,7 +19,7 @@
 
 #ifdef SHARED_LOWLEVEL
 #define fabric->get_id() 0
-#define gasnet_nodes() 1
+#define fabric->get_num_nodes() 1
 #else
 #include "fabric.h"
 #endif
@@ -276,7 +276,7 @@ namespace Realm {
       size_t pct = logname.find_first_of('%', start);
       if(pct == std::string::npos) {
 	// no node number - everybody uses the same file
-	if(gasnet_nodes() > 1) {
+	if(fabric->get_num_nodes() > 1) {
 	  if(!append) {
 	    if(fabric->get_id() == 1)
 	      fprintf(stderr, "WARNING: all ranks are logging to the same output file - appending is forced and output may be jumbled\n");

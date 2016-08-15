@@ -25,8 +25,6 @@
 #include <sys/types.h>
 #include <dirent.h>
 
-GASNETT_THREADKEY_DEFINE(cur_preemptable_thread);
-
 #define CHECK_PTHREAD(cmd) do { \
   int ret = (cmd); \
   if(ret != 0) { \
@@ -308,7 +306,7 @@ namespace Realm {
 	  assert(0);
 	}
 
-	for(NodeId target = 0; target < gasnet_nodes(); target++) {
+	for(NodeId target = 0; target < fabric->get_num_nodes(); target++) {
 	  // skip ourselves
 	  if(target == fabric->get_id())
 	    continue;
