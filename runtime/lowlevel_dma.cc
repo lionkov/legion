@@ -50,7 +50,7 @@ using namespace Realm::Serialization;
 namespace LegionRuntime {
   namespace LowLevel {
 
-    typedef Realm::GASNetMemory GASNetMemory;
+    //typedef Realm::GASNetMemory GASNetMemory;
     typedef Realm::DiskMemory DiskMemory;
     typedef Realm::FileMemory FileMemory;
     typedef Realm::Thread Thread;
@@ -731,288 +731,288 @@ namespace LegionRuntime {
 	size_t elmt_size;
       };
 
-      class GasnetPut {
-      public:
-	GasnetPut(MemoryImpl *_tgt_mem, off_t _tgt_offset,
-		  const void *_src_ptr, size_t _elmt_size)
-	  : tgt_mem(_tgt_mem), tgt_offset(_tgt_offset),
-	    src_ptr((const char *)_src_ptr), elmt_size(_elmt_size) {}
+      // class GasnetPut {
+      // public:
+      // 	GasnetPut(MemoryImpl *_tgt_mem, off_t _tgt_offset,
+      // 		  const void *_src_ptr, size_t _elmt_size)
+      // 	  : tgt_mem(_tgt_mem), tgt_offset(_tgt_offset),
+      // 	    src_ptr((const char *)_src_ptr), elmt_size(_elmt_size) {}
 
-        virtual ~GasnetPut(void) { }
+      //   virtual ~GasnetPut(void) { }
 
-	void do_span(int offset, int count)
-	{
-	  off_t byte_offset = offset * elmt_size;
-	  size_t byte_count = count * elmt_size;
+      // 	void do_span(int offset, int count)
+      // 	{
+      // 	  off_t byte_offset = offset * elmt_size;
+      // 	  size_t byte_count = count * elmt_size;
 	
-	  tgt_mem->put_bytes(tgt_offset + byte_offset,
-			     src_ptr + byte_offset,
-			     byte_count);
-	}
+      // 	  tgt_mem->put_bytes(tgt_offset + byte_offset,
+      // 			     src_ptr + byte_offset,
+      // 			     byte_count);
+      // 	}
 
-      protected:
-	MemoryImpl *tgt_mem;
-	off_t tgt_offset;
-	const char *src_ptr;
-	size_t elmt_size;
-      };
+      // protected:
+      // 	MemoryImpl *tgt_mem;
+      // 	off_t tgt_offset;
+      // 	const char *src_ptr;
+      // 	size_t elmt_size;
+      // };
 
-      class GasnetPutBatched {
-      public:
-	GasnetPutBatched(MemoryImpl *_tgt_mem, off_t _tgt_offset,
-			 const void *_src_ptr,
-			 size_t _elmt_size)
-	  : tgt_mem((GASNetMemory *)_tgt_mem), tgt_offset(_tgt_offset),
-	    src_ptr((const char *)_src_ptr), elmt_size(_elmt_size) {}
+      // class GasnetPutBatched {
+      // public:
+      // 	GasnetPutBatched(MemoryImpl *_tgt_mem, off_t _tgt_offset,
+      // 			 const void *_src_ptr,
+      // 			 size_t _elmt_size)
+      // 	  : tgt_mem((GASNetMemory *)_tgt_mem), tgt_offset(_tgt_offset),
+      // 	    src_ptr((const char *)_src_ptr), elmt_size(_elmt_size) {}
 
-	void do_span(int offset, int count)
-	{
-	  off_t byte_offset = offset * elmt_size;
-	  size_t byte_count = count * elmt_size;
+      // 	void do_span(int offset, int count)
+      // 	{
+      // 	  off_t byte_offset = offset * elmt_size;
+      // 	  size_t byte_count = count * elmt_size;
 	
-	  offsets.push_back(tgt_offset + byte_offset);
-	  srcs.push_back(src_ptr + byte_offset);
-	  sizes.push_back(byte_count);
-	}
+      // 	  offsets.push_back(tgt_offset + byte_offset);
+      // 	  srcs.push_back(src_ptr + byte_offset);
+      // 	  sizes.push_back(byte_count);
+      // 	}
 
-	void finish(void)
-	{
-	  if(offsets.size() > 0) {
-	    DetailedTimer::ScopedPush sp(TIME_SYSTEM);
-	    tgt_mem->put_batch(offsets.size(),
-			       &offsets[0],
-			       &srcs[0],
-			       &sizes[0]);
-	  }
-	}
+      // 	void finish(void)
+      // 	{
+      // 	  if(offsets.size() > 0) {
+      // 	    DetailedTimer::ScopedPush sp(TIME_SYSTEM);
+      // 	    tgt_mem->put_batch(offsets.size(),
+      // 			       &offsets[0],
+      // 			       &srcs[0],
+      // 			       &sizes[0]);
+      // 	  }
+      // 	}
 
-      protected:
-	GASNetMemory *tgt_mem;
-	off_t tgt_offset;
-	const char *src_ptr;
-	size_t elmt_size;
-	std::vector<off_t> offsets;
-	std::vector<const void *> srcs;
-	std::vector<size_t> sizes;
-      };
+      // protected:
+      // 	GASNetMemory *tgt_mem;
+      // 	off_t tgt_offset;
+      // 	const char *src_ptr;
+      // 	size_t elmt_size;
+      // 	std::vector<off_t> offsets;
+      // 	std::vector<const void *> srcs;
+      // 	std::vector<size_t> sizes;
+      // };
 
-      class GasnetPutReduce : public GasnetPut {
-      public:
-	GasnetPutReduce(MemoryImpl *_tgt_mem, off_t _tgt_offset,
-			const ReductionOpUntyped *_redop, bool _redfold,
-			const void *_src_ptr, size_t _elmt_size)
-	  : GasnetPut(_tgt_mem, _tgt_offset, _src_ptr, _elmt_size),
-	    redop(_redop), redfold(_redfold) {}
+      // class GasnetPutReduce : public GasnetPut {
+      // public:
+      // 	GasnetPutReduce(MemoryImpl *_tgt_mem, off_t _tgt_offset,
+      // 			const ReductionOpUntyped *_redop, bool _redfold,
+      // 			const void *_src_ptr, size_t _elmt_size)
+      // 	  : GasnetPut(_tgt_mem, _tgt_offset, _src_ptr, _elmt_size),
+      // 	    redop(_redop), redfold(_redfold) {}
 
-        virtual ~GasnetPutReduce(void) { }
+      //   virtual ~GasnetPutReduce(void) { }
 
-	void do_span(int offset, int count)
-	{
-	  assert(redfold == false);
-	  off_t tgt_byte_offset = offset * redop->sizeof_lhs;
-	  off_t src_byte_offset = offset * elmt_size;
-	  assert(elmt_size == redop->sizeof_rhs);
+      // 	void do_span(int offset, int count)
+      // 	{
+      // 	  assert(redfold == false);
+      // 	  off_t tgt_byte_offset = offset * redop->sizeof_lhs;
+      // 	  off_t src_byte_offset = offset * elmt_size;
+      // 	  assert(elmt_size == redop->sizeof_rhs);
 
-	  char buffer[1024];
-	  assert(redop->sizeof_lhs <= 1024);
+      // 	  char buffer[1024];
+      // 	  assert(redop->sizeof_lhs <= 1024);
 
-	  for(int i = 0; i < count; i++) {
-	    tgt_mem->get_bytes(tgt_offset + tgt_byte_offset,
-			       buffer,
-			       redop->sizeof_lhs);
+      // 	  for(int i = 0; i < count; i++) {
+      // 	    tgt_mem->get_bytes(tgt_offset + tgt_byte_offset,
+      // 			       buffer,
+      // 			       redop->sizeof_lhs);
 
-	    redop->apply(buffer, src_ptr + src_byte_offset, 1, true);
+      // 	    redop->apply(buffer, src_ptr + src_byte_offset, 1, true);
 	      
-	    tgt_mem->put_bytes(tgt_offset + tgt_byte_offset,
-			       buffer,
-			       redop->sizeof_lhs);
-	  }
-	}
+      // 	    tgt_mem->put_bytes(tgt_offset + tgt_byte_offset,
+      // 			       buffer,
+      // 			       redop->sizeof_lhs);
+      // 	  }
+      // 	}
 
-      protected:
-	const ReductionOpUntyped *redop;
-	bool redfold;
-      };
+      // protected:
+      // 	const ReductionOpUntyped *redop;
+      // 	bool redfold;
+      // };
 
-      class GasnetPutRedList : public GasnetPut {
-      public:
-	GasnetPutRedList(MemoryImpl *_tgt_mem, off_t _tgt_offset,
-			 ReductionOpID _redopid,
-			 const ReductionOpUntyped *_redop,
-			 const void *_src_ptr, size_t _elmt_size)
-	  : GasnetPut(_tgt_mem, _tgt_offset, _src_ptr, _elmt_size),
-	    redopid(_redopid), redop(_redop) {}
+      // class GasnetPutRedList : public GasnetPut {
+      // public:
+      // 	GasnetPutRedList(MemoryImpl *_tgt_mem, off_t _tgt_offset,
+      // 			 ReductionOpID _redopid,
+      // 			 const ReductionOpUntyped *_redop,
+      // 			 const void *_src_ptr, size_t _elmt_size)
+      // 	  : GasnetPut(_tgt_mem, _tgt_offset, _src_ptr, _elmt_size),
+      // 	    redopid(_redopid), redop(_redop) {}
 
-        virtual ~GasnetPutRedList(void) { }
+      //   virtual ~GasnetPutRedList(void) { }
 
-	void do_span(int offset, int count)
-	{
-	  if(count == 0) return;
-	  assert(offset == 0); // too lazy to do pointer math on _src_ptr
-	  unsigned *ptrs = new unsigned[count];
-	  redop->get_list_pointers(ptrs, src_ptr, count);
+      // 	void do_span(int offset, int count)
+      // 	{
+      // 	  if(count == 0) return;
+      // 	  assert(offset == 0); // too lazy to do pointer math on _src_ptr
+      // 	  unsigned *ptrs = new unsigned[count];
+      // 	  redop->get_list_pointers(ptrs, src_ptr, count);
 
-	  // now figure out how many reductions go to each node
-	  unsigned *nodecounts = new unsigned[gasnet_nodes()];
-	  for(unsigned i = 0; i < gasnet_nodes(); i++)
-	    nodecounts[i] = 0;
+      // 	  // now figure out how many reductions go to each node
+      // 	  unsigned *nodecounts = new unsigned[gasnet_nodes()];
+      // 	  for(unsigned i = 0; i < gasnet_nodes(); i++)
+      // 	    nodecounts[i] = 0;
 
-	  for(int i = 0; i < count; i++) {
-	    off_t elem_offset = tgt_offset + ptrs[i] * redop->sizeof_lhs;
-	    int home_node = tgt_mem->get_home_node(elem_offset, redop->sizeof_lhs);
-	    assert(home_node >= 0);
-	    ptrs[i] = home_node;
-	    nodecounts[home_node]++;
-	  }
+      // 	  for(int i = 0; i < count; i++) {
+      // 	    off_t elem_offset = tgt_offset + ptrs[i] * redop->sizeof_lhs;
+      // 	    int home_node = tgt_mem->get_home_node(elem_offset, redop->sizeof_lhs);
+      // 	    assert(home_node >= 0);
+      // 	    ptrs[i] = home_node;
+      // 	    nodecounts[home_node]++;
+      // 	  }
 
-	  size_t max_entries_per_msg = (1 << 20) / redop->sizeof_list_entry;
-	  char *entry_buffer = new char[max_entries_per_msg * redop->sizeof_list_entry];
+      // 	  size_t max_entries_per_msg = (1 << 20) / redop->sizeof_list_entry;
+      // 	  char *entry_buffer = new char[max_entries_per_msg * redop->sizeof_list_entry];
 
-	  for(unsigned i = 0; i < gasnet_nodes(); i++) {
-	    unsigned pos = 0;
-	    for(int j = 0; j < count; j++) {
-	      //printf("S: [%d] = %d\n", j, ptrs[j]);
-	      if(ptrs[j] != i) continue;
+      // 	  for(unsigned i = 0; i < gasnet_nodes(); i++) {
+      // 	    unsigned pos = 0;
+      // 	    for(int j = 0; j < count; j++) {
+      // 	      //printf("S: [%d] = %d\n", j, ptrs[j]);
+      // 	      if(ptrs[j] != i) continue;
 
-	      memcpy(entry_buffer + (pos * redop->sizeof_list_entry),
-		     ((const char *)src_ptr) + (j * redop->sizeof_list_entry),
-		     redop->sizeof_list_entry);
-	      pos++;
+      // 	      memcpy(entry_buffer + (pos * redop->sizeof_list_entry),
+      // 		     ((const char *)src_ptr) + (j * redop->sizeof_list_entry),
+      // 		     redop->sizeof_list_entry);
+      // 	      pos++;
 
-	      if(pos == max_entries_per_msg) {
-		if(i == fabric->get_id()) {
-		  tgt_mem->apply_reduction_list(tgt_offset, redop, pos,
-						entry_buffer);
-		} else {
-		  do_remote_apply_red_list(i, tgt_mem->me, tgt_offset,
-					   redopid, 
-					   entry_buffer, pos * redop->sizeof_list_entry, 0);
-		}
-		pos = 0;
-	      }
-	    }
-	    if(pos > 0) {
-	      if(i == fabric->get_id()) {
-		tgt_mem->apply_reduction_list(tgt_offset, redop, pos,
-					      entry_buffer);
-	      } else {
-		do_remote_apply_red_list(i, tgt_mem->me, tgt_offset,
-					 redopid, 
-					 entry_buffer, pos * redop->sizeof_list_entry, 0);
-	      }
-	    }
-	  }
+      // 	      if(pos == max_entries_per_msg) {
+      // 		if(i == fabric->get_id()) {
+      // 		  tgt_mem->apply_reduction_list(tgt_offset, redop, pos,
+      // 						entry_buffer);
+      // 		} else {
+      // 		  do_remote_apply_red_list(i, tgt_mem->me, tgt_offset,
+      // 					   redopid, 
+      // 					   entry_buffer, pos * redop->sizeof_list_entry, 0);
+      // 		}
+      // 		pos = 0;
+      // 	      }
+      // 	    }
+      // 	    if(pos > 0) {
+      // 	      if(i == fabric->get_id()) {
+      // 		tgt_mem->apply_reduction_list(tgt_offset, redop, pos,
+      // 					      entry_buffer);
+      // 	      } else {
+      // 		do_remote_apply_red_list(i, tgt_mem->me, tgt_offset,
+      // 					 redopid, 
+      // 					 entry_buffer, pos * redop->sizeof_list_entry, 0);
+      // 	      }
+      // 	    }
+      // 	  }
 
-	  delete[] entry_buffer;
-	  delete[] ptrs;
-	  delete[] nodecounts;
-	}
+      // 	  delete[] entry_buffer;
+      // 	  delete[] ptrs;
+      // 	  delete[] nodecounts;
+      // 	}
 
-      protected:
-	ReductionOpID redopid;
-	const ReductionOpUntyped *redop;
-      };
+      // protected:
+      // 	ReductionOpID redopid;
+      // 	const ReductionOpUntyped *redop;
+      // };
 
-      class GasnetGet {
-      public:
-	GasnetGet(void *_tgt_ptr,
-		  MemoryImpl *_src_mem, off_t _src_offset,
-		  size_t _elmt_size)
-	  : tgt_ptr((char *)_tgt_ptr), src_mem(_src_mem),
-	    src_offset(_src_offset), elmt_size(_elmt_size) {}
+      // class GasnetGet {
+      // public:
+      // 	GasnetGet(void *_tgt_ptr,
+      // 		  MemoryImpl *_src_mem, off_t _src_offset,
+      // 		  size_t _elmt_size)
+      // 	  : tgt_ptr((char *)_tgt_ptr), src_mem(_src_mem),
+      // 	    src_offset(_src_offset), elmt_size(_elmt_size) {}
 
-	void do_span(int offset, int count)
-	{
-	  off_t byte_offset = offset * elmt_size;
-	  size_t byte_count = count * elmt_size;
+      // 	void do_span(int offset, int count)
+      // 	{
+      // 	  off_t byte_offset = offset * elmt_size;
+      // 	  size_t byte_count = count * elmt_size;
 	
-	  DetailedTimer::ScopedPush sp(TIME_SYSTEM);
-	  src_mem->get_bytes(src_offset + byte_offset,
-			     tgt_ptr + byte_offset,
-			     byte_count);
-	}
+      // 	  DetailedTimer::ScopedPush sp(TIME_SYSTEM);
+      // 	  src_mem->get_bytes(src_offset + byte_offset,
+      // 			     tgt_ptr + byte_offset,
+      // 			     byte_count);
+      // 	}
 
-      protected:
-	char *tgt_ptr;
-	MemoryImpl *src_mem;
-	off_t src_offset;
-	size_t elmt_size;
-      };
+      // protected:
+      // 	char *tgt_ptr;
+      // 	MemoryImpl *src_mem;
+      // 	off_t src_offset;
+      // 	size_t elmt_size;
+      // };
 
-      class GasnetGetBatched {
-      public:
-	GasnetGetBatched(void *_tgt_ptr,
-			 MemoryImpl *_src_mem, off_t _src_offset,
-			 size_t _elmt_size)
-	  : tgt_ptr((char *)_tgt_ptr), src_mem((GASNetMemory *)_src_mem),
-	    src_offset(_src_offset), elmt_size(_elmt_size) {}
+      // class GasnetGetBatched {
+      // public:
+      // 	GasnetGetBatched(void *_tgt_ptr,
+      // 			 MemoryImpl *_src_mem, off_t _src_offset,
+      // 			 size_t _elmt_size)
+      // 	  : tgt_ptr((char *)_tgt_ptr), src_mem((GASNetMemory *)_src_mem),
+      // 	    src_offset(_src_offset), elmt_size(_elmt_size) {}
 
-	void do_span(int offset, int count)
-	{
-	  off_t byte_offset = offset * elmt_size;
-	  size_t byte_count = count * elmt_size;
+      // 	void do_span(int offset, int count)
+      // 	{
+      // 	  off_t byte_offset = offset * elmt_size;
+      // 	  size_t byte_count = count * elmt_size;
 	
-	  offsets.push_back(src_offset + byte_offset);
-	  dsts.push_back(tgt_ptr + byte_offset);
-	  sizes.push_back(byte_count);
-	}
+      // 	  offsets.push_back(src_offset + byte_offset);
+      // 	  dsts.push_back(tgt_ptr + byte_offset);
+      // 	  sizes.push_back(byte_count);
+      // 	}
 
-	void finish(void)
-	{
-	  if(offsets.size() > 0) {
-	    DetailedTimer::ScopedPush sp(TIME_SYSTEM);
-	    src_mem->get_batch(offsets.size(),
-			       &offsets[0],
-			       &dsts[0],
-			       &sizes[0]);
-	  }
-	}
+      // 	void finish(void)
+      // 	{
+      // 	  if(offsets.size() > 0) {
+      // 	    DetailedTimer::ScopedPush sp(TIME_SYSTEM);
+      // 	    src_mem->get_batch(offsets.size(),
+      // 			       &offsets[0],
+      // 			       &dsts[0],
+      // 			       &sizes[0]);
+      // 	  }
+      // 	}
 
-      protected:
-	char *tgt_ptr;
-	GASNetMemory *src_mem;
-	off_t src_offset;
-	size_t elmt_size;
-	std::vector<off_t> offsets;
-	std::vector<void *> dsts;
-	std::vector<size_t> sizes;
-      };
+      // protected:
+      // 	char *tgt_ptr;
+      // 	GASNetMemory *src_mem;
+      // 	off_t src_offset;
+      // 	size_t elmt_size;
+      // 	std::vector<off_t> offsets;
+      // 	std::vector<void *> dsts;
+      // 	std::vector<size_t> sizes;
+      // };
 
-      class GasnetGetAndPut {
-      public:
-	GasnetGetAndPut(MemoryImpl *_tgt_mem, off_t _tgt_offset,
-			MemoryImpl *_src_mem, off_t _src_offset,
-			size_t _elmt_size)
-	  : tgt_mem(_tgt_mem), tgt_offset(_tgt_offset),
-	    src_mem(_src_mem), src_offset(_src_offset), elmt_size(_elmt_size) {}
+      // class GasnetGetAndPut {
+      // public:
+      // 	GasnetGetAndPut(MemoryImpl *_tgt_mem, off_t _tgt_offset,
+      // 			MemoryImpl *_src_mem, off_t _src_offset,
+      // 			size_t _elmt_size)
+      // 	  : tgt_mem(_tgt_mem), tgt_offset(_tgt_offset),
+      // 	    src_mem(_src_mem), src_offset(_src_offset), elmt_size(_elmt_size) {}
 
-	static const size_t CHUNK_SIZE = 16384;
+      // 	static const size_t CHUNK_SIZE = 16384;
 
-	void do_span(int offset, int count)
-	{
-	  off_t byte_offset = offset * elmt_size;
-	  size_t byte_count = count * elmt_size;
+      // 	void do_span(int offset, int count)
+      // 	{
+      // 	  off_t byte_offset = offset * elmt_size;
+      // 	  size_t byte_count = count * elmt_size;
 
-	  while(byte_count > CHUNK_SIZE) {
-	    src_mem->get_bytes(src_offset + byte_offset, chunk, CHUNK_SIZE);
-	    tgt_mem->put_bytes(tgt_offset + byte_offset, chunk, CHUNK_SIZE);
-	    byte_offset += CHUNK_SIZE;
-	    byte_count -= CHUNK_SIZE;
-	  }
-	  if(byte_count > 0) {
-	    src_mem->get_bytes(src_offset + byte_offset, chunk, byte_count);
-	    tgt_mem->put_bytes(tgt_offset + byte_offset, chunk, byte_count);
-	  }
-	}
+      // 	  while(byte_count > CHUNK_SIZE) {
+      // 	    src_mem->get_bytes(src_offset + byte_offset, chunk, CHUNK_SIZE);
+      // 	    tgt_mem->put_bytes(tgt_offset + byte_offset, chunk, CHUNK_SIZE);
+      // 	    byte_offset += CHUNK_SIZE;
+      // 	    byte_count -= CHUNK_SIZE;
+      // 	  }
+      // 	  if(byte_count > 0) {
+      // 	    src_mem->get_bytes(src_offset + byte_offset, chunk, byte_count);
+      // 	    tgt_mem->put_bytes(tgt_offset + byte_offset, chunk, byte_count);
+      // 	  }
+      // 	}
 
-      protected:
-	MemoryImpl *tgt_mem;
-	off_t tgt_offset;
-	MemoryImpl *src_mem;
-	off_t src_offset;
-	size_t elmt_size;
-	char chunk[CHUNK_SIZE];
-      };
+      // protected:
+      // 	MemoryImpl *tgt_mem;
+      // 	off_t tgt_offset;
+      // 	MemoryImpl *src_mem;
+      // 	off_t src_offset;
+      // 	size_t elmt_size;
+      // 	char chunk[CHUNK_SIZE];
+      // };
 
 #ifdef DEAD_DMA_CODE
       class RemoteWrite {

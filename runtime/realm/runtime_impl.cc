@@ -1439,7 +1439,9 @@ namespace Realm {
 
       // threads that cause inter-node communication have to stop first
       LegionRuntime::LowLevel::stop_dma_worker_threads();
-      stop_activemsg_threads();
+      
+      // TODO -- clean up shutdown procedure?
+      fabric->shutdown();
 
       sampling_profiler.shutdown();
 
