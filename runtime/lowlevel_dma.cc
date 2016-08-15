@@ -2178,7 +2178,7 @@ namespace LegionRuntime {
       PosixAIOWrite *op = new PosixAIOWrite(fd, offset, bytes, buffer);
 #endif
       {
-	AutoHSLLock al(mutex);
+	FabAutoLock al(mutex);
 	if(launched_operations.size() < (size_t)max_depth) {
 	  op->launch();
 	  launched_operations.push_back(op);
@@ -2198,7 +2198,7 @@ namespace LegionRuntime {
       PosixAIORead *op = new PosixAIORead(fd, offset, bytes, buffer);
 #endif
       {
-	AutoHSLLock al(mutex);
+	FabAutoLock al(mutex);
 	if(launched_operations.size() < (size_t)max_depth) {
 	  op->launch();
 	  launched_operations.push_back(op);
@@ -2212,7 +2212,7 @@ namespace LegionRuntime {
     {
       AIOFenceOp *op = new AIOFenceOp(req);
       {
-	AutoHSLLock al(mutex);
+	FabAutoLock al(mutex);
 	if(launched_operations.size() < (size_t)max_depth) {
 	  op->launch();
 	  launched_operations.push_back(op);
@@ -2224,13 +2224,13 @@ namespace LegionRuntime {
 
     bool AsyncFileIOContext::empty(void)
     {
-      AutoHSLLock al(mutex);
+      FabAutoLock al(mutex);
       return launched_operations.empty();
     }
 
     void AsyncFileIOContext::make_progress(void)
     {
-      AutoHSLLock al(mutex);
+      FabAutoLock al(mutex);
 
       // first, reap as many events as we can - oldest first
 #ifdef REALM_USE_KERNEL_AIO

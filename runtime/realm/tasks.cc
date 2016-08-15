@@ -217,7 +217,7 @@ namespace Realm {
     //  the mutex - we'll use that opportunity to retest the wait value and skip the
     //  broadcast (and associated syscall) if it has changed
     {
-      AutoHSLLock al(mutex);
+      FabAutoLock al(mutex);
       long long wv_reread = __sync_fetch_and_add(&wait_value, 0);
       if(old_value == wv_reread) {
 #ifdef DEBUG_WORK_COUNTER
@@ -256,7 +256,7 @@ namespace Realm {
   {
     // we assume the caller tried check_for_work() before dropping
     //  their locks and calling us, so take and hold the lock the entire time
-    AutoHSLLock al(mutex);
+    FabAutoLock al(mutex);
 
     // an early out is still needed to make sure the counter hasn't moved on and somebody
     //  isn't trying to wait on a later value
@@ -333,7 +333,7 @@ namespace Realm {
 
   void ThreadedTaskScheduler::add_task_queue(TaskQueue *queue)
   {
-    AutoHSLLock al(lock);
+    FabAutoLock al(lock);
 
     task_queues.push_back(queue);
 
@@ -371,7 +371,7 @@ namespace Realm {
   {
     // there's a potential race between a thread blocking and being reawakened,
     //  so take the scheduler lock and THEN try to mark the thread as blocked
-    AutoHSLLock al(lock);
+    FabAutoLock al(lock);
 
     bool really_blocked = try_update_thread_state(thread,
 						  Thread::STATE_BLOCKING,
@@ -474,7 +474,7 @@ namespace Realm {
 
     // TODO: might be nice to do this in a lock-free way, since this is called by
     //  some other thread
-    AutoHSLLock al(lock);
+    FabAutoLock al(lock);
 
     // it may be that the thread has noticed that it is ready already, in
     //  which case it'll no longer be blocked and we don't want to resume it
@@ -509,7 +509,7 @@ namespace Realm {
     // the entire body of this method, except for when running an actual task, is
     //   a critical section - lock should be taken by caller
     {
-      //AutoHSLLock al(lock);
+      //FabAutoLock al(lock);
 
       // we're a new, and initially unassigned, worker - counters have already been updated
 
@@ -659,7 +659,7 @@ namespace Realm {
   // an entry point that takes the scheduler lock explicitly
   void ThreadedTaskScheduler::scheduler_loop_wlock(void)
   {
-    AutoHSLLock al(lock);
+    FabAutoLock al(lock);
     scheduler_loop();
   }
 
@@ -707,7 +707,7 @@ namespace Realm {
   {
     // fire up the minimum number of workers
     {
-      AutoHSLLock al(lock);
+      FabAutoLock al(lock);
 
       update_worker_count(cfg_min_active_workers, cfg_min_active_workers);
 
@@ -725,7 +725,7 @@ namespace Realm {
 
     // wait for all workers to finish
     {
-      AutoHSLLock al(lock);
+      FabAutoLock al(lock);
 
       while(!all_workers.empty() || !terminating_workers.empty())
 	shutdown_condvar.wait();
@@ -740,7 +740,7 @@ namespace Realm {
 
     // see if we're supposed to be active yet
     {
-      AutoHSLLock al(lock);
+      FabAutoLock al(lock);
 
       if(active_workers.count(thread) == 0) {
 	// nope, sleep on a CV until we are
@@ -759,7 +759,7 @@ namespace Realm {
   {
     log_sched.info() << "scheduler worker terminating: sched=" << this << " worker=" << thread;
 
-    AutoHSLLock al(lock);
+    FabAutoLock al(lock);
 
     // if the thread is still in our all_workers list, this was unexpected
     if(all_workers.count(thread) > 0) {
@@ -935,7 +935,7 @@ namespace Realm {
 
     // fire up the host threads (which will fire up initial workers)
     {
-      AutoHSLLock al(lock);
+      FabAutoLock al(lock);
 
       update_worker_count(cfg_num_host_threads, cfg_num_host_threads);
 
@@ -959,7 +959,7 @@ namespace Realm {
   {
     log_sched.info() << "scheduler shutdown requested: sched=" << this;
     // set the shutdown flag and wait for all the host threads to exit
-    AutoHSLLock al(lock);
+    FabAutoLock al(lock);
 
     // make sure everybody actually started before we tell them to shut down
     while(host_startups_remaining > 0) {
@@ -1007,7 +1007,7 @@ namespace Realm {
   void UserThreadTaskScheduler::host_thread_loop(void)
   {
     log_sched.debug() << "host thread started: sched=" << this << " thread=" << Thread::self();
-    AutoHSLLock al(lock);
+    FabAutoLock al(lock);
 
     // create a user worker thread - it won't start right away
     Thread *worker = worker_create(false);

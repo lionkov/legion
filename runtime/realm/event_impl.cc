@@ -506,7 +506,7 @@ namespace Realm {
 	  GenEventImpl *impl = get_runtime()->get_genevent_impl(e);
 
 	  {
-	    AutoHSLLock al(impl->mutex);
+	    FabAutoLock al(impl->mutex);
 	    if(impl->generation >= e.gen) {
 	      // already triggered!?
 	      assert(0);
@@ -939,7 +939,7 @@ namespace Realm {
       int subscribe_owner = -1;
       Event::gen_t previous_subscribe_gen = 0;
       {
-	AutoHSLLock a(mutex);
+	FabAutoLock a(mutex);
 
 	// three cases below
 
@@ -1071,7 +1071,7 @@ namespace Realm {
       if(stale_gen >= args->event.gen) {
 	trigger_gen = stale_gen;
       } else {
-	AutoHSLLock a(impl->mutex);
+	FabAutoLock a(impl->mutex);
 
 	// look at the previously-subscribed generation from the requestor - we'll send
 	//  a trigger message if anything newer has triggered
@@ -1216,7 +1216,7 @@ namespace Realm {
     std::map<Event::gen_t, std::vector<EventWaiter *> > to_wake;
 
     {
-      AutoHSLLock a(mutex);
+      FabAutoLock a(mutex);
 
 #define CHECK_POISONED_GENS
 #ifdef CHECK_POISONED_GENS
@@ -1340,7 +1340,7 @@ namespace Realm {
       bool locally_triggered = false;
       poisoned = false;
       {
-	AutoHSLLock a(mutex);
+	FabAutoLock a(mutex);
 
 	std::map<Event::gen_t, bool>::const_iterator it = local_triggers.find(needed_gen);
 	if(it != local_triggers.end()) {
@@ -1368,7 +1368,7 @@ namespace Realm {
 	poisoned = _poisoned;
 
         // Need to hold the lock to avoid the race
-        AutoHSLLock(cv.mutex);
+        FabAutoLock(cv.mutex);
 	cv.signal();
         // we're allocated on caller's stack, so deleting would be bad
         return false;
@@ -1395,7 +1395,7 @@ namespace Realm {
       PthreadCondWaiter w(cv);
       add_waiter(gen_needed, &w);
       {
-	AutoHSLLock a(mutex);
+	FabAutoLock a(mutex);
 
 	// re-check condition before going to sleep
 	while(gen_needed > generation) {
@@ -1430,7 +1430,7 @@ namespace Realm {
 	bool free_event = false;
 
 	{
-	  AutoHSLLock a(mutex);
+	  FabAutoLock a(mutex);
 
 	  // must always be the next generation
 	  assert(gen_triggered == (generation + 1));
@@ -1485,7 +1485,7 @@ namespace Realm {
 
 	// now update our version of the data structure
 	{
-	  AutoHSLLock a(mutex);
+	  FabAutoLock a(mutex);
 
 	  // is this the "next" version?
 	  if(gen_triggered == (generation + 1)) {
@@ -1860,7 +1860,7 @@ static void *bytedup(const void *data, size_t datalen)
       NodeId inform_migration = (NodeId) -1;
 
       do { // so we can use 'break' from the middle
-	AutoHSLLock a(mutex);
+	FabAutoLock a(mutex);
 
 	// ownership can change, so check it inside the lock
 	if(owner != fabric->get_id()) {
@@ -2052,7 +2052,7 @@ static void *bytedup(const void *data, size_t datalen)
 	Event::gen_t previous_subscription;
 	// take lock to avoid duplicate subscriptions
 	{
-	  AutoHSLLock a(mutex);
+	  FabAutoLock a(mutex);
 	  previous_subscription = gen_subscribed;
 	  if(gen_subscribed < needed_gen)
 	    gen_subscribed = needed_gen;
@@ -2078,7 +2078,7 @@ static void *bytedup(const void *data, size_t datalen)
     {
       bool trigger_now = false;
       {
-	AutoHSLLock a(mutex);
+	FabAutoLock a(mutex);
 
 	if(needed_gen > generation) {
 	  Generation *g;
@@ -2128,7 +2128,7 @@ static void *bytedup(const void *data, size_t datalen)
     NodeId inform_migration = (NodeId) -1;
       
     do {
-      AutoHSLLock a(impl->mutex);
+      FabAutoLock a(impl->mutex);
 
       // first check - are we even the current owner?
       if(impl->owner != fabric->get_id()) {
@@ -2242,7 +2242,7 @@ static void *bytedup(const void *data, size_t datalen)
     // we'll probably end up with a list of local waiters to notify
     std::vector<EventWaiter *> local_notifications;
     {
-      AutoHSLLock a(impl->mutex);
+      FabAutoLock a(impl->mutex);
 
       // handle migration of the barrier ownership (possibly to us)
       if(args->migration_target != (NodeId) -1) {
@@ -2351,7 +2351,7 @@ static void *bytedup(const void *data, size_t datalen)
     bool BarrierImpl::get_result(Event::gen_t result_gen, void *value, size_t value_size)
     {
       // take the lock so we can safely see how many results (if any) are on hand
-      AutoHSLLock al(mutex);
+      FabAutoLock al(mutex);
 
       // generation hasn't triggered yet?
       if(result_gen > generation) return false;
@@ -2374,7 +2374,7 @@ static void *bytedup(const void *data, size_t datalen)
 		       << args->barrier << " owner=" << args->current_owner;
     BarrierImpl *impl = get_runtime()->get_barrier_impl(args->barrier);
     {
-      AutoHSLLock a(impl->mutex);
+      FabAutoLock a(impl->mutex);
       impl->owner = args->current_owner;
     }
   }

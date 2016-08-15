@@ -32,7 +32,7 @@ namespace LegionRuntime {
       int priority;
     };
 
-    struct RemoteFillArgse {
+    struct RemoteFillArgs {
       RegionInstance inst;
       unsigned offset, size;
       Event before_fill, after_fill;

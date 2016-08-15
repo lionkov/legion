@@ -41,11 +41,6 @@
 
 #include "fabric.h"
 
-#ifdef CHECK_REENTRANT_MESSAGES
-GASNETT_THREADKEY_DEFINE(in_handler);
-#endif
-GASNETT_THREADKEY_DECLARE(cur_thread);
-
 #if __cplusplus >= 201103L
 #define typeof decltype
 #endif

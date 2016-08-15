@@ -325,7 +325,7 @@ namespace Realm {
     void *reason_data = 0;
     size_t reason_size = 0;
     {
-      AutoHSLLock al(mutex);
+      FabAutoLock al(mutex);
 
       // see if we have any info for this event?
       Table::iterator it = table.find(finish_event);
@@ -379,7 +379,7 @@ namespace Realm {
     Table& table = tables[subtable];
 
     {
-      AutoHSLLock al(mutex);
+      FabAutoLock al(mutex);
 
       // no duplicates allowed here - a local cancellation request cannot occur until we
       //  return
@@ -406,7 +406,7 @@ namespace Realm {
 
     Operation *local_op = 0;
     {
-      AutoHSLLock al(mutex);
+      FabAutoLock al(mutex);
 
       // get the entry - it must exist
       Table::iterator it = table.find(finish_event);
@@ -436,7 +436,7 @@ namespace Realm {
     Operation *local_op = 0;
     int remote_node = -1;
     {
-      AutoHSLLock al(mutex);
+      FabAutoLock al(mutex);
 
       Table::iterator it = table.find(finish_event);
 

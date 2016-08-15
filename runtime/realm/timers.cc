@@ -63,7 +63,7 @@ namespace Realm {
       // take the lock so that we can safely sleep until all the responses
       //  arrive
       {
-	AutoHSLLock al(mutex);
+	FabAutoLock al(mutex);
 
 	if(count_left > 0)
 	  condvar.wait();
@@ -74,7 +74,7 @@ namespace Realm {
     void MultiNodeRollUp::handle_data(const void *data, size_t datalen)
     {
       // have to take mutex here since we're updating shared data
-      AutoHSLLock a(mutex);
+      FabAutoLock a(mutex);
 
       const double *p = (const double *)data;
       int count = datalen / (2 * sizeof(double));
@@ -145,12 +145,12 @@ namespace Realm {
       // take global mutex because we need to walk the list
       {
 	log_timer.warning("clearing timers");
-	AutoHSLLock l1(timer_data_mutex);
+	FabAutoLock l1(timer_data_mutex);
 	for(std::vector<PerThreadTimerData *>::iterator it = timer_data.begin();
 	    it != timer_data.end();
 	    it++) {
 	  // take each thread's data's lock too
-	  AutoHSLLock l2((*it)->mutex);
+	  FabAutoLock l2((*it)->mutex);
 	  (*it)->timer_accum.clear();
 	}
       }
@@ -172,7 +172,7 @@ namespace Realm {
         (PerThreadTimerData*) pthread_getspecific(thread_timer_key);
       if(!thread_timer_data) {
         //printf("creating timer data for thread %lx\n", pthread_self());
-        AutoHSLLock l1(timer_data_mutex);
+        FabAutoLock l1(timer_data_mutex);
         thread_timer_data = new PerThreadTimerData;
         CHECK_PTHREAD( pthread_setspecific(thread_timer_key, thread_timer_data) );
         timer_data.push_back(thread_timer_data);
@@ -218,7 +218,7 @@ namespace Realm {
 
       // we do need a lock to touch the accumulator map
       if(old_top.timer_kind > 0) {
-        AutoHSLLock l1(thread_timer_data->mutex);
+        FabAutoLock l1(thread_timer_data->mutex);
 
         std::map<int,double>::iterator it = thread_timer_data->timer_accum.find(old_top.timer_kind);
         if(it != thread_timer_data->timer_accum.end())
@@ -233,12 +233,12 @@ namespace Realm {
     {
       // take global mutex because we need to walk the list
       {
-	AutoHSLLock l1(timer_data_mutex);
+	FabAutoLock l1(timer_data_mutex);
 	for(std::vector<PerThreadTimerData *>::iterator it = timer_data.begin();
 	    it != timer_data.end();
 	    it++) {
 	  // take each thread's data's lock too
-	  AutoHSLLock l2((*it)->mutex);
+	  FabAutoLock l2((*it)->mutex);
 
 	  for(std::map<int,double>::iterator it2 = (*it)->timer_accum.begin();
 	      it2 != (*it)->timer_accum.end();

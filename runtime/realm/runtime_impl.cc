@@ -613,7 +613,7 @@ namespace Realm {
 
       if(!cmdline_ok) {
 	fprintf(stderr, "ERROR: failure parsing command line options\n");
-	gasnet_exit(1);
+	fabric->fatal_shutdown(1);
       }
 
 #ifndef EVENT_TRACING
@@ -785,8 +785,8 @@ namespace Realm {
       /* TODO -- convert global memory? Should we even have it? */
       if(gasnet_mem_size_in_mb > 0) {
 	assert(false && "Global memory not implemented yet");
-	global_memory = new GASNetMemory(ID(ID::ID_MEMORY, 0, ID::ID_GLOBAL_MEM, 0).convert<Memory>(),
-					 gasnet_mem_size_in_mb << 20);
+	//global_memory = new GASNetMemory(ID(ID::ID_MEMORY, 0, ID::ID_GLOBAL_MEM, 0).convert<Memory>(),
+	//gasnet_mem_size_in_mb << 20);
       }
       else
 	global_memory = 0;
@@ -1070,10 +1070,10 @@ namespace Realm {
 	for(unsigned i = 0; i < fabric->get_num_nodes(); ++i)
 	  if(i != fabric->get_id())
 	    NodeAnnounceMessageType::send_request(i,
-					      num_procs,
-					      num_memories,
-					      adata, apos*sizeof(adata[0]),
-					      PAYLOAD_COPY);
+						  num_procs,
+						  num_memories,
+						  adata, apos*sizeof(adata[0]),
+						  FAB_PAYLOAD_COPY);
 
 	NodeAnnounceMessageType::await_all_announcements();
 
@@ -1358,7 +1358,7 @@ namespace Realm {
 
       // otherwise, sleep until shutdown has been requested by somebody
       {
-	AutoHSLLock al(shutdown_mutex);
+	FabAutoLock al(shutdown_mutex);
 	while(!shutdown_requested)
 	  shutdown_condvar.wait();
 	log_runtime.info("shutdown request received - terminating\n");
@@ -1399,7 +1399,7 @@ namespace Realm {
       }
 
       {
-	AutoHSLLock al(shutdown_mutex);
+	FabAutoLock al(shutdown_mutex);
 	shutdown_requested = true;
 	shutdown_condvar.broadcast();
       }
@@ -1423,7 +1423,7 @@ namespace Realm {
 
       // sleep until shutdown has been requested by somebody
       {
-	AutoHSLLock al(shutdown_mutex);
+	FabAutoLock al(shutdown_mutex);
 	while(!shutdown_requested)
 	  shutdown_condvar.wait();
 	log_runtime.info("shutdown request received - terminating");
@@ -1646,7 +1646,7 @@ namespace Realm {
       assert(id.type() == ID::ID_INSTANCE);
       MemoryImpl *mem = get_memory_impl(id);
       
-      AutoHSLLock al(mem->mutex);
+      FabAutoLock al(mem->mutex);
 
       if(id.index_l() >= mem->instances.size()) {
 	assert(id.node() != fabric->get_id());

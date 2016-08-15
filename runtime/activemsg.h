@@ -921,6 +921,6 @@ inline size_t get_lmb_size(int target_node) { return 0; }
       bool held;
     };
 
-    typedef AutoLock<FabFabMutex> AutoHSLLock;
+    typedef AutoLock<FabFabMutex> FabAutoLock;
 
 #endif

@@ -84,7 +84,7 @@ namespace LegionRuntime {
           if (!n->events.has_entry(j))
             continue;
 	  GenEventImpl *e = n->events.lookup_entry(j, i/*node*/);
-	  AutoHSLLock a2(e->mutex);
+	  FabAutoLock a2(e->mutex);
 
 	  // print anything with either local or remote waiters
 	  if(e->current_local_waiters.empty() &&
@@ -129,7 +129,7 @@ namespace LegionRuntime {
           if (!n->barriers.has_entry(j))
             continue;
           BarrierImpl *b = n->barriers.lookup_entry(j, i/*node*/); 
-          AutoHSLLock a2(b->mutex);
+          FabAutoLock a2(b->mutex);
           // skip any barriers with no waiters
           if (b->generations.empty())
             continue;
@@ -162,7 +162,7 @@ namespace LegionRuntime {
       //     if (!n->events.has_entry(j))
       //       continue;
       // 	  EventImpl *e = n->events.lookup_entry(j, i/*node*/);
-      // 	  AutoHSLLock a2(e->mutex);
+      // 	  FabAutoLock a2(e->mutex);
 
       // 	  // print anything with either local or remote waiters
       // 	  if(e->local_waiters.empty() && e->remote_waiters.empty())
