@@ -819,7 +819,7 @@ void* FabFabric::exchange_addresses() {
   if(num_nodes == 1) {
     // single node mode, no need to exchange
     void* addrs = (void*) malloc(num_nodes*addrlen);
-    memcpy(addr, addrs, addrlen);
+    memcpy(addrs, addr, addrlen);
     return addrs;
   }
      
