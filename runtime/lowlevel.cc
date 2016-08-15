@@ -202,13 +202,20 @@ namespace LegionRuntime {
 
 #ifdef DETAILED_TIMING
 #endif
-    
+
+    void gasnet_barrier(void)
+    {
+      gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);
+      gasnet_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS);
+    }
+
     template<typename ITEM>
     /*static*/ void Tracer<ITEM>::dump_trace(const char *filename, bool append)
     {
       // each node dumps its stuff in order (using barriers to keep things
       // separate) - nodes other than zero ALWAYS append
-      gasnet_barrier();
+      fabric->barrier_notify(TRACER_BARRIER_ID);
+      fabric->barrier_wait(TRACER_BARRIER_ID);
 
       for(int i = 0; i < fabric->get_num_nodes(); i++) {
 	if(i == fabric->get_id()) {
@@ -255,7 +262,8 @@ namespace LegionRuntime {
 		 total, filename);
 	}
 
-	gasnet_barrier();
+	fabric->barrier_notify(TRACER_BARRIER_ID);
+	fabric->barrier_wait(TRACER_BARRIER_ID);
       }
     }
 

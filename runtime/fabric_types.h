@@ -63,6 +63,7 @@ enum MessageIds {
 enum BarrierIds {
   RT_WAIT_FOR_SHUTDOWN,
   CLOCK_SYNC_BARRIER_ID,
+  TRACER_BARRIER_ID
 };
 
 typedef uint8_t MessageId;
