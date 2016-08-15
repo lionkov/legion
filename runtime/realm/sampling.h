@@ -29,6 +29,7 @@
 #include "instance.h"
 #include "faults.h"
 #include "fabric.h"
+#include "threads.h"
 
 namespace Realm {
 
