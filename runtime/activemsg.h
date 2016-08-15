@@ -144,19 +144,19 @@ public:
   void unlock(void) { gasnet_hsl_unlock(&mutex); }
 
 protected:
-  friend class GASNetCondVar;
+  friend class FabCondVar;
   gasnet_hsl_t mutex;
 };
 
-class GASNetCondVar {
+class FabCondVar {
 public:
-  GASNetCondVar(FabFabMutex &_mutex) 
+  FabCondVar(FabFabMutex &_mutex) 
     : mutex(_mutex)
   {
     gasnett_cond_init(&cond);
   }
 
-  ~GASNetCondVar(void)
+  ~FabCondVar(void)
   {
     gasnett_cond_destroy(&cond);
   }
@@ -706,19 +706,19 @@ public:
   void unlock(void) { pthread_mutex_unlock(&mutex); }
 
 protected:
-  friend class GASNetCondVar;
+  friend class FabCondVar;
   pthread_mutex_t mutex;
 };
 
-class GASNetCondVar {
+class FabCondVar {
 public:
-  GASNetCondVar(FabFabMutex &_mutex) 
+  FabCondVar(FabFabMutex &_mutex) 
     : mutex(_mutex)
   {
     pthread_cond_init(&cond, 0);
   }
 
-  ~GASNetCondVar(void)
+  ~FabCondVar(void)
   {
     pthread_cond_destroy(&cond);
   }

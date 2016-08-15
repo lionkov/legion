@@ -151,7 +151,7 @@ namespace Realm {
 	volatile long long counter;
 	volatile long long wait_value;
 	FabMutex mutex;
-	GASNetCondVar condvar;
+	FabCondVar condvar;
       };
 	
       WorkCounter work_counter;
@@ -217,8 +217,8 @@ namespace Realm {
       std::set<Thread *> all_workers;
       std::set<Thread *> active_workers;
       std::set<Thread *> terminating_workers;
-      std::map<Thread *, GASNetCondVar *> sleeping_threads;
-      GASNetCondVar shutdown_condvar;
+      std::map<Thread *, FabCondVar *> sleeping_threads;
+      FabCondVar shutdown_condvar;
     };
 
 #ifdef REALM_USE_USER_THREADS
@@ -263,7 +263,7 @@ namespace Realm {
       std::set<Thread *> all_workers;
 
       int host_startups_remaining;
-      GASNetCondVar host_startup_condvar;
+      FabCondVar host_startup_condvar;
 
     public:
       int cfg_num_host_threads;

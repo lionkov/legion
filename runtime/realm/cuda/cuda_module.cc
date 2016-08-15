@@ -1398,7 +1398,7 @@ namespace Realm {
 
     public:
       FabMutex mutex;
-      GASNetCondVar cv;
+      FabCondVar cv;
       bool completed;
     };
 

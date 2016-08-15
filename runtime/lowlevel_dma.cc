@@ -88,7 +88,7 @@ namespace LegionRuntime {
 
     protected:
       FabMutex queue_mutex;
-      GASNetCondVar queue_condvar;
+      FabCondVar queue_condvar;
       std::map<int, std::list<DmaRequest *> *> queues;
       int queue_sleepers;
       bool shutdown_flag;

@@ -744,7 +744,7 @@ namespace Realm {
 
       if(active_workers.count(thread) == 0) {
 	// nope, sleep on a CV until we are
-	GASNetCondVar my_cv(lock);
+	FabCondVar my_cv(lock);
 	sleeping_threads[thread] = &my_cv;
 
 	while(active_workers.count(thread) == 0)
@@ -826,7 +826,7 @@ namespace Realm {
       active_workers.erase(Thread::self());
     assert(count == 1);
 
-    GASNetCondVar my_cv(lock);
+    FabCondVar my_cv(lock);
     sleeping_threads[Thread::self()] = &my_cv;
 
     // with kernel threads, sleeping and waking are separable actions
@@ -848,7 +848,7 @@ namespace Realm {
     active_workers.insert(to_wake);
 
     // if they have a CV (they might not yet), poke that
-    std::map<Thread *, GASNetCondVar *>::const_iterator it = sleeping_threads.find(to_wake);
+    std::map<Thread *, FabCondVar *>::const_iterator it = sleeping_threads.find(to_wake);
     if(it != sleeping_threads.end())
       it->second->signal();
   }

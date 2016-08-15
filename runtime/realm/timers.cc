@@ -40,7 +40,7 @@ namespace Realm {
     void handle_data(const void *data, size_t datalen);
 
   protected:    FabMutex mutex;
-    GASNetCondVar condvar;
+    FabCondVar condvar;
     std::map<int,double> *timerp;
     volatile int count_left;
   };

@@ -320,7 +320,7 @@ namespace Realm {
 
     protected:
       FabMutex lock;
-      GASNetCondVar condvar;
+      FabCondVar condvar;
       std::set<GPUStream *> active_streams;
 
       // used by the background thread (if any)

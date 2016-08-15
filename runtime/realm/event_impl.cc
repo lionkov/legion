@@ -1353,7 +1353,7 @@ namespace Realm {
 
     class PthreadCondWaiter : public EventWaiter {
     public:
-      PthreadCondWaiter(GASNetCondVar &_cv)
+      PthreadCondWaiter(FabCondVar &_cv)
         : cv(_cv)
 	, poisoned(false)
       {
@@ -1385,13 +1385,13 @@ namespace Realm {
       }
 
     public:
-      GASNetCondVar &cv;
+      FabCondVar &cv;
       bool poisoned;
     };
 
     void GenEventImpl::external_wait(Event::gen_t gen_needed, bool& poisoned)
     {
-      GASNetCondVar cv(mutex);
+      FabCondVar cv(mutex);
       PthreadCondWaiter w(cv);
       add_waiter(gen_needed, &w);
       {

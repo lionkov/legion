@@ -236,7 +236,7 @@ namespace Realm {
 #endif
       volatile bool shutdown_requested;
       FabMutex shutdown_mutex;
-      GASNetCondVar shutdown_condvar;
+      FabCondVar shutdown_condvar;
 
       CoreReservationSet core_reservations;
 
