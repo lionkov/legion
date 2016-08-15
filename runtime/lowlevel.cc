@@ -203,12 +203,6 @@ namespace LegionRuntime {
 #ifdef DETAILED_TIMING
 #endif
 
-    void gasnet_barrier(void)
-    {
-      gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);
-      gasnet_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS);
-    }
-
     template<typename ITEM>
     /*static*/ void Tracer<ITEM>::dump_trace(const char *filename, bool append)
     {

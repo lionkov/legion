@@ -117,11 +117,11 @@ extern Fabric* fabric;
 
 class Message {
  public:
-  MessageType	*mtype;		// message type
+  MessageType*  mtype;		// message type
   NodeId	sndid;		// sender id
   NodeId	rcvid;		// receiver id
   MessageId     id; 
-  void* arg_ptr;
+  void*         arg_ptr;
   FabPayload*	payload;
 
   virtual ~Message() {

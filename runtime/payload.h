@@ -8,7 +8,6 @@
 #include <cstddef>
 #include <stdint.h>
 #include <vector>
-#include "fabric.h"
 
 enum {
   FAB_PAYLOAD_NONE, // no payload in packet

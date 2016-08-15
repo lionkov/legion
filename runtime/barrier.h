@@ -15,7 +15,7 @@
 #include "readerwriterqueue.h"
 #include <iostream>
 #include <utility>
-#include <map>
+#include <unordered_map>
 #include <stdint.h>
 #include <cstring>
 #include <cassert>
@@ -52,12 +52,8 @@ protected:
   bool* recvd_flags; // tracks whether a given gather entry was recieved
   
   std::atomic<bool> wait_complete; // True if all data checked in, and wait completed successfully
-  std::atomic<uint32_t> num_recvd;
   std::atomic<bool> all_recvd;
-  
-  // Ready this object for a new gather. Invalid if the current gather is incomplete.
-  // Must be called between each use.
-  void reset();
+  std::atomic<uint32_t> num_recvd;  
 };
 
 /* 
@@ -82,7 +78,8 @@ protected:
 
 class BarrierWaiter {
 public:
-  // Default constructor -- will not initialize
+  // Default constructor -- will not initialize. This is because node
+  // count is probably not known yet
   BarrierWaiter();
   ~BarrierWaiter() { }; 
 
@@ -97,7 +94,7 @@ public:
 protected:
   bool initialized;
   uint32_t num_nodes;
-  std::map<uint32_t, BarrierWaiterEntry> barriers_in_progress;
+  std::unordered_map<uint32_t, BarrierWaiterEntry> barriers_in_progress;
 };
 
 
