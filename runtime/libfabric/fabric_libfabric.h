@@ -62,6 +62,7 @@ public:
     
 
 protected:
+  friend class FabAutoLock;
   FabMutex &mutex;
   pthread_cond_t cond;
     
@@ -72,7 +73,8 @@ protected:
 // when the AutoLock is destroyed, the mutex is released.
 class FabAutoLock {
 public:
-  FabAutoLock(FabMutex& _mutex) : mutex(_mutex), held(true) {}
+  FabAutoLock(FabMutex& _mutex) : mutex(_mutex), held(true) { mutex.lock(); }
+  FabAutoLock(FabCondVar& cond) : mutex(cond.mutex), held(true) { mutex.lock(); }
   ~FabAutoLock();
   void release();
   void reacquire();
