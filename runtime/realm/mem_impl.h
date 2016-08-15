@@ -172,6 +172,7 @@ namespace Realm {
     bool prealloced, registered;
   };
 
+  /*
   class GASNetMemory : public MemoryImpl {
   public:
     static const size_t MEMORY_STRIDE = 1024;
@@ -222,7 +223,8 @@ namespace Realm {
     gasnet_seginfo_t *seginfos;
     //std::map<off_t, off_t> free_blocks;
   };
-
+  */
+  
   class DiskMemory : public MemoryImpl {
   public:
     static const size_t ALIGNMENT = 256;
