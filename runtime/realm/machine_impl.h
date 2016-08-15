@@ -276,7 +276,7 @@ namespace Realm {
   NodeAnnounceMessageType()
     : MessageType(NODE_ANNOUNCE_MSGID, sizeof(RequestArgs), true, true) { }
 
-    struct RequestArgs : public BaseMedium {
+    struct RequestArgs {
     RequestArgs(NodeId _node_id, unsigned _num_procs, unsigned _num_memories)
       : node_id(_node_id), num_procs(_num_procs), num_memories(_num_memories) { }
       NodeId node_id;

@@ -590,7 +590,7 @@ namespace Realm {
   RemoteWriteMessageType()
     : MessageType(REMOTE_WRITE_MSGID, sizeof(RequestArgs), true, true) { }
 
-    struct RequestArgs : public BaseMedium {
+    struct RequestArgs  {
     RequestArgs(Memory _mem, off_t _offset, unsigned _sender, unsigned _sequence_id)
       : mem(_mem), offset(_offset), sender(_sender), sequence_id(_sequence_id) { }
       Memory mem;
@@ -618,7 +618,7 @@ namespace Realm {
   RemoteSerdezMessageType()
     : MessageType(REMOTE_SERDEZ_MSGID, sizeof(RequestArgs), true, true) { }
 
-    struct RequestArgs : public BaseMedium {
+    struct RequestArgs  {
     RequestArgs(Memory _mem, off_t _offset, size_t _count, CustomSerdezID _serdez_id,
 		unsigned _sender, unsigned _sequence_id)
       : mem(_mem), offset(_offset), count(_count), serdez_id(_serdez_id),
@@ -684,7 +684,7 @@ namespace Realm {
   RemoteReduceListMessageType()
     : MessageType(REMOTE_REDLIST_MSGID, sizeof(RequestArgs), true, true) { }
       
-    struct RequestArgs : public BaseMedium {
+    struct RequestArgs  {
     RequestArgs(Memory _mem, off_t _offset, ReductionOpID _redopid)
       : mem(_mem), offset(_offset), redopid(_redopid) { }
       Memory mem;

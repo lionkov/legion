@@ -139,7 +139,7 @@ namespace Realm {
   ValidMaskDataMessageType()
     : MessageType(VALID_MASK_DATA_MSGID, sizeof(RequestArgs), true, true) { }
 
-    struct RequestArgs : public BaseMedium {
+    struct RequestArgs  {
     RequestArgs(IndexSpace _is, unsigned _block_id, coord_t _first_element,
 		size_t _num_elements, coord_t _first_enabled_elmt, coord_t _last_enabled_elmt)
       : is(_is), block_id(_block_id), first_element(_first_element),

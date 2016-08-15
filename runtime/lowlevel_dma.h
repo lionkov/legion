@@ -25,14 +25,14 @@ namespace Realm {
 
 namespace LegionRuntime {
   namespace LowLevel {
-    struct RemoteCopyArgs : public BaseMedium {
+    struct RemoteCopyArgs {
       ReductionOpID redop_id;
       bool red_fold;
       Event before_copy, after_copy;
       int priority;
     };
 
-    struct RemoteFillArgs : public BaseMedium {
+    struct RemoteFillArgse {
       RegionInstance inst;
       unsigned offset, size;
       Event before_fill, after_fill;

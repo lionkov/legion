@@ -413,7 +413,7 @@ namespace Realm {
   BarrierTriggerMessageType()
     : MessageType(BARRIER_TRIGGER_MSGID, sizeof(RequestArgs), true, true) { }
     
-    struct RequestArgs : public BaseMedium {
+    struct RequestArgs {
     RequestArgs(NodeId _node, ID::IDType _barrier_id, Event::gen_t _trigger_gen,
 		Event::gen_t _previous_gen, Event::gen_t _first_generation,
 		ReductionOpID _redop_id, NodeId _migration_target, unsigned _base_arrival_count)

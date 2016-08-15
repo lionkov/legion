@@ -246,7 +246,7 @@ namespace Realm {
   LockGrantMessageType()
     : MessageType(LOCK_GRANT_MSGID, sizeof(RequestArgs), true, true) { }
     
-    struct RequestArgs : public BaseMedium {
+    struct RequestArgs {
     RequestArgs(Reservation _lock, unsigned _mode)
       : lock(_lock), mode(_mode) { }
       Reservation lock;

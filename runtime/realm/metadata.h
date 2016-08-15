@@ -92,7 +92,7 @@ namespace Realm {
   MetadataResponseMessageType()
     : MessageType(METADATA_RESPONSE_MSGID, sizeof(RequestArgs), true, true) { }
       
-    struct RequestArgs : public BaseMedium {
+    struct RequestArgs  {
     RequestArgs(ID::IDType _id)
       : id(_id) { }
       ID::IDType id;
