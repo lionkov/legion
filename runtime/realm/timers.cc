@@ -39,7 +39,7 @@ namespace Realm {
 
     void handle_data(const void *data, size_t datalen);
 
-  protected:    GASNetHSL mutex;
+  protected:    FabMutex mutex;
     GASNetCondVar condvar;
     std::map<int,double> *timerp;
     volatile int count_left;
@@ -116,10 +116,10 @@ namespace Realm {
       pthread_t thread;
       std::list<TimerStackEntry> timer_stack;
       std::map<int, double> timer_accum;
-      GASNetHSL mutex;
+      FabMutex mutex;
     };
 
-    GASNetHSL timer_data_mutex;
+    FabMutex timer_data_mutex;
     std::vector<PerThreadTimerData *> timer_data;
 
     static void thread_timer_free(void *arg)

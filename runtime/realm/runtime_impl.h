@@ -21,7 +21,7 @@
 #include "runtime.h"
 #include "id.h"
 
-//#include "activemsg.h"
+//#include "fabric.h"
 #include "operation.h"
 #include "profiling.h"
 
@@ -72,7 +72,7 @@ namespace Realm {
       static const size_t INNER_BITS = _INNER_BITS;
       static const size_t LEAF_BITS = _LEAF_BITS;
 
-      typedef GASNetHSL LT;
+      typedef FabMutex LT;
       typedef int IT;
       typedef DynamicTableNode<DynamicTableNodeBase<LT, IT> *, 1 << INNER_BITS, LT, IT> INNER_TYPE;
       typedef DynamicTableNode<ET, 1 << LEAF_BITS, LT, IT> LEAF_TYPE;
@@ -235,7 +235,7 @@ namespace Realm {
       unsigned thread_counts[MAX_NUM_THREADS];
 #endif
       volatile bool shutdown_requested;
-      GASNetHSL shutdown_mutex;
+      FabMutex shutdown_mutex;
       GASNetCondVar shutdown_condvar;
 
       CoreReservationSet core_reservations;

@@ -281,7 +281,7 @@ namespace Realm {
     GaugeSampler *add_gauge_to_default_sampler(T *gauge);
 
   protected:
-    GASNetHSL mutex;
+    FabMutex mutex;
     SamplingProfilerImpl *default_sampler;
     DelayedGaugeAddition *delayed_additions;
   };

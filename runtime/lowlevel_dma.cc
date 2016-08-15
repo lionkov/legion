@@ -87,7 +87,7 @@ namespace LegionRuntime {
       void worker_thread_loop(void);
 
     protected:
-      GASNetHSL queue_mutex;
+      FabMutex queue_mutex;
       GASNetCondVar queue_condvar;
       std::map<int, std::list<DmaRequest *> *> queues;
       int queue_sleepers;
@@ -1899,7 +1899,7 @@ namespace LegionRuntime {
 
       int max_depth;
       std::deque<AIOOperation *> launched_operations, pending_operations;
-      GASNetHSL mutex;
+      FabMutex mutex;
 #ifdef REALM_USE_KERNEL_AIO
       aio_context_t aio_ctx;
 #endif

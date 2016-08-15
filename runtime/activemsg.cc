@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "activemsg.h"
+#include "fabric.h"
 #include "utilities.h"
 
 #ifndef __GNUC__

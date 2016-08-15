@@ -21,7 +21,7 @@
 #include "processor.h"
 #include "id.h"
 
-#include "activemsg.h"
+#include "fabric.h"
 #include "operation.h"
 #include "profiling.h"
 #include "sampling.h"
@@ -99,7 +99,7 @@ namespace Realm {
     void set_scheduler(ThreadedTaskScheduler *_sched);
 
     ThreadedTaskScheduler *sched;
-    PriorityQueue<Task *, GASNetHSL> task_queue;
+    PriorityQueue<Task *, FabMutex> task_queue;
     ProfilingGauges::AbsoluteRangeGauge<int> ready_task_count;
 
     struct TaskTableEntry {
@@ -198,7 +198,7 @@ namespace Realm {
 
     void request_group_members(void);
 
-    PriorityQueue<Task *, GASNetHSL> task_queue;
+    PriorityQueue<Task *, FabMutex> task_queue;
     ProfilingGauges::AbsoluteRangeGauge<int> *ready_task_count;
   };
     

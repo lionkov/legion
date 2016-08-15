@@ -18,7 +18,7 @@
 #ifndef REALM_TIMERS_H
 #define REALM_TIMERS_H
 
-#include "activemsg.h"
+#include "fabric.h"
 #include "fabric.h"
 #include "libfabric/fabric_libfabric.h"
 

@@ -17,7 +17,7 @@
 #define LOWLEVEL_DMA_H
 
 #include "lowlevel_impl.h"
-#include "activemsg.h"
+#include "fabric.h"
 
 namespace Realm {
   class CoreReservationSet;

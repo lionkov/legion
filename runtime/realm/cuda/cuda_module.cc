@@ -23,7 +23,7 @@
 
 #include "realm/cuda/cudart_hijack.h"
 
-#include "activemsg.h"
+#include "fabric.h"
 #include "realm/utils.h"
 
 #include <stdio.h>
@@ -1397,7 +1397,7 @@ namespace Realm {
       virtual void wait(void);
 
     public:
-      GASNetHSL mutex;
+      FabMutex mutex;
       GASNetCondVar cv;
       bool completed;
     };

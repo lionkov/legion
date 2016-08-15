@@ -21,7 +21,7 @@
 #define gasnet_mynode() 0
 #define gasnet_nodes() 1
 #else
-#include "activemsg.h"
+#include "fabric.h"
 #endif
 
 #include "cmdline.h"

@@ -78,7 +78,7 @@ namespace Realm {
 
       virtual ~ThreadedTaskScheduler(void);
 
-      typedef PriorityQueue<Task *, GASNetHSL> TaskQueue;
+      typedef PriorityQueue<Task *, FabMutex> TaskQueue;
 
       virtual void add_task_queue(TaskQueue *queue);
 
@@ -105,7 +105,7 @@ namespace Realm {
       virtual void worker_wake(Thread *to_wake) = 0;
       virtual void worker_terminate(Thread *switch_to) = 0;
 
-      GASNetHSL lock;
+      FabMutex lock;
       std::vector<TaskQueue *> task_queues;
       std::vector<Thread *> idle_workers;
       std::set<Thread *> blocked_workers;
@@ -150,7 +150,7 @@ namespace Realm {
 	// 64-bit counters are used to avoid dealing with wrap-around cases
 	volatile long long counter;
 	volatile long long wait_value;
-	GASNetHSL mutex;
+	FabMutex mutex;
 	GASNetCondVar condvar;
       };
 	

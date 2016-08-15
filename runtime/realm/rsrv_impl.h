@@ -21,7 +21,7 @@
 #include "reservation.h"
 
 #include "id.h"
-#include "activemsg.h"
+#include "fabric.h"
 #include "nodeset.h"
 
 //define REALM_RSRV_USE_CIRCQUEUE
@@ -73,7 +73,7 @@ namespace Realm {
 
     enum { MODE_EXCL = 0, ZERO_COUNT = 0x11223344 };
 
-    GASNetHSL mutex; // controls which local thread has access to internal data (not runtime-visible lock)
+    FabMutex mutex; // controls which local thread has access to internal data (not runtime-visible lock)
 
     // bitmasks of which remote nodes are waiting on a lock (or sharing it)
     NodeSet remote_waiter_mask, remote_sharer_mask;
@@ -95,7 +95,7 @@ namespace Realm {
     size_t local_data_size;
     bool own_local;
 
-    static GASNetHSL freelist_mutex;
+    static FabMutex freelist_mutex;
     static ReservationImpl *first_free;
     ReservationImpl *next_free;
 

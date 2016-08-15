@@ -1036,7 +1036,7 @@ namespace Realm {
 
   typedef std::map<PartialWriteKey, PartialWriteEntry> PartialWriteMap;
   static PartialWriteMap partial_remote_writes;
-  static GASNetHSL partial_remote_writes_lock;
+  static FabMutex partial_remote_writes_lock;
   
   void RemoteWriteMessageType::request(Message* m) {
     RequestArgs* args = (RequestArgs*) m->get_arg_ptr();

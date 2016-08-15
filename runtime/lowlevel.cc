@@ -328,7 +328,7 @@ namespace LegionRuntime {
     // Reservations 
 
     //    /*static*/ ReservationImpl *ReservationImpl::first_free = 0;
-    //    /*static*/ GASNetHSL ReservationImpl::freelist_mutex;
+    //    /*static*/ FabFabFabMutex ReservationImpl::freelist_mutex;
 
 
   };

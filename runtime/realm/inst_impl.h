@@ -21,7 +21,7 @@
 #include "instance.h"
 #include "id.h"
 
-#include "activemsg.h"
+#include "fabric.h"
 
 #include "rsrv_impl.h"
 #include "metadata.h"

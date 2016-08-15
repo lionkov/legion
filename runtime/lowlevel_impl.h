@@ -39,7 +39,7 @@
 
 #include <assert.h>
 
-#include "activemsg.h"
+#include "fabric.h"
 
 #ifdef CHECK_REENTRANT_MESSAGES
 GASNETT_THREADKEY_DEFINE(in_handler);

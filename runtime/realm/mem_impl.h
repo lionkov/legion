@@ -21,7 +21,7 @@
 #include "memory.h"
 #include "id.h"
 
-#include "activemsg.h"
+#include "fabric.h"
 #include "operation.h"
 #include "profiling.h"
 #include "sampling.h"
@@ -132,7 +132,7 @@ namespace Realm {
     MemoryKind kind;
     size_t alignment;
     Memory::Kind lowlevel_kind;
-    GASNetHSL mutex; // protection for resizing vectors
+    FabMutex mutex; // protection for resizing vectors
     std::vector<RegionInstanceImpl *> instances;
     std::map<off_t, off_t> free_blocks;
     ProfilingGauges::AbsoluteGauge<size_t> usage, peak_usage, peak_footprint;

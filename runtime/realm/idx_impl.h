@@ -21,7 +21,7 @@
 #include "indexspace.h"
 #include "id.h"
 
-#include "activemsg.h"
+#include "fabric.h"
 
 #include "rsrv_impl.h"
 
@@ -81,7 +81,7 @@ namespace Realm {
     };
 
     CoherentData locked_data;
-    GASNetHSL valid_mask_mutex;
+    FabMutex valid_mask_mutex;
     ElementMask *valid_mask;
     int valid_mask_count;
     bool valid_mask_complete;

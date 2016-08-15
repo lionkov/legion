@@ -129,15 +129,15 @@ static const void *ignore_gasnet_warning2 __attribute__((unused)) = (void *)_gas
 } while(0)
 
 // gasnet_hsl_t in object form for templating goodness
-class GASNetHSL {
+class FabFabMutex {
 public:
-  GASNetHSL(void) { gasnet_hsl_init(&mutex); }
-  ~GASNetHSL(void) { gasnet_hsl_destroy(&mutex); }
+  FabFabMutex(void) { gasnet_hsl_init(&mutex); }
+  ~FabFabMutex(void) { gasnet_hsl_destroy(&mutex); }
 
 private:
   // Should never be copied
-  GASNetHSL(const GASNetHSL &rhs) { assert(false); }
-  GASNetHSL& operator=(const GASNetHSL &rhs) { assert(false); return *this; }
+  FabFabMutex(const FabFabMutex &rhs) { assert(false); }
+  FabFabMutex& operator=(const FabFabMutex &rhs) { assert(false); return *this; }
 
 public:
   void lock(void) { gasnet_hsl_lock(&mutex); }
@@ -150,7 +150,7 @@ protected:
 
 class GASNetCondVar {
 public:
-  GASNetCondVar(GASNetHSL &_mutex) 
+  GASNetCondVar(FabFabMutex &_mutex) 
     : mutex(_mutex)
   {
     gasnett_cond_init(&cond);
@@ -177,7 +177,7 @@ public:
     gasnett_cond_wait(&cond, &mutex.mutex.lock);
   }
 
-  GASNetHSL &mutex;
+  FabFabMutex &mutex;
 
 protected:
   gasnett_cond_t cond;
@@ -691,15 +691,15 @@ inline void gasnet_hsl_unlock(gasnet_hsl_t *mutex)
 inline void gasnet_set_waitmode(int) {}
 
 // gasnet_hsl_t in object form for templating goodness
-class GASNetHSL {
+class FabFabMutex {
 public:
-  GASNetHSL(void) { pthread_mutex_init(&mutex, 0); }
-  ~GASNetHSL(void) { pthread_mutex_destroy(&mutex); }
+  FabFabMutex(void) { pthread_mutex_init(&mutex, 0); }
+  ~FabFabMutex(void) { pthread_mutex_destroy(&mutex); }
 
 private:
   // Should never be copied
-  GASNetHSL(const GASNetHSL &rhs) { assert(false); }
-  GASNetHSL& operator=(const GASNetHSL &rhs) { assert(false); return *this; }
+  FabFabMutex(const FabFabMutex &rhs) { assert(false); }
+  FabFabMutex& operator=(const FabFabMutex &rhs) { assert(false); return *this; }
 
 public:
   void lock(void) { pthread_mutex_lock(&mutex); }
@@ -712,7 +712,7 @@ protected:
 
 class GASNetCondVar {
 public:
-  GASNetCondVar(GASNetHSL &_mutex) 
+  GASNetCondVar(FabFabMutex &_mutex) 
     : mutex(_mutex)
   {
     pthread_cond_init(&cond, 0);
@@ -739,7 +739,7 @@ public:
     pthread_cond_wait(&cond, &mutex.mutex);
   }
 
-  GASNetHSL &mutex;
+  FabFabMutex &mutex;
 
 protected:
   pthread_cond_t cond;
@@ -921,6 +921,6 @@ inline size_t get_lmb_size(int target_node) { return 0; }
       bool held;
     };
 
-    typedef AutoLock<GASNetHSL> AutoHSLLock;
+    typedef AutoLock<FabFabMutex> AutoHSLLock;
 
 #endif

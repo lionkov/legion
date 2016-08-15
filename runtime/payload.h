@@ -8,19 +8,26 @@
 #include <cstddef>
 #include <stdint.h>
 #include <vector>
-#include "activemsg.h"
+#include "fabric.h"
 
 enum {
-  FAB_PAYLOAD_ERROR, // an error occured, this paylod is invalid
   FAB_PAYLOAD_NONE, // no payload in packet
   FAB_PAYLOAD_KEEP, // use payload pointer, guaranteed to be stable
   FAB_PAYLOAD_FREE, // take ownership of payload, free when done
   FAB_PAYLOAD_COPY, // make a copy of the payload
+  FAB_PAYLOAD_SRCPTR, // payload has been copied to the src data pool
+  FAB_PAYLOAD_PENDING, // payload needs to be copied, but hasn't yet
+  FAB_PAYLOAD_KEEPREG, // use payload pointer, AND it's registered!
+  FAB_PAYLOAD_EMPTY, // message can have payload, but this one is 0 bytes
+  FAB_PAYLOAD_ERROR // something went wrong, discard this payload
 };
+
+typedef std::pair<const void *, size_t> SpanListEntry;
+typedef std::vector<SpanListEntry> SpanList;
 
 // Payloads hold data which may be in one of several formats.
 
-// Payload objects hold data either internally, or by holding a pointer to the
+// Payload objects hold data either internally, or by holding a pointer to they
 // original data source. If FAB_PAYLOAD_COPY is used, data will be copied
 // into internal buffers and freed when the payload object is destroyed. Otherwise,
 // the payload object will hold a pointer to the original data. If FAB_PAYLOAD_FREE

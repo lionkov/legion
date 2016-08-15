@@ -23,7 +23,7 @@
 #include "nodeset.h"
 #include "faults.h"
 
-#include "activemsg.h"
+#include "fabric.h"
 
 #include <vector>
 #include <map>
@@ -130,7 +130,7 @@ namespace Realm {
     GenEventImpl *next_free;
 
     // everything below here protected by this mutex
-    GASNetHSL mutex;
+    FabMutex mutex;
 
     // local waiters are tracked by generation - an easily-accessed list is used
     //  for the "current" generation, whereas a map-by-generation-id is used for
@@ -205,7 +205,7 @@ namespace Realm {
     Event::gen_t first_generation;
     BarrierImpl *next_free;
 
-    GASNetHSL mutex; // controls which local thread has access to internal data (not runtime-visible event)
+    FabMutex mutex; // controls which local thread has access to internal data (not runtime-visible event)
 
     // class to track per-generation status
     class Generation {

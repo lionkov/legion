@@ -318,7 +318,7 @@ namespace Realm {
 
     // "hash" the id to figure out which subtable to use
     int subtable = finish_event.id % NUM_TABLES;
-    GASNetHSL& mutex = mutexes[subtable];
+    FabMutex& mutex = mutexes[subtable];
     Table& table = tables[subtable];
 
     bool cancel_immediately = false;
@@ -375,7 +375,7 @@ namespace Realm {
 
     // "hash" the id to figure out which subtable to use
     int subtable = finish_event.id % NUM_TABLES;
-    GASNetHSL& mutex = mutexes[subtable];
+    FabMutex& mutex = mutexes[subtable];
     Table& table = tables[subtable];
 
     {
@@ -401,7 +401,7 @@ namespace Realm {
   {
     // "hash" the id to figure out which subtable to use
     int subtable = finish_event.id % NUM_TABLES;
-    GASNetHSL& mutex = mutexes[subtable];
+    FabMutex& mutex = mutexes[subtable];
     Table& table = tables[subtable];
 
     Operation *local_op = 0;
@@ -429,7 +429,7 @@ namespace Realm {
   {
     // "hash" the id to figure out which subtable to use
     int subtable = finish_event.id % NUM_TABLES;
-    GASNetHSL& mutex = mutexes[subtable];
+    FabMutex& mutex = mutexes[subtable];
     Table& table = tables[subtable];
 
     bool found = false;
