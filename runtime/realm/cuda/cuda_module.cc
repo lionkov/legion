@@ -2249,7 +2249,7 @@ namespace Realm {
       // before we create dma channels, see how many of the system memory ranges
       //  we can register with CUDA
       if(cfg_pin_sysmem && !gpus.empty()) {
-	std::vector<MemoryImpl *>& local_mems = runtime->nodes[gasnet_mynode()].memories;
+	std::vector<MemoryImpl *>& local_mems = runtime->nodes[fabric->get_id()].memories;
 	for(std::vector<MemoryImpl *>::iterator it = local_mems.begin();
 	    it != local_mems.end();
 	    it++) {

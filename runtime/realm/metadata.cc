@@ -87,7 +87,7 @@ namespace Realm {
       return Event::NO_EVENT;
 
     // sanity-check - should never be requesting data from ourselves
-    assert(((unsigned)owner) != gasnet_mynode());
+    assert(((unsigned)owner) != fabric->get_id());
 
     Event e = Event::NO_EVENT;
     bool issue_request = false;

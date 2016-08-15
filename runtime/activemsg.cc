@@ -63,8 +63,8 @@ gasnet_seginfo_t *segment_info = 0;
 
 static bool is_registered(void *ptr)
 {
-  off_t offset = ((char *)ptr) - ((char *)(segment_info[gasnet_mynode()].addr));
-  if((offset >= 0) && ((size_t)offset < segment_info[gasnet_mynode()].size))
+  off_t offset = ((char *)ptr) - ((char *)(segment_info[fabric->get_id()].addr));
+  if((offset >= 0) && ((size_t)offset < segment_info[fabric->get_id()].size))
     return true;
   return false;
 }
@@ -108,7 +108,7 @@ void init_deferred_frees(void)
 void deferred_free(void *ptr)
 {
 #ifdef DEBUG_MEM_REUSE
-  printf("%d: deferring free of %p\n", gasnet_mynode(), ptr);
+  printf("%d: deferring free of %p\n", fabric->get_id(), ptr);
 #endif
   gasnet_hsl_lock(&deferred_free_mutex);
   void *oldptr = deferred_frees[deferred_free_pos];
@@ -117,7 +117,7 @@ void deferred_free(void *ptr)
   gasnet_hsl_unlock(&deferred_free_mutex);
   if(oldptr) {
 #ifdef DEBUG_MEM_REUSE
-    printf("%d: actual free of %p\n", gasnet_mynode(), oldptr);
+    printf("%d: actual free of %p\n", fabric->get_id(), oldptr);
 #endif
     free(oldptr);
   }
@@ -265,11 +265,11 @@ SrcDataPool::~SrcDataPool(void)
   for(std::map<void *, off_t>::const_iterator it = alloc_counts.begin(); it != alloc_counts.end(); it++) {
     total++;
     if(it->second != 0) {
-      printf("HELP!  srcptr %p on node %d has final count of %zd\n", it->first, gasnet_mynode(), it->second);
+      printf("HELP!  srcptr %p on node %d has final count of %zd\n", it->first, fabric->get_id(), it->second);
       nonzero++;
     }
   }
-  printf("SrcDataPool:  node %d: %zd total srcptrs, %zd nonzero\n", gasnet_mynode(), total, nonzero);
+  printf("SrcDataPool:  node %d: %zd total srcptrs, %zd nonzero\n", fabric->get_id(), total, nonzero);
 }
 
 size_t SrcDataPool::round_up_size(size_t size)
@@ -490,11 +490,11 @@ void init_spill_tracking(void)
 void print_spill_data(void)
 {
   printf("spill node %d: current spill usage = %zd bytes, peak = %zd\n",
-	 gasnet_mynode(), current_total_spill_bytes, peak_total_spill_bytes);
+	 fabric->get_id(), current_total_spill_bytes, peak_total_spill_bytes);
   for(int i = 0; i < 256; i++)
     if(total_spill_bytes[i] > 0) {
       printf("spill node %d:  MSG %d: cur=%zd peak=%zd total=%zd\n",
-	     gasnet_mynode(), i,
+	     fabric->get_id(), i,
 	     current_spill_bytes[i],
 	     peak_spill_bytes[i],
 	     total_spill_bytes[i]);
@@ -546,10 +546,10 @@ OutgoingMessage::~OutgoingMessage(void)
     if(payload_size > 0) {
 #ifdef DEBUG_MEM_REUSE
       for(size_t i = 0; i < payload_size >> 2; i++)
-	((unsigned *)payload)[i] = ((0xdc + gasnet_mynode()) << 24) + payload_num;
-      //memset(payload, 0xdc+gasnet_mynode(), payload_size);
+	((unsigned *)payload)[i] = ((0xdc + fabric->get_id()) << 24) + payload_num;
+      //memset(payload, 0xdc+fabric->get_id(), payload_size);
       printf("%d: freeing payload %x = [%p, %p)\n",
-	     gasnet_mynode(), payload_num, payload, ((char *)payload) + payload_size);
+	     fabric->get_id(), payload_num, payload, ((char *)payload) + payload_size);
 #endif
 #ifdef TRACK_ACTIVEMSG_SPILL_ALLOCS
       record_spill_free(msgid, payload_size);
@@ -671,7 +671,7 @@ public:
     int l = strlen(filename);
     if(l && (filename[l-1] != '/'))
       filename[l++] = '/';
-    sprintf(filename+l, "msgtiming_%d.dat", gasnet_mynode());
+    sprintf(filename+l, "msgtiming_%d.dat", fabric->get_id());
     int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0666);
     assert(fd >= 0);
 
@@ -893,8 +893,8 @@ public:
     lmb_w_avail = new bool[num_lmbs];
 
     for(int i = 0; i < num_lmbs; i++) {
-      lmb_w_bases[i] = ((char *)(segment_info[peer].addr)) + (segment_info[peer].size - lmb_size * (gasnet_mynode() * num_lmbs + i + 1));
-      lmb_r_bases[i] = ((char *)(segment_info[gasnet_mynode()].addr)) + (segment_info[peer].size - lmb_size * (peer * num_lmbs + i + 1));
+      lmb_w_bases[i] = ((char *)(segment_info[peer].addr)) + (segment_info[peer].size - lmb_size * (fabric->get_id() * num_lmbs + i + 1));
+      lmb_r_bases[i] = ((char *)(segment_info[fabric->get_id()].addr)) + (segment_info[peer].size - lmb_size * (peer * num_lmbs + i + 1));
       lmb_r_counts[i] = 0;
       lmb_w_avail[i] = true;
     }
@@ -1077,7 +1077,7 @@ public:
 	  gasnet_hsl_unlock(&mutex);
 #ifdef DEBUG_LMB
 	  printf("LMB: sending %zd bytes %d->%d, [%p,%p)\n",
-		 hdr->payload_size, gasnet_mynode(), peer,
+		 hdr->payload_size, fabric->get_id(), peer,
 		 dest_ptr, dest_ptr + hdr->payload_size);
 #endif
 #ifdef DETAILED_MESSAGE_TIMING
@@ -1109,7 +1109,7 @@ public:
 
 #ifdef DEBUG_LMB
 	  printf("LMB: flipping buffer %d for %d->%d, [%p,%p), count=%d\n",
-		 flip_buffer, gasnet_mynode(), peer, lmb_w_bases[flip_buffer],
+		 flip_buffer, fabric->get_id(), peer, lmb_w_bases[flip_buffer],
 		 lmb_w_bases[flip_buffer]+lmb_size, flip_count);
 #endif
 #ifdef ACTIVE_MESSAGE_TRACE
@@ -1190,7 +1190,7 @@ public:
 
 #ifdef DEBUG_LMB
     printf("LMB: received %p for %d->%d in buffer %d, [%p, %p)\n",
-	   ptr, peer, gasnet_mynode(), r_buffer, lmb_r_bases[r_buffer],
+	   ptr, peer, fabric->get_id(), r_buffer, lmb_r_bases[r_buffer],
 	   lmb_r_bases[r_buffer] + lmb_size);
 #endif
 
@@ -1202,7 +1202,7 @@ public:
     if(lmb_r_counts[r_buffer] == 0) {
 #ifdef DEBUG_LMB
       printf("LMB: acking flip of buffer %d for %d->%d, [%p,%p)\n",
-	     r_buffer, peer, gasnet_mynode(), lmb_r_bases[r_buffer],
+	     r_buffer, peer, fabric->get_id(), lmb_r_bases[r_buffer],
 	     lmb_r_bases[r_buffer]+lmb_size);
 #endif
 
@@ -1265,7 +1265,7 @@ public:
   {
 #ifdef DEBUG_LMB
     printf("LMB: received flip of buffer %d for %d->%d, [%p,%p), count=%d\n",
-	   buffer, peer, gasnet_mynode(), lmb_r_bases[buffer],
+	   buffer, peer, fabric->get_id(), lmb_r_bases[buffer],
 	   lmb_r_bases[buffer]+lmb_size, count);
 #endif
 #ifdef TRACE_MESSAGES
@@ -1277,7 +1277,7 @@ public:
     if(lmb_r_counts[buffer] == 0) {
 #ifdef DEBUG_LMB
       printf("LMB: acking flip of buffer %d for %d->%d, [%p,%p)\n",
-	     buffer, peer, gasnet_mynode(), lmb_r_bases[buffer],
+	     buffer, peer, fabric->get_id(), lmb_r_bases[buffer],
 	     lmb_r_bases[buffer]+lmb_size);
 #endif
 
@@ -1298,7 +1298,7 @@ public:
   {
 #ifdef DEBUG_LMB
     printf("LMB: received flip ack of buffer %d for %d->%d, [%p,%p)\n",
-	   buffer, gasnet_mynode(), peer, lmb_w_bases[buffer],
+	   buffer, fabric->get_id(), peer, lmb_w_bases[buffer],
 	   lmb_w_bases[buffer]+lmb_size);
 #endif
 #ifdef TRACE_MESSAGES
@@ -1318,7 +1318,7 @@ protected:
     LegionRuntime::LowLevel::DetailedTimer::ScopedPush sp(TIME_AM);
 #ifdef DEBUG_AMREQUESTS
     printf("%d->%d: %s %d %d %p %zd / %x %x %x %x / %x %x %x %x / %x %x %x %x / %x %x %x %x\n",
-	   gasnet_mynode(), peer, 
+	   fabric->get_id(), peer, 
 	   ((hdr->payload_mode == PAYLOAD_NONE) ? "SHORT" : "MEDIUM"),
 	   hdr->num_args, hdr->msgid,
 	   hdr->payload, hdr->payload_size,
@@ -1538,7 +1538,7 @@ protected:
                        (hdr->payload_size - (chunks - 1) * max_long_req));
 #ifdef DEBUG_AMREQUESTS
       printf("%d->%d: LONG %d %d %p %zd %p / %x %x %x %x / %x %x %x %x / %x %x %x %x / %x %x %x %x\n",
-	     gasnet_mynode(), peer, hdr->num_args, hdr->msgid,
+	     fabric->get_id(), peer, hdr->num_args, hdr->msgid,
 	     ((char*)hdr->payload)+(i*max_long_req), size, 
 	     ((char*)dest_ptr)+(i*max_long_req),
 	     hdr->args[0], hdr->args[1], hdr->args[2],
@@ -1866,7 +1866,7 @@ public:
     endpoints = new ActiveMessageEndpoint*[num_endpoints];
     for (int i = 0; i < num_endpoints; i++)
     {
-      if (((unsigned)i) == gasnet_mynode())
+      if (((unsigned)i) == fabric->get_id())
         endpoints[i] = 0;
       else
         endpoints[i] = new ActiveMessageEndpoint(i);
@@ -1880,7 +1880,7 @@ public:
 
 #ifdef TRACE_MESSAGES
     char filename[80];
-    sprintf(filename, "ams_%d.log", gasnet_mynode());
+    sprintf(filename, "ams_%d.log", fabric->get_id());
     msgtrace_file = fopen(filename, "w");
     last_msgtrace_report = (int)(Realm::Clock::current_time()); // just keep the integer seconds
 #endif
@@ -1904,7 +1904,7 @@ public:
 public:
   void add_todo_entry(int target)
   {
-    //printf("%d: adding target %d to list\n", gasnet_mynode(), target);
+    //printf("%d: adding target %d to list\n", fabric->get_id(), target);
     gasnet_hsl_lock(&mutex);
     todo_list[todo_newest] = target;
     todo_newest++;
@@ -1995,7 +1995,7 @@ public:
   void report_activemsg_status(FILE *f)
   {
 #ifdef TRACE_MESSAGES
-    int mynode = gasnet_mynode();
+    int mynode = fabric->get_id();
     for (int i = 0; i < total_endpoints; i++) {
       if (endpoints[i] == 0) continue;
 
@@ -2006,7 +2006,7 @@ public:
     fflush(f);
 #else
     // for each node, report depth of outbound queues and LMB state
-    int mynode = gasnet_mynode();
+    int mynode = fabric->get_id();
     for(int i = 0; i < total_endpoints; i++) {
       if (endpoints[i] == 0) continue;
 
@@ -2116,7 +2116,7 @@ void init_endpoints(gasnet_handlerentry_t *handlers, int hcount,
 			srcdatapool_size +
 			total_lmb_size);
 
-  if(gasnet_mynode() == 0) {
+  if(fabric->get_id() == 0) {
     log_amsg.info("Pinned Memory Usage: GASNET=%d, RMEM=%d, LMB=%zd, SDP=%zd, total=%zd\n",
 		  gasnet_mem_size_in_mb, registered_mem_size_in_mb,
 		  total_lmb_size >> 20, srcdatapool_size >> 20,
@@ -2159,7 +2159,7 @@ void init_endpoints(gasnet_handlerentry_t *handlers, int hcount,
 			      attach_size, 0) );
 
 #ifdef DEBUG_REALM_STARTUP
-  if(gasnet_mynode() == 0) {
+  if(fabric->get_id() == 0) {
     LegionRuntime::TimeStamp ts("exited gasnet_attach", false);
     fflush(stdout);
   }
@@ -2177,12 +2177,12 @@ void init_endpoints(gasnet_handlerentry_t *handlers, int hcount,
   segment_info = new gasnet_seginfo_t[gasnet_nodes()];
   CHECK_GASNET( gasnet_getSegmentInfo(segment_info, gasnet_nodes()) );
 
-  char *my_segment = (char *)(segment_info[gasnet_mynode()].addr);
+  char *my_segment = (char *)(segment_info[fabric->get_id()].addr);
   /*char *gasnet_mem_base = my_segment;*/  my_segment += (gasnet_mem_size_in_mb << 20);
   /*char *reg_mem_base = my_segment;*/  my_segment += (registered_mem_size_in_mb << 20);
   char *srcdatapool_base = my_segment;  my_segment += srcdatapool_size;
   /*char *lmb_base = my_segment;*/  my_segment += total_lmb_size;
-  assert(my_segment <= ((char *)(segment_info[gasnet_mynode()].addr) + segment_info[gasnet_mynode()].size)); 
+  assert(my_segment <= ((char *)(segment_info[fabric->get_id()].addr) + segment_info[fabric->get_id()].size)); 
 
 #ifndef NO_SRCDATAPOOL
   if(srcdatapool_size > 0)
@@ -2232,7 +2232,7 @@ void EndpointManager::stop_threads(void)
 
 #ifdef CHECK_OUTGOING_MESSAGES
   if(todo_oldest != todo_newest) {
-    fprintf(stderr, "HELP!  shutdown occured with messages outstanding on node %d!\n", gasnet_mynode());
+    fprintf(stderr, "HELP!  shutdown occured with messages outstanding on node %d!\n", fabric->get_id());
     while(todo_oldest != todo_newest) {
       int target = todo_list[todo_oldest];
       fprintf(stderr, "target = %d\n", target);
@@ -2305,7 +2305,7 @@ void stop_activemsg_threads(void)
     double stddev = sqrt((((double)handler_stats[i].sum2) / ((double)handler_stats[i].count)) -
                          avg * avg);
     printf("AM profiling: node %d, msg %d: count = %10zd, avg = %8.2f, dev = %8.2f, min = %8zd, max = %8zd\n",
-           gasnet_mynode(), i,
+           fabric->get_id(), i,
            handler_stats[i].count, avg, stddev, handler_stats[i].minval, handler_stats[i].maxval);
   }
 #endif
@@ -2325,7 +2325,7 @@ void enqueue_message(gasnet_node_t target, int msgid,
 		     const void *payload, size_t payload_size,
 		     int payload_mode, void *dstptr)
 {
-  assert(target != gasnet_mynode());
+  assert(target != fabric->get_id());
 
   OutgoingMessage *hdr = new OutgoingMessage(msgid, 
 					     (arg_size + sizeof(int) - 1) / sizeof(int),
@@ -2356,7 +2356,7 @@ void enqueue_message(gasnet_node_t target, int msgid,
 		     off_t line_stride, size_t line_count,
 		     int payload_mode, void *dstptr)
 {
-  assert(target != gasnet_mynode());
+  assert(target != fabric->get_id());
 
   OutgoingMessage *hdr = new OutgoingMessage(msgid, 
 					     (arg_size + sizeof(int) - 1) / sizeof(int),
@@ -2381,7 +2381,7 @@ void enqueue_message(gasnet_node_t target, int msgid,
 		     const SpanList& spans, size_t payload_size,
 		     int payload_mode, void *dstptr)
 {
-  assert(target != gasnet_mynode());
+  assert(target != fabric->get_id());
 
   OutgoingMessage *hdr = new OutgoingMessage(msgid, 
   					     (arg_size + sizeof(int) - 1) / sizeof(int),
@@ -2402,7 +2402,7 @@ void enqueue_message(gasnet_node_t target, int msgid,
 
 void handle_long_msgptr(gasnet_node_t source, const void *ptr)
 {
-  assert(source != gasnet_mynode());
+  assert(source != fabric->get_id());
 
   endpoint_manager->handle_long_msgptr(source, ptr);
 }
@@ -2480,7 +2480,7 @@ extern bool adjust_long_msgsize(gasnet_node_t source, void *&ptr, size_t &buffer
   if(buffer_size == 0)
     return true;
 
-  assert(source != gasnet_mynode());
+  assert(source != fabric->get_id());
 
   return endpoint_manager->adjust_long_msgsize(source, ptr, buffer_size,
 					       message_id, chunks);

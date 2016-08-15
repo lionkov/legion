@@ -525,7 +525,7 @@ namespace Realm {
 
   int LocalCPUMemory::get_home_node(off_t offset, size_t size)
   {
-    return gasnet_mynode();
+    return fabric->get_id();
   }
 
   void *LocalCPUMemory::local_reg_base(void)
@@ -652,7 +652,7 @@ namespace Realm {
 					       const ProfilingRequestSet &reqs,
 					       RegionInstance parent_inst)
   {
-    if(gasnet_mynode() == 0) {
+    if(fabric->get_id() == 0) {
       return create_instance_local(r, linearization_bits, bytes_needed,
 				   block_size, element_size, field_sizes, redopid,
 				   list_size, reqs, parent_inst);
@@ -666,7 +666,7 @@ namespace Realm {
   void GASNetMemory::destroy_instance(RegionInstance i, 
 				      bool local_destroy)
   {
-    if(gasnet_mynode() == 0) {
+    if(fabric->get_id() == 0) {
       destroy_instance_local(i, local_destroy);
     } else {
       destroy_instance_remote(i, local_destroy);
@@ -675,7 +675,7 @@ namespace Realm {
 
   off_t GASNetMemory::alloc_bytes(size_t size)
   {
-    if(gasnet_mynode() == 0) {
+    if(fabric->get_id() == 0) {
       return alloc_bytes_local(size);
     } else {
       return alloc_bytes_remote(size);
@@ -684,7 +684,7 @@ namespace Realm {
 
   void GASNetMemory::free_bytes(off_t offset, size_t size)
   {
-    if(gasnet_mynode() == 0) {
+    if(fabric->get_id() == 0) {
       free_bytes_local(offset, size);
     } else {
       free_bytes_remote(offset, size);
@@ -737,7 +737,7 @@ namespace Realm {
 	off_t blkid = (elem_offset / memory_stride / num_nodes);
 	off_t node = (elem_offset / memory_stride) % num_nodes;
 	off_t blkoffset = elem_offset % memory_stride;
-	assert(node == gasnet_mynode());
+	assert(node == fabric->get_id());
 	char *tgt_ptr = ((char *)seginfos[node].addr)+(blkid * memory_stride)+blkoffset;
 	redop->apply_list_entry(tgt_ptr, entry, 1, ptr);
 	entry += redop->sizeof_list_entry;
@@ -782,7 +782,7 @@ namespace Realm {
 
 	char *src_c = (((char *)seginfos[node].addr) +
 		       (blkid * memory_stride) + blkoffset);
-	if(node == gasnet_mynode()) {
+	if(node == fabric->get_id()) {
 	  memcpy(dst_c, src_c, chunk_size);
 	} else {
 	  gasnet_get_nbi(dst_c, node, src_c, chunk_size);
@@ -835,7 +835,7 @@ namespace Realm {
 
 	char *dst_c = (((char *)seginfos[node].addr) +
 		       (blkid * memory_stride) + blkoffset);
-	if(node == gasnet_mynode()) {
+	if(node == fabric->get_id()) {
 	  memcpy(dst_c, src_c, chunk_size);
 	} else {
 	  gasnet_put_nbi(node, dst_c, (void *)src_c, chunk_size);
@@ -863,9 +863,9 @@ namespace Realm {
   void RemoteMemAllocRequestType::request(Message* m) {
     RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
     DetailedTimer::ScopedPush sp(TIME_LOW_LEVEL);
-    //printf("[%d] handling remote alloc of size %zd\n", gasnet_mynode(), args.size);
+    //printf("[%d] handling remote alloc of size %zd\n", fabric->get_id(), args.size);
     off_t offset = get_runtime()->get_memory_impl(args->memory)->alloc_bytes(args->size);
-    //printf("[%d] remote alloc will return %d\n", gasnet_mynode(), result);
+    //printf("[%d] remote alloc will return %d\n", fabric->get_id(), result);
 
     fabric->send(new RemoteMemAllocResponse(args->sender, args->resp_ptr, offset));
   }
@@ -1106,7 +1106,7 @@ namespace Realm {
 	partial_remote_writes[key] = entry;
 #ifdef DEBUG_PWT
 	printf("PWT: %d: new entry for %d/%d: %p, %d\n",
-	       gasnet_mynode(), key.sender, key.sequence_id,
+	       fabric->get_id(), key.sender, key.sequence_id,
 	       entry.fence, entry.remaining_count);
 #endif
       } else {
@@ -1173,7 +1173,7 @@ namespace Realm {
 	partial_remote_writes[key] = entry;
 #ifdef DEBUG_PWT
 	printf("PWT: %d: new entry for %d/%d: %p, %d\n",
-	       gasnet_mynode(), key.sender, key.sequence_id,
+	       fabric->get_id(), key.sender, key.sequence_id,
 	       entry.fence, entry.remaining_count);
 #endif
       } else {
@@ -1181,7 +1181,7 @@ namespace Realm {
 	PartialWriteEntry& entry = it->second;
 #ifdef DEBUG_PWT
 	printf("PWT: %d: have entry for %d/%d: %p, %d -> %d\n",
-	       gasnet_mynode(), key.sender, key.sequence_id,
+	       fabric->get_id(), key.sender, key.sequence_id,
 	       entry.fence,
 	       entry.remaining_count, entry.remaining_count - 1);
 #endif

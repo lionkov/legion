@@ -116,7 +116,7 @@ namespace Realm {
       // for now, just hand out the valid mask for the master allocator
       //  and hope it's accessible to the caller
       SharedAccess<IndexSpaceImpl> data(r_impl);
-      assert((data->valid_mask_owners >> gasnet_mynode()) & 1);
+      assert((data->valid_mask_owners >> fabric->get_id()) & 1);
 #else
       if(!r_impl->valid_mask_complete) {
 	Event wait_on = r_impl->request_valid_mask();
@@ -1647,8 +1647,8 @@ namespace Realm {
       locked_data.parent = _parent;
       locked_data.frozen = _frozen;
       locked_data.num_elmts = _num_elmts;
-      locked_data.valid_mask_owners = (1ULL << gasnet_mynode());
-      locked_data.avail_mask_owner = gasnet_mynode();
+      locked_data.valid_mask_owners = (1ULL << fabric->get_id());
+      locked_data.avail_mask_owner = fabric->get_id();
       valid_mask = (_initial_valid_mask?
 		    new ElementMask(*_initial_valid_mask, _frozen) : // trim if frozen
 		    new ElementMask(_num_elmts));
@@ -1738,7 +1738,7 @@ namespace Realm {
     coord_t IndexSpaceAllocatorImpl::alloc_elements(size_t count /*= 1 */)
     {
       SharedAccess<IndexSpaceImpl> is_data(is_impl);
-      assert((is_data->valid_mask_owners >> gasnet_mynode()) & 1);
+      assert((is_data->valid_mask_owners >> fabric->get_id()) & 1);
       coord_t start = is_impl->valid_mask->find_disabled(count);
       assert(start >= 0);
 
@@ -1753,7 +1753,7 @@ namespace Realm {
       IndexSpaceImpl *impl = is_impl;
       while(1) {
 	SharedAccess<IndexSpaceImpl> is_data(impl);
-	assert((is_data->valid_mask_owners >> gasnet_mynode()) & 1);
+	assert((is_data->valid_mask_owners >> fabric->get_id()) & 1);
 	is_impl->valid_mask->enable(ptr, count);
 	IndexSpace is = is_data->parent;
 	if(is == IndexSpace::NO_SPACE) break;
@@ -1767,7 +1767,7 @@ namespace Realm {
       IndexSpaceImpl *impl = is_impl;
       while(1) {
 	SharedAccess<IndexSpaceImpl> is_data(impl);
-	assert((is_data->valid_mask_owners >> gasnet_mynode()) & 1);
+	assert((is_data->valid_mask_owners >> fabric->get_id()) & 1);
 	is_impl->valid_mask->disable(ptr, count);
 	IndexSpace is = is_data->parent;
 	if(is == IndexSpace::NO_SPACE) break;

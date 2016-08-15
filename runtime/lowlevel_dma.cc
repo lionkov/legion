@@ -880,7 +880,7 @@ namespace LegionRuntime {
 	      pos++;
 
 	      if(pos == max_entries_per_msg) {
-		if(i == gasnet_mynode()) {
+		if(i == fabric->get_id()) {
 		  tgt_mem->apply_reduction_list(tgt_offset, redop, pos,
 						entry_buffer);
 		} else {
@@ -892,7 +892,7 @@ namespace LegionRuntime {
 	      }
 	    }
 	    if(pos > 0) {
-	      if(i == gasnet_mynode()) {
+	      if(i == fabric->get_id()) {
 		tgt_mem->apply_reduction_list(tgt_offset, redop, pos,
 					      entry_buffer);
 	      } else {
@@ -1455,10 +1455,10 @@ namespace LegionRuntime {
 	    Event merged = GenEventImpl::merge_events(events);
 
 	    // deferred trigger based on this merged event
-	    get_runtime()->get_genevent_impl(after_copy)->trigger(after_copy.gen, gasnet_mynode(), merged);
+	    get_runtime()->get_genevent_impl(after_copy)->trigger(after_copy.gen, fabric->get_id(), merged);
 	  } else {
 	    // no actual copies occurred, so manually trigger event ourselves
-	    get_runtime()->get_genevent_impl(after_copy)->trigger(after_copy.gen, gasnet_mynode());
+	    get_runtime()->get_genevent_impl(after_copy)->trigger(after_copy.gen, fabric->get_id());
 	  }
 	} else {
 	  if(events.size() > 0) {
@@ -2980,7 +2980,7 @@ namespace LegionRuntime {
       }
 
       // if(after_copy.exists())
-      // 	after_copy.impl()->trigger(after_copy.gen, gasnet_mynode());
+      // 	after_copy.impl()->trigger(after_copy.gen, fabric->get_id());
 
       delete mpc;
 
@@ -3122,7 +3122,7 @@ namespace LegionRuntime {
 		log_dma.debug("triggering event " IDFMT "/%d after empty remote copy",
 			     finish_event.id, finish_event.gen);
 		assert(finish_event == after_copy);
-		get_runtime()->get_singleevent_impl(finish_event)->trigger(finish_event.gen, gasnet_mynode());
+		get_runtime()->get_singleevent_impl(finish_event)->trigger(finish_event.gen, fabric->get_id());
 	      }
 	      
 	      return;
@@ -4376,7 +4376,7 @@ namespace Realm {
                                          ev, 0/*priority*/, requests);
         Memory mem = it->inst.get_location();
         int node = ID(mem).node();
-        if (((unsigned)node) == gasnet_mynode()) {
+        if (((unsigned)node) == fabric->get_id()) {
 	  get_runtime()->optable.add_local_operation(ev, r);
           r->check_readiness(false, dma_queue);
         } else {
@@ -4437,8 +4437,8 @@ namespace LegionRuntime {
       if(src_is_rdma) {
 	if(dst_is_rdma) {
 	  // gasnet -> gasnet - blech
-	  log_dma.warning("WARNING: gasnet->gasnet copy being serialized on local node (%d)", gasnet_mynode());
-	  return gasnet_mynode();
+	  log_dma.warning("WARNING: gasnet->gasnet copy being serialized on local node (%d)", fabric->get_id());
+	  return fabric->get_id();
 	} else {
 	  // gathers by the receiver
 	  return dst_node;
@@ -4559,7 +4559,7 @@ namespace Realm {
             int dma_node = select_dma_node(mp.first, mp.second, redop_id, red_fold);
             log_dma.debug("copy: srcmem=" IDFMT " dstmem=" IDFMT " node=%d", mp.first.id, mp.second.id, dma_node);
 
-            if(((unsigned)dma_node) == gasnet_mynode()) {
+            if(((unsigned)dma_node) == fabric->get_id()) {
               log_dma.debug("performing serdez on local node");
 	      Realm::get_runtime()->optable.add_local_operation(ev, r);
               r->check_readiness(false, dma_queue);
@@ -4649,7 +4649,7 @@ namespace Realm {
 	  int dma_node = select_dma_node(src_mem, dst_mem, redop_id, red_fold);
 	  log_dma.debug("copy: srcmem=" IDFMT " dstmem=" IDFMT " node=%d", src_mem.id, dst_mem.id, dma_node);
 	  
-	  if(((unsigned)dma_node) == gasnet_mynode()) {
+	  if(((unsigned)dma_node) == fabric->get_id()) {
 	    log_dma.debug("performing copy on local node");
 
 	    get_runtime()->optable.add_local_operation(ev, r);
@@ -4725,7 +4725,7 @@ namespace Realm {
 					     wait_on, ev,
 					     0 /*priority*/, requests);
 
-	if(((unsigned)src_node) == gasnet_mynode()) {
+	if(((unsigned)src_node) == fabric->get_id()) {
 	  log_dma.debug("performing reduction on local node");
 
 	  get_runtime()->optable.add_local_operation(ev, r);

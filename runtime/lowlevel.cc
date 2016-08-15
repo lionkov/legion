@@ -217,7 +217,7 @@ namespace LegionRuntime {
       gasnet_barrier();
 
       for(int i = 0; i < gasnet_nodes(); i++) {
-	if(i == gasnet_mynode()) {
+	if(i == fabric->get_id()) {
 	  int fd = open(filename, (O_WRONLY |
 				   O_CREAT |
 				   ((append || (i > 0)) ? O_APPEND : O_TRUNC)),
@@ -240,7 +240,7 @@ namespace LegionRuntime {
 		*((double*)ptr) = block->start_time + (block->items[i].time_units /
                                                         block->time_mult);
                 ptr += sizeof(double);
-                *((unsigned*)ptr) = gasnet_mynode();
+                *((unsigned*)ptr) = fabric->get_id();
                 ptr += sizeof(unsigned);
                 memcpy(ptr,&(block->items[i]),sizeof(ITEM));
                 ptr += sizeof(ITEM);
@@ -800,7 +800,7 @@ namespace LegionRuntime {
 	// plan B: if one side is remote, try delegating to the node
 	//  that owns the other side of the copy
 	unsigned delegate = ID(src_impl->memory).node();
-	assert(delegate != gasnet_mynode());
+	assert(delegate != fabric->get_id());
 
 	log_copy.info("passsing the buck to node %d for " IDFMT "->" IDFMT " copy",
 		      delegate, src_mem->me.id, dst_mem->me.id);
@@ -823,7 +823,7 @@ namespace LegionRuntime {
       if((src_mem->kind == MemoryImpl::MKIND_GLOBAL) &&
 	 (dst_mem->kind == MemoryImpl::MKIND_REMOTE)) {
 	unsigned delegate = ID(dst_impl->memory).node();
-	assert(delegate != gasnet_mynode());
+	assert(delegate != fabric->get_id());
 
 	log_copy.info("passsing the buck to node %d for " IDFMT "->" IDFMT " copy",
 		      delegate, src_mem->me.id, dst_mem->me.id);
@@ -1106,15 +1106,15 @@ namespace LegionRuntime {
 #ifdef NODE_LOGGING
         char file_name[256];
         sprintf(file_name,"%s/backtrace_%d_thread_%ld.txt",
-                          RuntimeImpl::prefix, gasnet_mynode(), pthread_self());
+                          RuntimeImpl::prefix, fabric->get_id(), pthread_self());
         FILE *fbt = fopen(file_name,"w");
         fprintf(fbt,"BACKTRACE (%d, %lx)\n----------\n%s\n----------\n", 
-                gasnet_mynode(), pthread_self(), buffer);
+                fabric->get_id(), pthread_self(), buffer);
         fflush(fbt);
         fclose(fbt);
 #else
         fprintf(stderr,"BACKTRACE (%d, %lx)\n----------\n%s\n----------\n", 
-                gasnet_mynode(), pthread_self(), buffer);
+                fabric->get_id(), pthread_self(), buffer);
         fflush(stderr);
 #endif
         free(buffer);
@@ -1135,7 +1135,7 @@ namespace LegionRuntime {
 #ifdef NODE_LOGGING
         char file_name[256];
         sprintf(file_name,"%s/waiters_%d.txt",
-                          RuntimeImpl::prefix, gasnet_mynode());
+                          RuntimeImpl::prefix, fabric->get_id());
         FILE *fw = fopen(file_name,"w");
         show_event_waiters(fw);
         fflush(fw);

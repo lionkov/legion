@@ -60,7 +60,7 @@ namespace Realm {
     /*static*/ Processor Processor::create_group(const std::vector<Processor>& members)
     {
       // are we creating a local group?
-      if((members.size() == 0) || (ID(members[0]).node() == gasnet_mynode())) {
+      if((members.size() == 0) || (ID(members[0]).node() == fabric->get_id())) {
 	ProcessorGroup *grp = get_runtime()->local_proc_group_free_list->alloc_entry();
 	grp->set_group_members(members);
 #ifdef EVENT_GRAPH_TRACE
@@ -204,7 +204,7 @@ namespace Realm {
       // is the target a single processor or a group?
       if(ID(*this).type() == ID::ID_PROCESSOR) {
 	NodeId n = ID(*this).node();
-	if(n == gasnet_mynode())
+	if(n == fabric->get_id())
 	  local_procs.push_back(*this);
 	else
 	  remote_procs[n].push_back(*this);
@@ -218,7 +218,7 @@ namespace Realm {
 	    it++) {
 	  Processor p = *it;
 	  NodeId n = ID(p).node();
-	  if(n == gasnet_mynode())
+	  if(n == fabric->get_id())
 	    local_procs.push_back(p);
 	  else
 	    remote_procs[n].push_back(p);
@@ -310,7 +310,7 @@ namespace Realm {
 
 	for(NodeId target = 0; target < gasnet_nodes(); target++) {
 	  // skip ourselves
-	  if(target == gasnet_mynode())
+	  if(target == fabric->get_id())
 	    continue;
 
 	  RemoteTaskRegistration *reg_op = new RemoteTaskRegistration(tro, target);
@@ -416,7 +416,7 @@ namespace Realm {
     void ProcessorGroup::set_group_members(const std::vector<Processor>& member_list)
     {
       // can only be perform on owner node
-      assert(ID(me).node() == gasnet_mynode());
+      assert(ID(me).node() == fabric->get_id());
       
       // can only be done once
       assert(!members_valid);

@@ -224,7 +224,7 @@ namespace Realm {
   {
     if(finish_event.exists())
       get_runtime()->get_genevent_impl(finish_event)->trigger(finish_event.gen,
-                                                              gasnet_mynode(),
+                                                              fabric->get_id(),
 							      poisoned);
   }
 
@@ -458,7 +458,7 @@ namespace Realm {
       // not found - who owns this event?
       int owner = ID(finish_event).node();
 
-      if(owner == gasnet_mynode()) {
+      if(owner == fabric->get_id()) {
 	// if we're the owner, it's probably for an event that already completed successfully,
 	//  so ignore the request
 	log_optable.info() << "event " << finish_event << " cancellation ignored - not in table";

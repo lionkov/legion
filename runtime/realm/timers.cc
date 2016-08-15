@@ -56,7 +56,7 @@ namespace Realm {
       count_left = gasnet_nodes()-1;
 
       for(unsigned i = 0; i < gasnet_nodes(); i++)
-        if(i != gasnet_mynode())
+        if(i != fabric->get_id())
 	  fabric->send(new TimerDataRequestMessage(i, this));
       //TimerDataRequestMessage::send_request(i, this);
 
@@ -158,10 +158,10 @@ namespace Realm {
       // if we've been asked to clear other nodes too, send a message
       if(all_nodes) {
 	ClearTimerRequestArgs args;
-	args.sender = gasnet_mynode();
+	args.sender = fabric->get_id();
 	
 	for(int i = 0; i < gasnet_nodes(); i++)
-	  if(i != gasnet_mynode())
+	  if(i != fabric->get_id())
 	    ClearTimerRequestMessage::request(i, args);
       }
     }

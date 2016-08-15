@@ -118,7 +118,7 @@ namespace Realm {
       CodeDescriptor codedesc(taskptr);
       ProfilingRequestSet prs;
       std::set<Event> events;
-      std::vector<ProcessorImpl *>& procs = ((RuntimeImpl *)impl)->nodes[gasnet_mynode()].processors;
+      std::vector<ProcessorImpl *>& procs = ((RuntimeImpl *)impl)->nodes[fabric->get_id()].processors;
       for(std::vector<ProcessorImpl *>::iterator it = procs.begin();
 	  it != procs.end();
 	  it++) {
@@ -661,7 +661,7 @@ namespace Realm {
 
       // initialize barrier timestamp
       BarrierImpl::barrier_adjustment_timestamp
-	= (((Barrier::timestamp_t)(gasnet_mynode())) << BarrierImpl::BARRIER_TIMESTAMP_NODEID_SHIFT) + 1;
+	= (((Barrier::timestamp_t)(fabric->get_id())) << BarrierImpl::BARRIER_TIMESTAMP_NODEID_SHIFT) + 1;
 
       // Register all message types with fabric before calling fabric->init()
       std::cout << "ADDING MESSAGES" << std::endl;
@@ -1214,7 +1214,7 @@ namespace Realm {
       // now spawn 0 or more local tasks
       std::set<Event> event_set;
 
-      const std::vector<ProcessorImpl *>& local_procs = nodes[gasnet_mynode()].processors;
+      const std::vector<ProcessorImpl *>& local_procs = nodes[fabric->get_id()].processors;
 
       for(std::vector<ProcessorImpl *>::const_iterator it = local_procs.begin();
 	  it != local_procs.end();
@@ -1381,7 +1381,7 @@ namespace Realm {
       if(local_request) {
 	log_runtime.info("shutdown request - notifying other nodes");
 	for(unsigned i = 0; i < fabric->get_num_nodes(); i++)
-	  if(i != gasnet_mynode())
+	  if(i != fabric->get_id())
 	    RuntimeShutdownMessageType::send_request(i);
       }
 
@@ -1391,7 +1391,7 @@ namespace Realm {
 	// legacy shutdown - call shutdown task on processors
 	log_task.info("spawning processor shutdown task on local cpus");
 
-	const std::vector<ProcessorImpl *>& local_procs = nodes[gasnet_mynode()].processors;
+	const std::vector<ProcessorImpl *>& local_procs = nodes[fabric->get_id()].processors;
 
 	spawn_on_all(local_procs, Processor::TASK_ID_PROCESSOR_SHUTDOWN, 0, 0,
 		     Event::NO_EVENT,
@@ -1473,7 +1473,7 @@ namespace Realm {
       {
         RuntimeImpl *rt = get_runtime();
         printf("node %d realm resource usage: ev=%d, rsrv=%d, idx=%d, pg=%d\n",
-               gasnet_mynode(),
+               fabric->get_id(),
                rt->local_event_free_list->next_alloc,
                rt->local_reservation_free_list->next_alloc,
                rt->local_index_space_free_list->next_alloc,
@@ -1649,7 +1649,7 @@ namespace Realm {
       AutoHSLLock al(mem->mutex);
 
       if(id.index_l() >= mem->instances.size()) {
-	assert(id.node() != gasnet_mynode());
+	assert(id.node() != fabric->get_id());
 
 	size_t old_size = mem->instances.size();
 	if(id.index_l() >= old_size) {
@@ -1665,7 +1665,7 @@ namespace Realm {
 
       if(!mem->instances[id.index_l()]) {
 	if(!mem->instances[id.index_l()]) {
-	  //printf("[%d] creating proxy instance: inst=" IDFMT "\n", gasnet_mynode(), id.id());
+	  //printf("[%d] creating proxy instance: inst=" IDFMT "\n", fabric->get_id(), id.id());
 	  mem->instances[id.index_l()] = new RegionInstanceImpl(id.convert<RegionInstance>(), mem->me);
 	}
       }

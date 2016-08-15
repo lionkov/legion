@@ -243,7 +243,7 @@ namespace Realm {
 	  it != proc_mem_affinities.end();
 	  it++) {
 	Processor p = (*it).p;
-	if(ID(p).node() == gasnet_mynode())
+	if(ID(p).node() == fabric->get_id())
 	  pset.insert(p);
       }
     }
@@ -255,7 +255,7 @@ namespace Realm {
 	  it != proc_mem_affinities.end();
 	  it++) {
 	Processor p = (*it).p;
-	if((ID(p).node() == gasnet_mynode()) && (p.kind() == kind))
+	if((ID(p).node() == fabric->get_id()) && (p.kind() == kind))
 	  pset.insert(p);
       }
     }
@@ -462,7 +462,7 @@ namespace Realm {
   Machine::ProcessorQuery& Machine::ProcessorQuery::local_address_space(void)
   {
     impl = ((ProcessorQueryImpl *)impl)->writeable_reference();
-    ((ProcessorQueryImpl *)impl)->restrict_to_node(gasnet_mynode());
+    ((ProcessorQueryImpl *)impl)->restrict_to_node(fabric->get_id());
     return *this;
   }
 
@@ -560,7 +560,7 @@ namespace Realm {
   Machine::MemoryQuery& Machine::MemoryQuery::local_address_space(void)
   {
     impl = ((MemoryQueryImpl *)impl)->writeable_reference();
-    ((MemoryQueryImpl *)impl)->restrict_to_node(gasnet_mynode());
+    ((MemoryQueryImpl *)impl)->restrict_to_node(fabric->get_id());
     return *this;
   }
 
@@ -1244,7 +1244,7 @@ namespace Realm {
 
     DetailedTimer::ScopedPush sp(TIME_LOW_LEVEL);
     log_annc.info("%d: received announce from %d (%d procs, %d memories)\n",
-		  gasnet_mynode(),
+		  fabric->get_id(),
 		  args->node_id,
 		  args->num_procs,
 		  args->num_memories);
@@ -1289,7 +1289,7 @@ namespace Realm {
     while((int)announcements_received < (int)(fabric->get_num_nodes() - 1))
       do_some_polling();
     
-    log_annc.info("node %d has received all of its announcements\n", gasnet_mynode());
+    log_annc.info("node %d has received all of its announcements\n", fabric->get_id());
   }
 
 

@@ -435,7 +435,7 @@ namespace Realm {
 #endif
     BarrierImpl *impl = get_runtime()->get_barrier_impl(*this);
     impl->adjust_arrival(gen, delta, timestamp, Event::NO_EVENT,
-			 gasnet_mynode(), false /*!forwarded*/,
+			 fabric->get_id(), false /*!forwarded*/,
 			 0, 0);
 
     Barrier with_ts;
@@ -466,7 +466,7 @@ namespace Realm {
     // arrival uses the timestamp stored in this barrier object
     BarrierImpl *impl = get_runtime()->get_barrier_impl(*this);
     impl->adjust_arrival(gen, -count, timestamp, wait_on,
-			 gasnet_mynode(), false /*!forwarded*/,
+			 fabric->get_id(), false /*!forwarded*/,
 			 reduce_value, reduce_value_size);
   }
 
@@ -951,7 +951,7 @@ namespace Realm {
 	  std::map<Event::gen_t, bool>::const_iterator it = local_triggers.find(needed_gen);
 	  if(it != local_triggers.end()) {
 	    // 2) we're not the owner node, but we've locally triggered this and have correct poison info
-	    assert(owner != gasnet_mynode());
+	    assert(owner != fabric->get_id());
 	    trigger_now = true;
 	    trigger_poisoned = it->second;
 	  } else {
@@ -966,12 +966,12 @@ namespace Realm {
 	      current_local_waiters.push_back(waiter);
 	    } else {
 	      // no, put it in an appropriate future waiter list - only allowed for non-owners
-	      assert(owner != gasnet_mynode());
+	      assert(owner != fabric->get_id());
 	      future_local_waiters[needed_gen].push_back(waiter);
 	    }
 
 	    // do we need to subscribe to this event?
-	    if((owner != gasnet_mynode()) && (gen_subscribed < needed_gen)) {
+	    if((owner != fabric->get_id()) && (gen_subscribed < needed_gen)) {
 	      previous_subscribe_gen = gen_subscribed;
 	      gen_subscribed = needed_gen;
 	      subscribe_owner = owner;
@@ -1039,7 +1039,7 @@ namespace Realm {
 							  Event event,
 							  Event::gen_t previous_gen) {
     fabric->send(new EventSubscribeMessage(target,
-					   gasnet_mynode(),
+					   fabric->get_id(),
 					   event,
 					   previous_gen));
   }
@@ -1209,7 +1209,7 @@ namespace Realm {
 				    int new_poisoned_count)
   {
     // this event had better not belong to us...
-    assert(owner != gasnet_mynode());
+    assert(owner != fabric->get_id());
 
     // the result of the update may trigger multiple generations worth of waiters - keep their
     //  generation IDs straight (we'll look up the poison bits later)
@@ -1423,7 +1423,7 @@ namespace Realm {
 
       std::vector<EventWaiter *> to_wake;
 
-      if(gasnet_mynode() == owner) {
+      if(fabric->get_id() == owner) {
 	// we own this event
 
 	NodeSet to_update;
@@ -1470,7 +1470,7 @@ namespace Realm {
 	  get_runtime()->local_event_free_list->free_entry(this);
       } else {
 	// we're triggering somebody else's event, so the first thing to do is tell them
-	assert(trigger_node == gasnet_mynode());
+	assert(trigger_node == fabric->get_id());
 	// once we send this message, it's possible we get an update from the owner before
 	//  we take the lock a few lines below here (assuming somebody on this node had 
 	//  already subscribed), so check here that we're triggering a new generation
@@ -1813,8 +1813,8 @@ static void *bytedup(const void *data, size_t datalen)
 
 	// only forward deferred arrivals if the precondition is not one that looks like it'll
 	//  trigger here first
-        if((owner != gasnet_mynode())  &&
-	   (ID(wait_on).node() != gasnet_mynode())) {
+        if((owner != fabric->get_id())  &&
+	   (ID(wait_on).node() != fabric->get_id())) {
 	  // let deferral happen on owner node (saves latency if wait_on event
           //   gets triggered there)
           //printf("sending deferred arrival to %d for " IDFMT "/%d (" IDFMT "/%d)\n",
@@ -1822,7 +1822,7 @@ static void *bytedup(const void *data, size_t datalen)
 	  log_barrier.info("forwarding deferred barrier arrival: delta=%d in=" IDFMT "/%d out=" IDFMT "/%d (%llx)",
 			   delta, wait_on.id, wait_on.gen, b.id, b.gen, b.timestamp);
 	  BarrierAdjustMessageType::send_request(owner, b, delta, wait_on,
-						 sender, (sender != gasnet_mynode()),
+						 sender, (sender != fabric->get_id()),
 						 reduce_value, reduce_value_size);
 	  return;
         }
@@ -1863,13 +1863,13 @@ static void *bytedup(const void *data, size_t datalen)
 	AutoHSLLock a(mutex);
 
 	// ownership can change, so check it inside the lock
-	if(owner != gasnet_mynode()) {
+	if(owner != fabric->get_id()) {
 	  forward_to_node = owner;
 	  break;
 	} else {
 	  // if this message had to be forwarded to get here, tell the original sender we are the
 	  //  new owner
-	  if(forwarded && (sender != gasnet_mynode()))
+	  if(forwarded && (sender != fabric->get_id()))
 	    inform_migration = sender;
 	}
 
@@ -1992,14 +1992,14 @@ static void *bytedup(const void *data, size_t datalen)
       if(forward_to_node != (NodeId) -1) {
 	Barrier b = make_barrier(barrier_gen, timestamp);
 	BarrierAdjustMessageType::send_request(forward_to_node, b, delta, Event::NO_EVENT,
-					   sender, (sender != gasnet_mynode()),
+					   sender, (sender != fabric->get_id()),
 					   reduce_value, reduce_value_size);
 	return;
       }
 
       if(inform_migration != (NodeId) -1) {
 	Barrier b = make_barrier(barrier_gen, timestamp);
-	BarrierMigrationMessageType::send_request(inform_migration, b, gasnet_mynode());
+	BarrierMigrationMessageType::send_request(inform_migration, b, fabric->get_id());
       }
 
       if(trigger_gen != 0) {
@@ -2048,7 +2048,7 @@ static void *bytedup(const void *data, size_t datalen)
       if(needed_gen <= generation) return true;
 
       // if we're not the owner, subscribe if we haven't already
-      if(owner != gasnet_mynode()) {
+      if(owner != fabric->get_id()) {
 	Event::gen_t previous_subscription;
 	// take lock to avoid duplicate subscriptions
 	{
@@ -2060,7 +2060,7 @@ static void *bytedup(const void *data, size_t datalen)
 
 	if(previous_subscription < needed_gen) {
 	  log_barrier.info("subscribing to barrier " IDFMT "/%d", me.id(), needed_gen);
-	  BarrierSubscribeMessageType::send_request(owner, me.id(), needed_gen, gasnet_mynode(), false/*!forwarded*/);
+	  BarrierSubscribeMessageType::send_request(owner, me.id(), needed_gen, fabric->get_id(), false/*!forwarded*/);
 	}
       }
 
@@ -2094,7 +2094,7 @@ static void *bytedup(const void *data, size_t datalen)
 	  g->local_waiters.push_back(waiter);
 
 	  // a call to has_triggered should have already handled the necessary subscription
-	  assert((owner == gasnet_mynode()) || (gen_subscribed >= needed_gen));
+	  assert((owner == fabric->get_id()) || (gen_subscribed >= needed_gen));
 	} else {
 	  // needed generation has already occurred - trigger this waiter once we let go of lock
 	  trigger_now = true;
@@ -2131,7 +2131,7 @@ static void *bytedup(const void *data, size_t datalen)
       AutoHSLLock a(impl->mutex);
 
       // first check - are we even the current owner?
-      if(impl->owner != gasnet_mynode()) {
+      if(impl->owner != fabric->get_id()) {
 	forward_to_node = impl->owner;
 	
       } else {
@@ -2194,11 +2194,11 @@ static void *bytedup(const void *data, size_t datalen)
 
     if(forward_to_node != (NodeId) -1) {
       BarrierSubscribeMessageType::send_request(forward_to_node, args->barrier_id, args->subscribe_gen,
-						args->subscriber, (args->subscriber != gasnet_mynode()));
+						args->subscriber, (args->subscriber != fabric->get_id()));
     }
 
     if(inform_migration != (NodeId) -1) {
-      BarrierMigrationMessageType::send_request(inform_migration, b, gasnet_mynode());
+      BarrierMigrationMessageType::send_request(inform_migration, b, fabric->get_id());
     }
 
     // send trigger message outside of lock, if needed

@@ -664,7 +664,7 @@ class ActiveMessageMediumNoReply {
 #define CHECK_GASNET(cmd) cmd
 
 typedef unsigned gasnet_node_t;
-#define gasnet_mynode() ((gasnet_node_t)0)
+#define fabric->get_id() ((gasnet_node_t)0)
 #define gasnet_nodes()  ((gasnet_node_t)1)
 
 #include <pthread.h>
