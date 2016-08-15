@@ -1285,9 +1285,10 @@ namespace Realm {
 
   /* static */ void NodeAnnounceMessageType::await_all_announcements(void) {
     // wait until we hear from everyone else?
-    // TODO -- convert to fabric
     while((int)announcements_received < (int)(fabric->get_num_nodes() - 1))
-      do_some_polling();
+      // Gasnet implemetation would poll to send along some messages --
+      // however, since message queueing now take places inside libfabric, just spin
+      ;
     
     log_annc.info("node %d has received all of its announcements\n", fabric->get_id());
   }

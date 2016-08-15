@@ -77,7 +77,7 @@ namespace LegionRuntime {
     void show_event_waiters(std::ostream& os)
     {
       os << "PRINTING ALL PENDING EVENTS:\n";
-      for(unsigned i = 0; i < gasnet_nodes(); i++) {
+      for(unsigned i = 0; i < fabric->get_num_nodes(); i++) {
 	Node *n = &get_runtime()->nodes[i];
         // Iterate over all the events and get their implementations
         for (unsigned long j = 0; j < n->events.max_entries(); j++) {
@@ -155,7 +155,7 @@ namespace LegionRuntime {
 #if 0
       // // convert from events to barriers
       // fprintf(f,"PRINTING ALL PENDING EVENTS:\n");
-      // for(int i = 0; i < gasnet_nodes(); i++) {
+      // for(int i = 0; i < fabric->get_num_nodes(); i++) {
       // 	Node *n = &get_runtime()->nodes[i];
       //   // Iterate over all the events and get their implementations
       //   for (unsigned long j = 0; j < n->events.max_entries(); j++) {
@@ -202,13 +202,7 @@ namespace LegionRuntime {
 
 #ifdef DETAILED_TIMING
 #endif
-
-    void gasnet_barrier(void)
-    {
-      gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);
-      gasnet_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS);
-    }
-
+    
     template<typename ITEM>
     /*static*/ void Tracer<ITEM>::dump_trace(const char *filename, bool append)
     {
@@ -216,7 +210,7 @@ namespace LegionRuntime {
       // separate) - nodes other than zero ALWAYS append
       gasnet_barrier();
 
-      for(int i = 0; i < gasnet_nodes(); i++) {
+      for(int i = 0; i < fabric->get_num_nodes(); i++) {
 	if(i == fabric->get_id()) {
 	  int fd = open(filename, (O_WRONLY |
 				   O_CREAT |

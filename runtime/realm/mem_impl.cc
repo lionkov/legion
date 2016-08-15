@@ -1675,7 +1675,7 @@ namespace Realm {
     size_t field_size = serdez_op->sizeof_field_type;
     log_copy.debug("sending remote serdez request: mem=" IDFMT ", offset=%zd, size=%zdx%zd, serdez_id=%d",
 		   mem.id, offset, field_size, count, serdez_id);
-    size_t max_xfer_size = get_lmb_size(ID(mem).node());
+    size_t max_xfer_size = fabric->get_max_send();
     // create a intermediate buf with same size as max_xfer_size
     char* buffer_start = (char*) malloc(max_xfer_size);
     const char *pos = (const char *)data;
