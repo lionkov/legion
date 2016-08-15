@@ -816,6 +816,14 @@ size_t FabFabric::get_iov_limit(MessageId id) {
 // returns a pointer to the addrs array on success, or NULL
 // on failure.
 void* FabFabric::exchange_addresses() {
+  if(num_nodes == 1) {
+    // single node mode, no need to exchange
+    void* addrs = (void*) malloc(num_nodes*addrlen);
+    memcpy(addr, addrs, addrlen);
+    return addrs;
+  }
+     
+  
   int ret;
   void* addrs = (void*) malloc(num_nodes*addrlen);
   

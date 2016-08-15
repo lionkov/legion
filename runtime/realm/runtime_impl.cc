@@ -665,7 +665,6 @@ namespace Realm {
 
       // Register all message types with fabric before calling fabric->init()
       std::cout << "ADDING MESSAGES" << std::endl;
-      fabric->log_fabric().debug() << "HI!";
       
       fabric->add_message_type(new ClearTimersMessageType(), "Clear Timer Request");
       fabric->add_message_type(new TimerDataRequestMessageType(), "Roll-up Request");
@@ -1429,7 +1428,7 @@ namespace Realm {
 	log_runtime.info("shutdown request received - terminating");
       }
 
-#ifdef USE_GASNET
+#ifdef USE_FABRIC
       // don't start tearing things down until all processes agree
       fabric->barrier_notify(RT_WAIT_FOR_SHUTDOWN);
       fabric->barrier_wait(RT_WAIT_FOR_SHUTDOWN);

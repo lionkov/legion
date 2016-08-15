@@ -594,10 +594,12 @@ namespace Realm {
   void RemoteMemory::get_bytes(off_t offset, void *dst, size_t size)
   {
     // this better be an RDMA-able memory
-#ifdef USE_GASNET
+#ifdef USE_FABRIC
+    assert(false && "Fabric RDMA not implemented yet");
     assert(kind == MemoryImpl::MKIND_RDMA);
     void *srcptr = ((char *)regbase) + offset;
-    gasnet_get(dst, ID(me).node(), srcptr, size);
+    //gasnet_get(dst, ID(me).node(), srcptr, size);
+    
 #else
     assert(0 && "no remote get_bytes without GASNET");
 #endif
