@@ -568,7 +568,7 @@ bool FabFabric::incoming(Message *m)
       len -= mtype->argsz;
     }
     
-    m->payload = new FabContiguousPayload(PAYLOAD_KEEP, data, len);
+    m->payload = new FabContiguousPayload(FAB_PAYLOAD_KEEP, data, len);
   }
 
   m->mtype->request(m);

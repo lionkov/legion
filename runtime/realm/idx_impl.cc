@@ -1798,7 +1798,7 @@ namespace Realm {
 					     mask->last_enabled_elmt,
 					     mask_data,
 					     1 << 11,
-					     PAYLOAD_KEEP);
+					    FAB_PAYLOAD_KEEP);
       mask_data += 1 << 11;
       mask_len -= 1 << 11;
       block_id++;
@@ -1811,7 +1811,7 @@ namespace Realm {
 					     mask->last_enabled_elmt,
 					     mask_data,
 					     mask_len,
-					     PAYLOAD_KEEP);
+					    FAB_PAYLOAD_KEEP);
     }
   }
 

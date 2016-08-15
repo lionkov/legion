@@ -4395,7 +4395,7 @@ namespace Realm {
 
 	  get_runtime()->optable.add_remote_operation(ev, node);
 	  
-	  FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_FREE,
+	  FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_FREE,
 								   msgdata,
 								   msglen);
 	  
@@ -4580,7 +4580,7 @@ namespace Realm {
               log_dma.debug("performing serdez on remote node (%d), event=" IDFMT "/%d",
 			    dma_node, args->after_copy.id, args->after_copy.gen);
 	      get_runtime()->optable.add_remote_operation(ev, dma_node);
-	      FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_FREE, msgdata, msglen);
+	      FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_FREE, msgdata, msglen);
 	      fabric->send(new RemoteCopyMessage(dma_node, args, payload));
      
               finish_events.insert(ev);
@@ -4675,7 +4675,7 @@ namespace Realm {
 			  dma_node, args->after_copy.id, args->after_copy.gen);
 	    get_runtime()->optable.add_remote_operation(ev, dma_node);
 	    
-	    FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_FREE,
+	    FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_FREE,
 								     msgdata,
 								     msglen);
 	    
@@ -4749,7 +4749,7 @@ namespace Realm {
 		       src_node, args->after_copy.id, args->after_copy.gen);
 	  get_runtime()->optable.add_remote_operation(ev, src_node);
 
-	  FabContiguousPayload* payload = new FabContiguousPayload(PAYLOAD_FREE,
+	  FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_FREE,
 								   msgdata,
 								   msglen);
 

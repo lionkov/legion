@@ -19,6 +19,7 @@
 #define REALM_THREADS_H
 
 #include "realm_config.h"
+#include "libfabric/fabric_libfabric.h"
 #include "fabric.h"
 
 #ifdef REALM_USE_USER_THREADS

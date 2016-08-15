@@ -435,7 +435,7 @@ namespace Realm {
         memcpy(pos, impl->local_data, impl->local_data_size);
 	LockGrantMessageType::send_request(grant_target, args->lock,
 					   0, // always grant exclusive for now
-					   payload, payload_size, PAYLOAD_FREE);
+					   payload, payload_size,FAB_PAYLOAD_FREE);
 #ifdef LOCK_TRACING
         {
           LockTraceItem &item = Tracer<LockTraceItem>::trace_item();
@@ -888,7 +888,7 @@ namespace Realm {
         memcpy(pos, local_data, local_data_size);
 	LockGrantMessageType::send_request(grant_target, me,
 					   0, // TODO: figure out shared cases
-					   payload, payload_size, PAYLOAD_FREE);
+					   payload, payload_size,FAB_PAYLOAD_FREE);
 #ifdef LOCK_TRACING
         {
           LockTraceItem &item = Tracer<LockTraceItem>::trace_item();

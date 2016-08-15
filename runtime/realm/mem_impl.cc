@@ -1607,7 +1607,7 @@ namespace Realm {
 	while(left > max_xfer_size) {
 
 	  FabContiguousPayload* payload = new FabContiguousPayload(make_copy ?
-								   PAYLOAD_COPY : PAYLOAD_KEEP,
+								   PAYLOAD_COPY :FAB_PAYLOAD_KEEP,
 								   pos,
 								   max_xfer_size);
 		  
@@ -1620,7 +1620,7 @@ namespace Realm {
 	}
 	    
 	FabContiguousPayload* payload = new FabContiguousPayload(make_copy ?
-								 PAYLOAD_COPY : PAYLOAD_KEEP,
+								 PAYLOAD_COPY :FAB_PAYLOAD_KEEP,
 								 pos,
 								 max_xfer_size);
 	    
@@ -1653,7 +1653,7 @@ namespace Realm {
       assert(!subspans.empty());
 	  
       FabSpanPayload* payload = new FabSpanPayload(make_copy ?
-      						   PAYLOAD_COPY : PAYLOAD_KEEP,
+      						   PAYLOAD_COPY :FAB_PAYLOAD_KEEP,
       						   subspans);
       
       fabric->send(new RemoteWriteMessage(ID(mem).node(), mem, offset, fabric->get_id(),
@@ -1748,7 +1748,7 @@ namespace Realm {
       
     while(count > max_elmts_per_xfer) {	    
       FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
-						   PAYLOAD_COPY : PAYLOAD_KEEP,
+						   PAYLOAD_COPY :FAB_PAYLOAD_KEEP,
 						   pos,
 						   rhs_size,
 						   max_elmts_per_xfer,
@@ -1768,7 +1768,7 @@ namespace Realm {
     }
     // Last chunck sends whatever is left
     FabTwoDPayload* payload = new FabTwoDPayload(make_copy ?
-						 PAYLOAD_COPY : PAYLOAD_KEEP,
+						 PAYLOAD_COPY :FAB_PAYLOAD_KEEP,
 						 pos,
 						 rhs_size,
 						 max_elmts_per_xfer,

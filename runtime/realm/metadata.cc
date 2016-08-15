@@ -241,7 +241,7 @@ namespace Realm {
 		      args->id, args->node, datalen);
 
     // Send the reply
-    MetadataResponseMessageType::send_request(args->node, args->id, data, datalen, PAYLOAD_FREE);
+    MetadataResponseMessageType::send_request(args->node, args->id, data, datalen, FAB_PAYLOAD_FREE);
   }
 
   
