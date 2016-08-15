@@ -125,11 +125,8 @@ namespace Realm {
     //  gets the completion event for it
     void add_local_operation(Event finish_event, Operation *local_op);
     void add_remote_operation(Event finish_event, int remote_note);
-
     void request_cancellation(Event finish_event, const void *reason_data, size_t reason_size);
     
-    static int register_handlers(gasnet_handlerentry_t *handlers);
-
   protected:
     void event_triggered(Event e);
 

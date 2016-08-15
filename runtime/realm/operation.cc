@@ -479,12 +479,5 @@ namespace Realm {
       log_optable.info() << "event " << finish_event << " - operation " << (void *)local_op << " cancelled=" << did_cancel;
       local_op->remove_reference();
     }
-  }
-    
-  /*static*/ int OperationTable::register_handlers(gasnet_handlerentry_t *handlers)
-  {
-    return 0;
-  }
-
-
+  } 
 }; // namespace Realm
