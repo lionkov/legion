@@ -149,6 +149,7 @@ int FabTester::test_gather(int runs) {
 	++errors;
       }
     }
+    delete[] events;
   }
 
   // Root broadcasts to all other nodes that this gather is done,
@@ -443,4 +444,3 @@ void PingPongAckType::request(Message* m) {
   RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
   args->ack_table[args->sender] = true;
 }
-

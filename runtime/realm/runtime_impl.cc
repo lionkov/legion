@@ -712,6 +712,7 @@ namespace Realm {
       //  for relative timing - no synchronization necessary in non-networked case
       Realm::Clock::set_zero_time();
 #else // USE_FABRIC
+      std::cout << "USING FABRIC!!" << std::endl;
       fabric->synchronize_clocks();
 #endif // USE_FABRIC
 
@@ -1130,7 +1131,7 @@ namespace Realm {
 
 	// step 2: merge all the events
 	std::set<Event> event_set;
-	for(int i = 0; i < fabric->num_nodes(); i++) {
+	for(int i = 0; i < fabric->get_num_nodes(); i++) {
 	  //log_collective.info() << "ev " << i << ": " << all_events[i];
 	  if(all_events[i].exists())
 	    event_set.insert(all_events[i]);
@@ -1155,7 +1156,7 @@ namespace Realm {
 	// steps 2 and 3: twiddle thumbs
 	Event finish_event;
 	// step 4: wait for finish event to arrive
-	fabric->broadcast_event(finish_event, root);
+	fabric->broadcast_events(finish_event, root);
 	log_collective.info() << "collective spawn: proc=" << target_proc
 			      << " func=" << task_id << " priority=" << priority
 			      << " after=" << finish_event;
@@ -1186,24 +1187,24 @@ namespace Realm {
       if(fabric->get_id() == 0) {
 	// ROOT NODE
 	// step 1: receive wait_on from every node
-	Event* all_events = fabric->gather_events(wait_on, root);
+	Event* all_events = fabric->gather_events(wait_on, 0);
 	// step 2: merge all the events
 	std::set<Event> event_set;
-	for(int i = 0; i < fabric->num_nodes(); i++) {
+	for(int i = 0; i < fabric->get_num_nodes(); i++) {
 	  //log_collective.info() << "ev " << i << ": " << all_events[i];
 	  if(all_events[i].exists())
 	    event_set.insert(all_events[i]);
 	}
 	delete[] all_events;
 	merged_event = Event::merge_events(event_set);
-	fabric->broadcast(merged_event, root);
+	fabric->broadcast_events(merged_event, 0);
 	} else {
 	// NON-ROOT NODE
 	// step 1: send our wait_on to the root for merging
-	fabric->gather_events(wait_on, root);      
+	fabric->gather_events(wait_on, 0);      
 	// step 2: twiddle thumbs
 	// step 3: receive merged wait_on event
-	fabric->broadcast_events(merged_event, root);
+	fabric->broadcast_events(merged_event, 0);
       }
 #else // USE_FABRIC
       // no GASNet, so our precondition is the only one

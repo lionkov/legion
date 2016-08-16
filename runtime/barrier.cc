@@ -87,7 +87,7 @@ void BarrierWaiter::init(uint32_t _num_nodes) {
 // Notify an in-progress barrier that sender is checking in. If the barrier
 // has not been created yet, create it.
 void BarrierWaiter::notify(uint32_t barrier_id, NodeId sender) {
-  assert((initialized == true) && "Barrier not initiazlied");
+  assert((initialized == true) && "Barrier not initialized");
   map_mutex.lock();
   auto entry
     = barriers_in_progress.emplace(barrier_id, BarrierWaiterEntry(num_nodes));
@@ -98,7 +98,7 @@ void BarrierWaiter::notify(uint32_t barrier_id, NodeId sender) {
 // Wait on an in-progress barrier. If it has not been created yet, create the BarrierWaiterEntry.
 // Remove the entry when complete.
 void BarrierWaiter::wait(uint32_t barrier_id) {
-  assert((initialized == true) && "Barrier not initiazlied");
+  assert((initialized == true) && "Barrier not initialized");
   map_mutex.lock();
   auto entry
     = barriers_in_progress.emplace(barrier_id, BarrierWaiterEntry(num_nodes));

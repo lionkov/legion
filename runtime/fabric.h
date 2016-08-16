@@ -1,6 +1,10 @@
 #ifndef RUNTIME_FABRIC_H
 #define RUNTIME_FABRIC_H
 
+// TEMPORARY -- remove this in case people want to compile without fabric
+#define USE_FABRIC
+
+
 // For now, fabric will depend on ActiveMessagIDs and
 // Payload definitions from activemsg.h. When GASNET has
 // been fully removed, this will be moved back in to fabric.h / msg.h
