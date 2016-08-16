@@ -163,8 +163,7 @@ protected:
   size_t stacksize_in_mb;
     
   std::atomic<bool> stop_flag;
-  std::condition_variable done_cv;
-  std::mutex done_mut;
+  std::mutex done_mutex;
     
   int exchange_server_send_port;
   int exchange_server_recv_port;

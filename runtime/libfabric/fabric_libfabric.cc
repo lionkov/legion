@@ -18,6 +18,7 @@ FabFabric::FabFabric() : id(0), num_nodes(1), max_send(1024*1024), pend_num(16),
 			 exchange_server_send_port(8080),
 			 exchange_server_recv_port(8081),
 			 exchange_server_host("127.0.0.1") {
+  done_mutex.lock();
   for (int i = 0; i < MAX_MESSAGE_TYPES; ++i)
     mts[i] = NULL;
 }
@@ -339,7 +340,7 @@ void FabFabric::shutdown()
   fi_close(&(eq->fid));
   fi_close(&(dom->fid));
   fi_close(&(fab->fid));
-  done_cv.notify_all();
+  done_mutex.unlock();
 }
 
 NodeId FabFabric::get_id()
@@ -679,9 +680,9 @@ void FabFabric::free_progress_threads() {
 
 // Wait for the RT to shut down
 void FabFabric::wait_for_shutdown() {
-  std::unique_lock<std::mutex> lk(done_mut);
+
   std::cout << "Waiting to shut down..." << std::endl;
-  done_cv.wait(lk);
+  done_mutex.lock();
   std::cout << "OK, shutting down!" << std::endl;
 }
 
