@@ -119,7 +119,7 @@ void top_level_task(const void *args, size_t arglen,
       // first, the switching test
       if(num_iterations > 0) {
         // set the watchdog timeout before we do anything that could get stuck
-        alarm(timeout_seconds);
+        //alarm(timeout_seconds);
 
 	// we're going to need a reservation per child - all start out acquired
 	std::vector<Reservation> rsrvs(num_children);

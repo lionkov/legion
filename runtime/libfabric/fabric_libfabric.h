@@ -37,7 +37,9 @@
 
 class FabMutex {
 public:
-  FabMutex(void) { pthread_mutex_init(&_lock, NULL); } 
+  FabMutex(void) { pthread_mutex_init(&_lock, NULL); }
+  FabMutex(FabMutex& other) { assert(false && "Cannot copy FabMutex"); }
+  FabMutex(FabMutex&& rhs) { assert(false && "Cannot move FabMutex"); }
   ~FabMutex(void) { pthread_mutex_destroy(&_lock); }
     
   void lock(void) { pthread_mutex_lock(&_lock); }
@@ -56,6 +58,10 @@ private:
 class FabCondVar {
 public:
   FabCondVar(FabMutex &m) : mutex(m) { pthread_cond_init(&cond, NULL); }
+  FabCondVar(FabCondVar& other) : mutex(other.mutex)
+  { assert(false && "Cannot copy FabCondVar"); }
+  FabCondVar(FabCondVar&& other) : mutex(other.mutex)
+  { assert(false && "Cannot move FabCondVar"); }
   ~FabCondVar(void) { pthread_cond_destroy(&cond); }
   void signal(void) { pthread_cond_signal(&cond); }
   void broadcast(void) { pthread_cond_broadcast(&cond); }
@@ -77,6 +83,8 @@ class FabAutoLock {
 public:
   FabAutoLock(FabMutex& _mutex) : mutex(_mutex), held(true) { mutex.lock(); }
   FabAutoLock(FabCondVar& cond) : mutex(cond.mutex), held(true) { mutex.lock(); }
+  FabAutoLock(FabAutoLock& other) : mutex(other.mutex) { assert(false && "Cannot copy FabAutoLock"); }
+  FabAutoLock(FabAutoLock&& other): mutex(other.mutex) { assert(false && "Cannot move FabAutoLock"); }
   ~FabAutoLock();
   void release();
   void reacquire();

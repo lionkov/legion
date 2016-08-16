@@ -5,7 +5,7 @@ EXCHANGE_RECV=8081
 EXCHANGE_SEND=8080
 NUM_NODES=3
 STACK_SIZE=1
-HANDLER_COUNT=10
+HANDLER_COUNT=3
 
 # Kill all background jobs when this script exits
 trap 'kill $(jobs -p)' EXIT

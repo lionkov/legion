@@ -706,6 +706,7 @@ namespace Realm {
       fabric->add_message_type(new LegionRuntime::LowLevel::RemoteCopyMessageType(), "Remote Copy");
       fabric->add_message_type(new LegionRuntime::LowLevel::RemoteFillMessageType(), "Remote Fill");
 
+      fabric->init();
             
 #ifndef USE_FABRIC
       // network initialization is also responsible for setting the "zero_time"
@@ -790,9 +791,6 @@ namespace Realm {
       }
       else
 	global_memory = 0;
-      
-      
-      fabric->init();
 
       Node *n = &nodes[fabric->get_id()];
 
