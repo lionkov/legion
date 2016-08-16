@@ -705,24 +705,18 @@ namespace Realm {
       fabric->add_message_type(new ValidMaskDataMessageType(), "Valid Mask Data Request");
       fabric->add_message_type(new LegionRuntime::LowLevel::RemoteCopyMessageType(), "Remote Copy");
       fabric->add_message_type(new LegionRuntime::LowLevel::RemoteFillMessageType(), "Remote Fill");
-
+      
+#ifdef USE_FABRIC
       fabric->init();
-            
-#ifndef USE_FABRIC
-      // network initialization is also responsible for setting the "zero_time"
-      //  for relative timing - no synchronization necessary in non-networked case
-      Realm::Clock::set_zero_time();
-#else // USE_FABRIC
-      std::cout << "USING FABRIC!!" << std::endl;
       fabric->synchronize_clocks();
+#else // USE_FABRIC
+      Realm::Clock::set_zero_time();
 #endif // USE_FABRIC
-
-
+      
       nodes = new Node[fabric->get_num_nodes()];
-
       // create allocators for local node events/locks/index spaces
       {
-	Node& n = nodes[fabric->get_num_nodes()];
+	Node& n = nodes[fabric->get_id()];
 	local_event_free_list = new EventTableAllocator::FreeList(n.events,
 								  fabric->get_id());
 	local_barrier_free_list = new BarrierTableAllocator::FreeList(n.barriers,
