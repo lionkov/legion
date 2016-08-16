@@ -22,6 +22,7 @@
 #include <unistd.h>
 #include <algorithm>
 #include <iterator>
+#include <mutex>
 
 
 
@@ -90,6 +91,7 @@ public:
   void init(uint32_t _num_nodes);
   void wait(uint32_t barrier_id);
   void notify(uint32_t barrier_id, NodeId sender);
+  std::mutex map_mutex;
   
 protected:
   bool initialized;

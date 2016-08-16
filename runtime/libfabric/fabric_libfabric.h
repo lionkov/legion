@@ -7,6 +7,8 @@
 #include <cstdio>
 #include <pthread.h>
 //#include <stdatomic.h>
+#include <condition_variable>
+#include <atomic>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -160,7 +162,9 @@ protected:
   pthread_t* tx_handler_thread;
   size_t stacksize_in_mb;
     
-  bool stop_flag;
+  std::atomic<bool> stop_flag;
+  std::condition_variable done_cv;
+  std::mutex done_mut;
     
   int exchange_server_send_port;
   int exchange_server_recv_port;

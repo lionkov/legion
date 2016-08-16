@@ -88,7 +88,7 @@ int FabTester::run() {
     std::cout << "test_message_loopback -- OK" << std::endl;    
   }
   */
-  
+
   std::cout << std::endl << std::endl << "running: test_message_pingpong" << std::endl;
   if (test_message_pingpong() != 0) {
     errors += 1;
@@ -112,7 +112,7 @@ int FabTester::run() {
   } else {
     std::cout << "test_broadcast -- OK" << std::endl;    
   }
-  
+
   std::cout << std::endl << std::endl << "running: test_barrier" << std::endl;
   if (test_barrier(100) != 0) {
     errors += 1;
@@ -206,7 +206,7 @@ int FabTester::test_broadcast(int runs) {
 int FabTester::test_barrier(int runs) {
   if (runs <= 0)
     return 0;
-
+ 
   // Internal assertions should catch any problems,
   // so just run repeatedly and see if this works
   

@@ -307,7 +307,6 @@ int main(int argc, char **argv)
   MyMachineUpdateTracker *tracker = new MyMachineUpdateTracker;
   Machine::get_machine().add_subscription(tracker);
 #endif
-
   // select a processor to run the top level task on
   Processor p = Processor::NO_PROC;
   {

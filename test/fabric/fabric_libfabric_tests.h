@@ -43,7 +43,10 @@ public:
   int test_gather(int runs);
   int test_broadcast(int runs);
   int test_barrier(int runs);
-  void wait_for_shutdown() { fabric->wait_for_shutdown(); }
+  void wait_for_shutdown() {
+    fabric->shutdown();
+    fabric->wait_for_shutdown();
+  }
   
 protected:
   void add_message_types();

@@ -28,7 +28,7 @@ BarrierWaiterEntry::BarrierWaiterEntry(BarrierWaiterEntry&& other)
     recvd_flags(other.recvd_flags),
     wait_complete(other.wait_complete.load()),
     all_recvd(other.all_recvd.load()),
-    num_recvd(other.num_recvd.load()) { 
+    num_recvd(other.num_recvd.load()) {
   other.recvd_flags = NULL;  
 }
 
@@ -84,13 +84,14 @@ void BarrierWaiter::init(uint32_t _num_nodes) {
   initialized = true;
 }
 
-
 // Notify an in-progress barrier that sender is checking in. If the barrier
 // has not been created yet, create it.
 void BarrierWaiter::notify(uint32_t barrier_id, NodeId sender) {
   assert((initialized == true) && "Barrier not initiazlied");
+  map_mutex.lock();
   auto entry
-    = barriers_in_progress.emplace(std::make_pair(barrier_id, BarrierWaiterEntry(num_nodes)));
+    = barriers_in_progress.emplace(barrier_id, BarrierWaiterEntry(num_nodes));
+  map_mutex.unlock();
   entry.first->second.notify(sender);
 }
 
@@ -98,10 +99,14 @@ void BarrierWaiter::notify(uint32_t barrier_id, NodeId sender) {
 // Remove the entry when complete.
 void BarrierWaiter::wait(uint32_t barrier_id) {
   assert((initialized == true) && "Barrier not initiazlied");
+  map_mutex.lock();
   auto entry
-    = barriers_in_progress.emplace(std::make_pair(barrier_id, BarrierWaiterEntry(num_nodes)));
+    = barriers_in_progress.emplace(barrier_id, BarrierWaiterEntry(num_nodes));
+  map_mutex.unlock();
   entry.first->second.wait();
+  map_mutex.lock();
   barriers_in_progress.erase(entry.first);
+  map_mutex.unlock();
 }
 
 

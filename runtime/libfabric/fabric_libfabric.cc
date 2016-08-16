@@ -338,7 +338,8 @@ void FabFabric::shutdown()
   fi_close(&(rx_cq->fid));
   fi_close(&(eq->fid));
   fi_close(&(dom->fid));
-  fi_close(&(fab->fid)); 
+  fi_close(&(fab->fid));
+  done_cv.notify_all();
 }
 
 NodeId FabFabric::get_id()
@@ -463,7 +464,7 @@ void FabFabric::progress(bool wait) {
 
   int timeout = wait ? 1000 : 0;
 
-  while (stop_flag == false) { 
+  while (stop_flag.load() == false) { 
     ret = check_cq(rx_cq, &ce, timeout);
     if (ret > 0) {
       // Received a message
@@ -495,7 +496,7 @@ void FabFabric::handle_tx(bool wait) {
 
   int timeout = wait ? 1000 : 0;
 
-  while (stop_flag == false) { 
+  while (stop_flag.load() == false) { 
     ret = check_cq(tx_cq, &ce, timeout);
     
     if (ret > 0) {
@@ -661,7 +662,7 @@ void FabFabric::start_progress_threads(const int count, const size_t stack_size)
 }
 
 void FabFabric::free_progress_threads() {
-  stop_flag = true;
+  stop_flag.store(true);
   if(progress_threads) { 
     for (int i = 0; i < num_progress_threads; ++i) 
       pthread_join(progress_threads[i], NULL);
@@ -676,11 +677,12 @@ void FabFabric::free_progress_threads() {
   }
 }
 
-// For testing purposes -- just wait for the progress threads to complete.
+// Wait for the RT to shut down
 void FabFabric::wait_for_shutdown() {
-  for (int i = 0; i < num_progress_threads; ++i)
-    pthread_join(progress_threads[i], NULL);
-  std::cout << "OK, all threads done" << std::endl;
+  std::unique_lock<std::mutex> lk(done_mut);
+  std::cout << "Waiting to shut down..." << std::endl;
+  done_cv.wait(lk);
+  std::cout << "OK, shutting down!" << std::endl;
 }
 
 
