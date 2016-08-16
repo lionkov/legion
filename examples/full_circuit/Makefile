@@ -42,6 +42,8 @@ NVCC_FLAGS	?=
 GASNET_FLAGS	?=
 LD_FLAGS	?=
 
+CXX := clang++
+
 ###########################################################################
 #
 #   Don't change anything below here

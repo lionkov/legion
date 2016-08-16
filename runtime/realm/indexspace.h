@@ -962,16 +962,21 @@ namespace Realm {
                                           legion_lowlevel_file_mode_t file_mode) const;
       struct CopySrcDstField {
       public:
-        CopySrcDstField(void) 
-          : inst(RegionInstance::NO_INST), offset(0), size(0), serdez_id(0) { }
+	CopySrcDstField(void) 
+          : inst(RegionInstance::NO_INST), offset(0), size(0), 
+            field_id(0), serdez_id(0) { }
         CopySrcDstField(RegionInstance i, coord_t o, size_t s)
-          : inst(i), offset(o), size(s), serdez_id(0) { }
-        CopySrcDstField(RegionInstance i, coord_t o, size_t s, CustomSerdezID sid)
-          : inst(i), offset(o), size(s), serdez_id(sid) { }
+          : inst(i), offset(o), size(s), field_id(0), serdez_id(0) { }
+        CopySrcDstField(RegionInstance i, coord_t o, size_t s, unsigned f)
+          : inst(i), offset(o), size(s), field_id(f), serdez_id(0) { }
+        CopySrcDstField(RegionInstance i, coord_t o, size_t s, 
+                        unsigned f, CustomSerdezID sid)
+          : inst(i), offset(o), size(s), field_id(f), serdez_id(sid) { }	
       public:
 	RegionInstance inst;
 	coord_t offset;
         size_t size;
+	unsigned field_id;
 	CustomSerdezID serdez_id;
       };
 

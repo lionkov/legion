@@ -13,17 +13,19 @@
  * limitations under the License.
  */
 
-// dynamic node set implementation for Realm
+#ifndef __LEGION_REALM_H__
+#define __LEGION_REALM_H__
 
-#ifndef REALM_NODESET_H
-#define REALM_NODESET_H
+/**
+ * \file legion_realm.h
+ * This file just provides forward declarations of types that are
+ * needed in Realm extensions for Legion.
+ */
 
-// currently just using the HLR's version
-#include "legion_types.h"
-#include "legion_utilities.h"
+namespace Legion {
 
-namespace Realm {
-  typedef Legion::Internal::NodeSet NodeSet;
-};
+  class LayoutConstraintSet;
 
-#endif // ifndef REALM_NODESET_H
+}; // namespace Legion
+
+#endif // __LEGION_REALM_H__
