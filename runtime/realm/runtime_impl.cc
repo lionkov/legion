@@ -710,6 +710,9 @@ namespace Realm {
       fabric->init();
       fabric->synchronize_clocks();
 #else // USE_FABRIC
+      std::cout << "WARNING -- RUNNING IN SINGLE NODE MODE" << std::endl;
+      std::cout << "WARNING -- RUNNING IN SINGLE NODE MODE" << std::endl;
+      std::cout << "WARNING -- RUNNING IN SINGLE NODE MODE" << std::endl;
       Realm::Clock::set_zero_time();
 #endif // USE_FABRIC
       

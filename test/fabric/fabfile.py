@@ -1,42 +1,71 @@
-from fabric.api import run, env, cd, sudo
+from fabric.api import run, env, cd, sudo, parallel
 from fabric.context_managers import shell_env
 
 env.hosts = ['hop2', 'hop3']
 env.user = 'hcooney'
 
 repo = 'https://github.com/lionkov/legion/'
+code_dir = '/home/' + env.user + '/code'
+legion_root = code_dir + '/legion'
 branch = 'fabric-iso'
 send_port = 8080
 recv_port = 8081
 exchange_host = 'hop2'
-nclients = 2
+nnodes = 2
 
 def remove_repos():
     run('rm -rf code/legion')
 
 def clone():
-    with cd('code'):
+    with cd(code_dir):
         run('git clone ' + repo)
-    with cd('code/legion'):
+    with cd(legion_root):
         run('git checkout ' + branch)
         
 def pull():
-    with cd('code/legion/'):
+    with cd(legion_root):
+        run('git checkout ' + branch)
         run('git pull')
-
-def build_test():
-    with cd('code/legion/test/fabric'), shell_env(LG_RT_DIR='../../runtime'):
+@parallel
+def build_fabric():
+    with cd(legion_root + '/test/fabric'), shell_env(LG_RT_DIR=str(legion_root + '/runtime')):
         run('make build')
-
+@parallel
+def build_realm():
+    with cd(legion_root + '/test/realm'), shell_env(LG_RT_DIR=str(legion_root + '/runtime')):
+        run('make build')
+@parallel
+def clean_realm():
+    with cd(legion_root + '/test/realm'), shell_env(LG_RT_DIR=str(legion_root + '/runtime')):
+        run('make clean')
+@parallel
+def build(path):
+    with cd(legion_root + path), shell_env(LG_RT_DIR=str(legion_root + '/runtime')):
+        run('make build')
+@parallel
+def clean(path):
+    with cd(legion_roon + path), shell_env(LG_RT_DIR=str(legion_root + '/runtime')):
+        run('make clean')
+       
+@parallel
 def start():
-    with cd('code/legion/test/fabric'):
+    with cd(legion_root + '/test/fabric'), shell_env(LG_RT_DIR=str(legion_root + '/runtime')):
         run('./runtests -ll:num_nodes '
-            + str(nclients) +
+            + str(nnodes) +
             ' -ll:exchange_server_host '
             + exchange_host)
 
+@parallel
+def ctxswitch():
+    with cd(legion_root + '/test/realm'), shell_env(LG_RT_DIR=str(legion_root + '/runtime')):
+        run('./test_profiling -ll:num_nodes '
+            + str(nnodes) +
+            ' -ll:exchange_server_host '
+            + exchange_host)
+
+
 def clean_test():
-    with cd('code/legion/test/fabric'), shell_env(LG_RT_DIR='../../runtime'):        
+    with cd(legion_root + '/test/fabric'), shell_env(LG_RT_DIR=str(legion_root + '/runtime')):
         run('make clean')
 
 def remake_test():
@@ -44,24 +73,25 @@ def remake_test():
     build_test()
 
 def build_exchange():
-    with cd('code/legion/fabric_startup_server'):
+    with cd(legion_root + '/fabric_startup_server'):
         run('make')
+        
 def clean_exchange():
-    with cd('code/legion/fabric_startup_server'):
+    with cd(legion_root + '/fabric_startup_server'):
         run('make clean')
     
 def start_exchange():
-    with cd ('code/legion/fabric_startup_server'):
-        run('./exchange ' + str(nclients))
+    with cd (legion_root + '/fabric_startup_server'):
+        run('./exchange ' + str(nnodes))
 
 def build_all():
     pull()
     build_exchange()
-    build_test()
+    build_fabric()
 
 def rebuild_all():
     pull()
     clean_test()
     clean_exchange()
-    build_test()
-    build_exchange
+    build_fabric()
+    build_exchange()

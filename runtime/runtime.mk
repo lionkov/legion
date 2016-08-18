@@ -39,7 +39,7 @@ endif
 SLIB_LEGION     := liblegion.a
 ifeq ($(strip $(SHARED_LOWLEVEL)),0)
 SLIB_REALM      := librealm.a
-LEGION_LIBS     := -L. -llegion -lrealm
+LEGION_LIBS     := -L. -llegion -lrealm 
 else
 $(error Error: SHARED_LOWLEVEL=1 is no longer supported)
 SLIB_SHAREDLLR  := libsharedllr.a
@@ -111,7 +111,7 @@ endif
 
 INC_FLAGS	+= -I$(LG_RT_DIR) -I$(LG_RT_DIR)/realm -I$(LG_RT_DIR)/legion -I$(LG_RT_DIR)/mappers
 ifneq ($(shell uname -s),Darwin)
-LEGION_LD_FLAGS	+= -lrt -lpthread -lfabric -lzmq
+LEGION_LD_FLAGS	+= -lrt -lpthread -lfabric 
 else
 LEGION_LD_FLAGS	+= -lpthread
 endif
@@ -172,7 +172,7 @@ CC_FLAGS        += -DUSE_CUDA
 NVCC_FLAGS      += -DUSE_CUDA
 INC_FLAGS	+= -I$(CUDA)/include 
 ifeq ($(strip $(DEBUG)),1)
-NVCC_FLAGS	+= -DDEBUG_REALM -DDEBUG_LEGION -g -O0
+NVCC_FLAGS	+= -DDEBUG_REALM -DDEBUG_LEGION -O0 #-g -O0
 #NVCC_FLAGS	+= -G
 else
 NVCC_FLAGS	+= -O2
@@ -280,7 +280,7 @@ endif # ifeq SHARED_LOWLEVEL
 
 
 ifeq ($(strip $(DEBUG)),1)
-CC_FLAGS	+= -DDEBUG_REALM -DDEBUG_LEGION -ggdb #-ggdb -Wall
+CC_FLAGS	+= -DDEBUG_REALM -DDEBUG_LEGION -ggdb
 else
 CC_FLAGS	+= -O2 -fno-strict-aliasing #-ggdb
 endif
@@ -290,7 +290,7 @@ endif
 CC_FLAGS	+= -DCOMPILE_TIME_MIN_LEVEL=$(OUTPUT_LEVEL)
 
 # demand warning-free compilation
-CC_FLAGS        += -Wall -Wno-strict-overflow
+CC_FLAGS        += -Wno-strict-overflow
 ifeq ($(strip $(WARN_AS_ERROR)),1)
 CC_FLAGS        += -Werror
 endif
@@ -299,7 +299,7 @@ endif
 
 LOW_RUNTIME_SRC	?=
 HIGH_RUNTIME_SRC?=
-GPU_RUNTIME_SRC	?=
+fGPU_RUNTIME_SRC	?=
 MAPPER_SRC	?=
 ASM_SRC		?=
 
@@ -343,6 +343,7 @@ LOW_RUNTIME_SRC += $(LG_RT_DIR)/fabric.cc
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/payload.cc	
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/libfabric/fabric_libfabric.cc
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/barrier.cc
+LEGION_LD_FLAGS += -L /usr/lib/x86_64-linux-gnu/ -lzmq
 
 GPU_RUNTIME_SRC +=
 else

@@ -39,7 +39,7 @@ public:
   
   void testFabTwoDPayload();
   int test_message_loopback();
-  int test_message_pingpong();
+  int test_message_pingpong(int runs);
   int test_gather(int runs);
   int test_broadcast(int runs);
   int test_barrier(int runs);
@@ -190,7 +190,7 @@ public:
   PingPongMessageType()
     : MessageType(6, /* msgId */
 		  sizeof(RequestArgs),
-		  false, /* has payload */
+		  true, /* has payload */
 		  true /*in order */ ){ }
 
   struct RequestArgs {
@@ -207,8 +207,8 @@ public:
 
 class PingPongMessage : public Message {
 public:
-  PingPongMessage(NodeId dest, NodeId sender, bool* ack_table)
-    : Message(dest, 6, &args, NULL),
+  PingPongMessage(NodeId dest, NodeId sender, bool* ack_table, FabPayload* payload)
+    : Message(dest, 6, &args, payload),
       args(sender, ack_table) { }
 
   PingPongMessageType::RequestArgs args;
@@ -221,7 +221,7 @@ public:
   PingPongAckType()
     : MessageType(7, /* msgId */
 		  sizeof(RequestArgs),
-		  false, /* has payload */
+		  true, /* has payload */
 		  true /*in order */ ){ }
 
   struct RequestArgs {
@@ -238,8 +238,8 @@ public:
 
 class PingPongAck : public Message {
 public:
-  PingPongAck(NodeId dest, NodeId sender, bool* ack_table)
-    : Message(dest, 7, &args, NULL),
+  PingPongAck(NodeId dest, NodeId sender, bool* ack_table, FabPayload* payload)
+    : Message(dest, 7, &args, payload),
       args(sender, ack_table) { }
 
   PingPongAckType::RequestArgs args;

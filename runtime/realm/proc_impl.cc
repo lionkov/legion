@@ -579,11 +579,10 @@ namespace Realm {
 						     const ProfilingRequestSet *prs,
 						     Event start_event,
 						     Event finish_event,
-						     int priority) { 
-    
+						     int priority) {
     if(!prs || prs->empty()) {
       // no profiling, so task args are the only payload
-      FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_FREE,
+      FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_COPY,
 							       (void*) args,
 							       arglen);
       fabric->send(new SpawnTaskMessage(target, proc, start_event.id, finish_event.id, arglen,
@@ -598,11 +597,13 @@ namespace Realm {
       //  will still work correctly)
       Serialization::DynamicBufferSerializer dbs(arglen + 512);
 
+
       dbs.append_bytes(args, arglen);
       dbs << *prs;
 
       size_t datalen = dbs.bytes_used();
       void *data = dbs.detach_buffer(-1);  // don't trim - this buffer has a short life
+
       FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_FREE,
 							       data,
 							       datalen);

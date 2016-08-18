@@ -90,7 +90,7 @@ int FabTester::run() {
   */
 
   std::cout << std::endl << std::endl << "running: test_message_pingpong" << std::endl;
-  if (test_message_pingpong() != 0) {
+  if (test_message_pingpong(4) != 0) {
     errors += 1;
     std::cout << "ERROR -- test_message_pingpong -- FAILED" << std::endl;    
   } else {
@@ -218,7 +218,10 @@ int FabTester::test_barrier(int runs) {
 
 // The root node sends a message to each other node. When recieved, this message will
 // prompt the other node to send a message back, containing that node's ID.
-int FabTester::test_message_pingpong() {
+int FabTester::test_message_pingpong(int runs) {
+  if (runs <= 0)
+    return 0;
+
   NodeId my_id = fabric->get_id();
   size_t num_nodes = fabric->get_num_nodes();
   bool* ack_table = new bool[num_nodes];
@@ -226,9 +229,14 @@ int FabTester::test_message_pingpong() {
   for (int i=0; i<num_nodes;++i)
     ack_table[i] = false;
 
-  for(NodeId i = 0; i < num_nodes; ++i)
-    fabric->send(new PingPongMessage(i, my_id, ack_table));
-
+  for(NodeId i = 0; i < num_nodes; ++i) {
+    char* mystr = new char[30];
+    strcpy(mystr, "PingPongMessage");
+    FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_FREE,
+							     (void*) mystr,
+							     30);
+    fabric->send(new PingPongMessage(i, my_id, ack_table, payload));
+  }
   // Give all message a change to send
   sleep(1);
 
@@ -244,6 +252,7 @@ int FabTester::test_message_pingpong() {
   }
 
   delete[] ack_table;
+  errors += test_message_pingpong(runs-1);
   return (errors == 0) ? 0 : 1;
 }
 
@@ -437,10 +446,28 @@ void TestSpanPayloadMessageType::request(Message* m) {
 // Sends a message back to the sender with this node's ID
 void PingPongMessageType::request(Message* m) {
   RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
-  fabric->send(new PingPongAck(args->sender, fabric->get_id(), args->ack_table));
+  char* data = (char*) m->payload->ptr();
+  size_t datalen = m->payload->size();
+  assert(strncmp(data, "PingPongMessage", datalen) == 0);
+  
+  char* response_str = new char[30];
+  sprintf(response_str, "PingPongAck from %d", fabric->get_id());
+  
+  FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_FREE,
+							   (void*) response_str,
+							   30);
+ 
+  fabric->send(new PingPongAck(args->sender, fabric->get_id(), args->ack_table, payload));
 }
 
 void PingPongAckType::request(Message* m) {
   RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
+  char* data = (char*) m->payload->ptr();
+  size_t datalen = m->payload->size();
+  
+  char cmp_str[30];
+  sprintf(cmp_str, "PingPongAck from %d", args->sender);
+
+  assert(strncmp(cmp_str, data, 30) == 0);
   args->ack_table[args->sender] = true;
 }
