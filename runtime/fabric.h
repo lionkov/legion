@@ -60,20 +60,40 @@ class Fabric {
   // all message types need to be added before init() is called
   Fabric() : log(NULL), num_msgs_added(0) { }
   ~Fabric() { }
+
+  // Refers to each registered message type
   MessageType* mts[MAX_MESSAGE_TYPES];
+  
+  // Initialization, shutdown
+  // Each message type must be added before initialization
   virtual bool add_message_type(MessageType *mt, const std::string tag) = 0;
+  // register_options must be called before init() for command
+  // line parameters to take effect
+  virtual void register_options(Realm::CommandLineParser& cp) = 0;
   virtual bool init(bool manually_set_addresses = false) = 0;
   virtual void shutdown() = 0;
   virtual void synchronize_clocks() = 0;
-
   // call on fatal error - clean up RT and exit
   virtual void fatal_shutdown(int code) = 0;
 
-  // Send messages / collectives  
+  // 'Registered' memory is for one-sided RDMA operations.
+  //  Each node can have only one registered memory block at a time
+  // Create the registered memory block and return a pointer to it
+  virtual void* regmem_alloc(size_t size) = 0;
+  // Free the regmem block
+  virtual void regmem_free() = 0;
+  // Put bytes into the registered block at given offset
+  virtual void regmem_put(off_t offset, const void* src, size_t len) = 0;
+  // Read bytes from the registered block at given offset
+  virtual void regmem_get(off_t offset, void* dst, size_t len) = 0;
+  
+  
+  
+
+  // Send messages 
   virtual int send(Message* m) = 0;
 
-  // If called by root node, returns gather array once all gather events arrive.
-  // Otherwise, sends data to root and returns NULL.
+  // Collectives and barriers
   virtual Realm::Event* gather_events(Realm::Event& event, NodeId root) = 0;
   virtual void recv_gather_event(Realm::Event& event, NodeId sender) = 0;
   virtual void broadcast_events(Realm::Event& event, NodeId root) = 0;
@@ -90,12 +110,7 @@ class Fabric {
   virtual int get_max_send() = 0;
   virtual void wait_for_shutdown() = 0;
 
-  // virtual bool incoming(Message *) = 0;
-  virtual void *memalloc(size_t size) = 0;
-  virtual void memfree(void *) = 0;
   Realm::Logger* log;
-  // Get the global Legion logger for fabric
-  virtual void register_options(Realm::CommandLineParser& cp) = 0;
   Realm::Logger& log_fabric() {
     static Realm::Logger log("fabric");
     return log;

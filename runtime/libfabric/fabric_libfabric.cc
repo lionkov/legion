@@ -998,7 +998,6 @@ void FabFabric::recv_barrier_notify(uint32_t barrier_id, NodeId sender) {
 void FabFabric::synchronize_clocks() {
   // Use barriers to ATTEMPT synchronization. This is how Realm accomplished
   // synchronization previously. Could be improved?
-
   barrier_notify(CLOCK_SYNC_BARRIER_ID);
   barrier_wait(CLOCK_SYNC_BARRIER_ID);  
   barrier_notify(CLOCK_SYNC_BARRIER_ID+1);
@@ -1008,9 +1007,30 @@ void FabFabric::synchronize_clocks() {
   barrier_wait(CLOCK_SYNC_BARRIER_ID+2);
 }
 
-
 // Shut down / clean up the RT and exit with requested code
 void FabFabric::fatal_shutdown(int code) {
   shutdown();
   exit(code);
+}
+
+void* FabFabric::regmem_alloc(size_t size) {
+  // TODO
+  assert(false); 
+  return NULL;
+}
+
+void FabFabric::regmem_free() {
+  // TODO
+  assert(false); 
+}
+
+
+void FabFabric::regmem_get(off_t offset, void* dst, size_t len) {
+  // TODO
+  assert(false);
+}
+
+void FabFabric::regmem_put(off_t offset, const void* src, size_t len) {
+  // TODO
+  assert(false);
 }

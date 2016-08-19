@@ -558,6 +558,7 @@ namespace Realm {
 					       const ProfilingRequestSet &reqs,
 					       RegionInstance parent_inst)
   {
+    assert(false && "Fabric RemoteMemory not implemeneted yet!");
     return create_instance_remote(r, linearization_bits, bytes_needed,
 				  block_size, element_size, field_sizes, redopid,
 				  list_size, reqs, parent_inst);

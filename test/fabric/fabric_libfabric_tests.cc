@@ -467,7 +467,6 @@ void PingPongAckType::request(Message* m) {
   
   char cmp_str[30];
   sprintf(cmp_str, "PingPongAck from %d", args->sender);
-
   assert(strncmp(cmp_str, data, 30) == 0);
   args->ack_table[args->sender] = true;
 }

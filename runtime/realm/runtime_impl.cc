@@ -747,6 +747,7 @@ namespace Realm {
         signal(SIGBUS,  realm_freeze);
       } else if ((getenv("REALM_BACKTRACE") != NULL) ||
                  (getenv("LEGION_BACKTRACE") != NULL)) {
+	signal(SIGINT,  realm_backtrace);
         signal(SIGSEGV, realm_backtrace);
         signal(SIGABRT, realm_backtrace);
         signal(SIGFPE,  realm_backtrace);
@@ -804,7 +805,7 @@ namespace Realm {
 
       LocalCPUMemory *regmem;
       if(reg_mem_size_in_mb > 0) {
-	assert(false && "LocalCPUMemory not implemented yet");
+	assert(false && "Registered RDMA memory not yet implemented");
 	/*
 	char *regmem_base = ((char *)(seginfos[fabric->get_id()].addr)) + (gasnet_mem_size_in_mb << 20);
 	delete[] seginfos;
@@ -816,6 +817,7 @@ namespace Realm {
 				    true);
 	n->memories.push_back(regmem);
 	*/
+	
       } else
 	regmem = 0;
 
@@ -1117,7 +1119,6 @@ namespace Realm {
       
       // root node will be whoever owns the target proc
       int root = ID(target_proc).node();
-
       if(fabric->get_id() == root) {
 	// ROOT NODE
 
@@ -1673,9 +1674,9 @@ namespace Realm {
     /*static*/
     void RuntimeImpl::realm_backtrace(int signal)
     {
-      assert((signal == SIGILL) || (signal == SIGFPE) || 
+      assert((signal == SIGILL)  || (signal == SIGFPE)  || 
              (signal == SIGABRT) || (signal == SIGSEGV) ||
-             (signal == SIGBUS));
+             (signal == SIGBUS)  || (signal == SIGINT));
       void *bt[256];
       int bt_size = backtrace(bt, 256);
       char **bt_syms = backtrace_symbols(bt, bt_size);

@@ -108,6 +108,10 @@ public:
   void fatal_shutdown(int code);
   NodeId get_id();
   uint32_t get_num_nodes();
+  void* regmem_alloc(size_t);
+  void regmem_free();
+  void regmem_put(off_t offset, const void* src, size_t len);
+  void regmem_get(off_t offset, void* dst, size_t len);
   int send(Message* m);
   Realm::Event* gather_events(Realm::Event& event, NodeId root);
   void broadcast_events(Realm::Event& event, NodeId root);
