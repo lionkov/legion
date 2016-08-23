@@ -56,7 +56,7 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
   return -1;
   }
   
-  // Discover number of nodes, record in num_nodes
+ // Discover number of nodes, record in num_nodes
   ret = PMI_Get_size((int*) &num_nodes);
   if (ret != PMI_SUCCESS) {
   std::cerr << "ERROR -- PMI_Get_size failed with error code " << ret << std::endl;
@@ -347,10 +347,13 @@ bool FabFabric::add_message_type(MessageType *mt, const std::string tag)
 {
   log_fabric().debug("registered message type: %s", tag.c_str());
 
-  if (mt->id == 0 || mts[mt->id] != NULL)
+  if (mt->id == 0 || mts[mt->id] != NULL || mt->id > MAX_MESSAGE_TYPES) {
+    assert(false && "Attempted to add invalid message type");
     return false;
+  }
 
   mts[mt->id] = mt;
+  mdescs[mt->id] = tag;
   return true;
 }
 
@@ -388,6 +391,8 @@ int FabFabric::send(Message* m)
   mt = m->mtype;
   if (mt == NULL)
     return -EINVAL;
+
+  std::cout << id << ": Sending message of type: " << mdescs[mt->id] << std::endl;
 
 
   if (!m->mtype->payload) {
@@ -593,6 +598,7 @@ bool FabFabric::incoming(Message *m)
     m->payload = new FabContiguousPayload(FAB_PAYLOAD_KEEP, data, len);
   }
 
+  std::cout << id << ": Incoming message of type: " << mdescs[m->mtype->id] << std::endl;
   m->mtype->request(m);
   // Anything else?
 

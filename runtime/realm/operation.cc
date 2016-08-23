@@ -420,8 +420,10 @@ namespace Realm {
 
     log_optable.info() << "event " << finish_event << " cleaned: local_op=" << (void *)local_op;
 
-    if(local_op)
+    if(local_op) { 
       local_op->remove_reference();
+      log_optable.info() << "removed local reference to:  " << finish_event << " local_op=" << (void *)local_op;
+    }
   }
     
   void OperationTable::request_cancellation(Event finish_event,

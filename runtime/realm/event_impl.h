@@ -275,7 +275,6 @@ namespace Realm {
   // EventTriggerMessage is used by non-owner nodes to trigger an event
   // EventUpdateMessage is used by the owner node to tell non-owner nodes about one or
   //   more triggerings of an event
-  
   class EventTriggerMessageType : public MessageType {
   public:
   EventTriggerMessageType()

@@ -63,6 +63,7 @@ class Fabric {
 
   // Refers to each registered message type
   MessageType* mts[MAX_MESSAGE_TYPES];
+  std::string mdescs[MAX_MESSAGE_TYPES];
   
   // Initialization, shutdown
   // Each message type must be added before initialization

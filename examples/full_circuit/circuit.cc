@@ -50,6 +50,7 @@ void top_level_task(const Task *task,
                     const std::vector<PhysicalRegion> &regions,
                     Context ctx, HighLevelRuntime *runtime)
 {
+  std::cout << "Entering top-level task... " << std::endl;
   int num_loops = 2;
   int num_pieces = 4;
   int nodes_per_piece = 2;
@@ -103,7 +104,8 @@ void top_level_task(const Task *task,
     circuit.node_locator = runtime->create_logical_region(ctx,node_index_space,locator_field_space);
     runtime->attach_name(circuit.node_locator, "node_locator");
   }
-
+  std::cout << "Done with step 1" << std::endl;
+  
   // Load the circuit
   std::vector<CircuitPiece> pieces(num_pieces);
   Partitions parts = load_circuit(circuit, pieces, ctx, runtime, num_pieces, nodes_per_piece,
@@ -145,6 +147,7 @@ void top_level_task(const Task *task,
     TaskHelper::dispatch_task<UpdateVoltagesTask>(upv_launcher, ctx, runtime, 
                                                   perform_checks, simulation_success,
                                                   ((i+1)==num_loops));
+    std::cout << "Loop " << i << " of " << num_loops << " Complete! " << std::endl;
   }
   ts_end = Realm::Clock::current_time_in_microseconds();
   if (simulation_success)
@@ -244,6 +247,7 @@ int main(int argc, char **argv)
   HighLevelRuntime::register_reduction_op<AccumulateCharge>(REDUCE_ID);
   HighLevelRuntime::set_registration_callback(update_mappers);
 
+  std::cout << "Starting HLR" << std::endl;
   return HighLevelRuntime::start(argc, argv);
 }
 

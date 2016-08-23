@@ -18754,6 +18754,7 @@ namespace Legion {
 #endif
         realm.init(&argc, &argv);
       assert(ok);
+      std::cout << "DONE INITIALIZEING REALM" << std::endl;
       
       {
 	const ReductionOpTable& red_table = get_reduction_table();
@@ -19095,6 +19096,7 @@ namespace Legion {
           top_level_proc = local_procs.first();
         }
       }
+      std::cout << "Spawning runtime startup event: " << INIT_TASK_ID <<  std::endl;
       // Now perform a collective spawn to initialize the runtime everywhere
       // Save the precondition in case we are the node that needs to start
       // the top-level task.
@@ -19108,6 +19110,7 @@ namespace Legion {
       // See if we are supposed to start the top-level task
       if (top_level_proc.exists())
       {
+	std::cout << "Node " << fabric->get_id() << " is spawning TLT" << std::endl;
         Realm::ProfilingRequestSet empty_requests;
         top_level_proc.spawn(HLR_LAUNCH_TOP_LEVEL_ID, NULL, 0,
                              empty_requests, runtime_startup_event);

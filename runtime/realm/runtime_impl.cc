@@ -63,9 +63,9 @@ namespace Realm {
 
     static void realm_freeze(int signal)
     {
-      assert((signal == SIGINT) || (signal == SIGABRT) ||
-             (signal == SIGSEGV) || (signal == SIGFPE) ||
-             (signal == SIGBUS));
+      assert((signal == SIGINT)  || (signal == SIGABRT) ||
+             (signal == SIGSEGV) || (signal == SIGFPE)  ||
+             (signal == SIGBUS)  || (signal == SIGINT));
       int process_id = getpid();
       char hostname[128];
       gethostname(hostname, 127);
@@ -560,7 +560,7 @@ namespace Realm {
       size_t disk_mem_size_in_mb = 0;
       // Static variable for stack size since we need to 
       // remember it when we launch threads in run 
-      stack_size_in_mb = 2;
+      stack_size_in_mb = 32;
       //unsigned cpu_worker_threads = 1;
       unsigned dma_worker_threads = 1;
       unsigned active_msg_worker_threads = 1;
@@ -579,7 +579,6 @@ namespace Realm {
 
       CommandLineParser cp;
       cp.add_option_int("-ll:gsize", gasnet_mem_size_in_mb)
-	.add_option_int("-ll:rsize", reg_mem_size_in_mb)
 	.add_option_int("-ll:dsize", disk_mem_size_in_mb)
 	.add_option_int("-ll:dma", dma_worker_threads)
 	.add_option_int("-ll:amsg", active_msg_worker_threads)
@@ -674,7 +673,6 @@ namespace Realm {
       fabric->add_message_type(new RegisterTaskMessageType(), "Register Task");
       fabric->add_message_type(new RegisterTaskCompleteMessageType(), "Register Task Complete");
       fabric->add_message_type(new MetadataRequestMessageType(), "Metadata Request");
-      fabric->add_message_type(new MetadataRequestMessageType(), "Metadata Request");
       fabric->add_message_type(new MetadataResponseMessageType(), "Metadata Response");
       fabric->add_message_type(new MetadataInvalidateMessageType(), "Metadata Invalidate");
       fabric->add_message_type(new MetadataInvalidateAckMessageType(), "Metadata Inval Ack");
@@ -740,6 +738,10 @@ namespace Realm {
 #endif
       if ((getenv("LEGION_FREEZE_ON_ERROR") != NULL) ||
           (getenv("REALM_FREEZE_ON_ERROR") != NULL)) {
+	std::cout << "FREEZE ENABLED" << std::endl;
+	std::cout << "FREEZE ENABLED" << std::endl;
+	std::cout << "FREEZE ENABLED" << std::endl;
+	signal(SIGINT, realm_freeze);
         signal(SIGSEGV, realm_freeze);
         signal(SIGABRT, realm_freeze);
         signal(SIGFPE,  realm_freeze);
@@ -747,12 +749,16 @@ namespace Realm {
         signal(SIGBUS,  realm_freeze);
       } else if ((getenv("REALM_BACKTRACE") != NULL) ||
                  (getenv("LEGION_BACKTRACE") != NULL)) {
+	std::cout << "BACKTRACE ENABLED" << std::endl;
+	std::cout << "BACKTRACE ENABLED" << std::endl;
+	std::cout << "BACKTRACE ENABLED" << std::endl;
 	signal(SIGINT,  realm_backtrace);
         signal(SIGSEGV, realm_backtrace);
         signal(SIGABRT, realm_backtrace);
         signal(SIGFPE,  realm_backtrace);
         signal(SIGILL,  realm_backtrace);
         signal(SIGBUS,  realm_backtrace);
+	signal(SIGTERM,  realm_backtrace);
       }
       
       LegionRuntime::LowLevel::create_builtin_dma_channels(this);
@@ -803,10 +809,11 @@ namespace Realm {
 	  it++)
 	(*it)->create_processors(this);
 
-      LocalCPUMemory *regmem;
+      // TODO -- fabric should export registered memory as a LocalCPUMemory
+      LocalCPUMemory *regmem = 0;
+      /*
       if(reg_mem_size_in_mb > 0) {
 	assert(false && "Registered RDMA memory not yet implemented");
-	/*
 	char *regmem_base = ((char *)(seginfos[fabric->get_id()].addr)) + (gasnet_mem_size_in_mb << 20);
 	delete[] seginfos;
 	regmem = new LocalCPUMemory(ID(ID::ID_MEMORY,
@@ -816,10 +823,10 @@ namespace Realm {
 				    regmem_base,
 				    true);
 	n->memories.push_back(regmem);
-	*/
 	
       } else
 	regmem = 0;
+      */
 
       // create local disk memory
       DiskMemory *diskmem;
@@ -1675,8 +1682,8 @@ namespace Realm {
     void RuntimeImpl::realm_backtrace(int signal)
     {
       assert((signal == SIGILL)  || (signal == SIGFPE)  || 
-             (signal == SIGABRT) || (signal == SIGSEGV) ||
-             (signal == SIGBUS)  || (signal == SIGINT));
+	     (signal == SIGABRT) || (signal == SIGSEGV) ||
+	     (signal == SIGBUS)  || (signal == SIGINT));
       void *bt[256];
       int bt_size = backtrace(bt, 256);
       char **bt_syms = backtrace_symbols(bt, bt_size);

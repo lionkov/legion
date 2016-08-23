@@ -88,7 +88,7 @@ int FabTester::run() {
     std::cout << "test_message_loopback -- OK" << std::endl;    
   }
   */
-
+  
   std::cout << std::endl << std::endl << "running: test_message_pingpong" << std::endl;
   if (test_message_pingpong(4) != 0) {
     errors += 1;
@@ -112,7 +112,7 @@ int FabTester::run() {
   } else {
     std::cout << "test_broadcast -- OK" << std::endl;    
   }
-
+  
   std::cout << std::endl << std::endl << "running: test_barrier" << std::endl;
   if (test_barrier(100) != 0) {
     errors += 1;
@@ -120,14 +120,67 @@ int FabTester::run() {
   } else {
     std::cout << "test_barrier -- OK" << std::endl;    
   }
-  return errors;
-
+ 
+  /*
+  std::cout << std::endl << std::endl << "running: test_rdma" << std::endl;
+  if (test_rdma(4) != 0) {
+    errors += 1;
+    std::cout << "ERROR -- test_rdma -- FAILED" << std::endl;    
+  } else {
+    std::cout << "test_rdma -- OK" << std::endl;    
+  }
+  */
+  
 
   // Wait for all other RTs to complete, then shut down
-  fabric->barrier_notify(0);
-  fabric->barrier_wait(0);
+  std::cout << "Starting shutdown barrier" << std::endl;
+  fabric->barrier_notify(FABRIC_TESTS_DONE_BARRIER_ID);
+  fabric->barrier_wait(FABRIC_TESTS_DONE_BARRIER_ID);
+  std::cout << "Shutdown barrier done" << std::endl;
   fabric->shutdown();
+  return errors;
 }
+
+// RDMA into each node. Verify that the correct info is in registered
+// memory afterwards. Barriers must be working for this test to run
+int FabTester::test_rdma(int runs) {
+  if (runs <= 0)
+    return 0;
+
+  int errors = 0;
+  char msg[50];
+  sprintf(msg, "RDMA from Node %d", fabric->get_id());
+  std::cout << msg << std::endl;
+
+  // Put own string in everyone else's memory
+  for (NodeId i=0; i<fabric->get_num_nodes(); ++i) {
+    fabric->regmem_put(i, fabric->get_id()*50, msg, 50);
+  }
+
+  // Synchronize...
+  fabric->wait_for_rdmas();
+  fabric->barrier_notify(5678);
+  fabric->barrier_wait(5678);
+
+  sleep(1);
+  // Veryify that everone has the right data
+  /*
+  for (NodeId i=0; i<fabric->get_num_nodes(); ++i) {
+    for (NodeId ii=0; ii<fabric->get_num_nodes(); ++ii) {
+      fabric->regmem_get(i, ii*50, msg, 50);
+      std::cout << "Id: " << i << " msg: " << msg << std::endl;
+    }
+  }
+  */
+  char* regmem_buf = (char*)fabric->get_regmem_ptr();
+  for (int i=0; i<fabric->get_num_nodes(); ++i) {
+    std::cout << regmem_buf+50*i << std::endl;
+  }
+  
+
+  return (errors == 0) ? 0 : 1;
+}
+
 
 // Perform an Event gather from all other nodes in the system
 // onto node 0. 
@@ -210,9 +263,8 @@ int FabTester::test_barrier(int runs) {
  
   // Internal assertions should catch any problems,
   // so just run repeatedly and see if this works
-  
-  fabric->barrier_notify(runs);
-  fabric->barrier_wait(runs);
+  fabric->barrier_notify(runs+10000);
+  fabric->barrier_wait(runs+10000);
   return test_barrier(runs-1);
 }
 
