@@ -108,10 +108,9 @@ public:
   void fatal_shutdown(int code);
   NodeId get_id();
   uint32_t get_num_nodes();
-  void* regmem_alloc(size_t);
-  void regmem_free();
-  void regmem_put(off_t offset, const void* src, size_t len);
-  void regmem_get(off_t offset, void* dst, size_t len);
+  void regmem_put(NodeId target, off_t offset, const void* src, size_t len);
+  void regmem_get(NodeId target, off_t offset, void* dst, size_t len);
+  void* get_regmem_ptr();
   int send(Message* m);
   Realm::Event* gather_events(Realm::Event& event, NodeId root);
   void broadcast_events(Realm::Event& event, NodeId root);
@@ -120,9 +119,9 @@ public:
   void barrier_wait(uint32_t barrier_id);
   void barrier_notify(uint32_t barrier_id);
   void recv_barrier_notify(uint32_t barrier_id, NodeId sender);
+  void recv_rdma_info(NodeId sender, uint64_t key, void* desc);
+  void wait_for_rdmas();
 
-
-    
   bool incoming(Message *);
   void *memalloc(size_t size);
   void memfree(void *);
@@ -149,6 +148,7 @@ protected:
   uint32_t	num_nodes;
   int	        max_send;
   int	        pend_num;
+  size_t        regmem_size_in_mb;
 
     
   // Fabric objects
@@ -162,9 +162,18 @@ protected:
   struct fid_av* av;
   struct fi_context* avctx;
   struct fi_info* fi;
+  struct fid_mr* rdma_mr;
+  struct fi_context fi_ctx_write;
+  struct fi_context fi_ctx_read;
+  std::atomic<size_t> rdmas_initiated; // synchronizes with completion events
+  
   fi_addr_t* fi_addrs; // array of addresses in fabric format
-  char addr[64]; // this node's address
-  size_t addrlen; // length of addresses in this fabric
+  char addr[64];    // this node's address
+  size_t addrlen;   // length of addresses in this fabric
+  void* regmem_buf; // registered RDMA buffer -- local node may access directly, otherers may RDMA
+  uint64_t* keys;   // array of Libfabric memory keys for each node's registered mem
+  void** mr_descs;  // Libfabric memory descriptors for each node's registered mem
+  std::atomic<uint64_t> rdma_descs_recvd; // tracks incoming RDMA exchange info
 
   // Threads -- progress threads execute handlers,
   // tx_handler_thread cleans up sent messages
@@ -199,10 +208,37 @@ protected:
   static int av_create_address_list(char *first_address, int base, int num_addr,
 				    void *addr_array, int offset, int len, int addrlen);
   static int add_address(char* first_address, int index, void* addr);
-  void* exchange_addresses();     
+  void* exchange_addresses();
+  void exchange_rdma_info();
   friend class FabMessage;
     
 };
+
+class RDMAExchangeMessageType : public MessageType {
+public:
+  RDMAExchangeMessageType()
+    : MessageType(RDMA_EXCHANGE_MSGID, sizeof(RequestArgs), false, true) { }
+
+  struct RequestArgs {
+    RequestArgs(NodeId _sender, uint64_t _key, void* _desc)
+      : sender(_sender), key(_key), desc(_desc) { }
+    NodeId sender;
+    uint64_t key;
+    void* desc;
+  };
+  
+  void request(Message* m);
+};
+
+class RDMAExchangeMessage : public Message {
+public:
+  RDMAExchangeMessage(NodeId dest, NodeId sender, uint64_t key, void* desc)
+    : Message(dest, RDMA_EXCHANGE_MSGID, &args, NULL),
+      args(sender, key, desc) { }
+
+  RDMAExchangeMessageType::RequestArgs args;  
+};
+
 
 //typedef FabMutex Mutex;
 //typedef FabCondVar CondVar;

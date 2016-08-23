@@ -59,7 +59,7 @@ class Fabric {
  public:
   // all message types need to be added before init() is called
   Fabric() : log(NULL), num_msgs_added(0) { }
-  ~Fabric() { }
+  virtual ~Fabric() { }
 
   // Refers to each registered message type
   MessageType* mts[MAX_MESSAGE_TYPES];
@@ -76,20 +76,17 @@ class Fabric {
   // call on fatal error - clean up RT and exit
   virtual void fatal_shutdown(int code) = 0;
 
-  // 'Registered' memory is for one-sided RDMA operations.
-  //  Each node can have only one registered memory block at a time
-  // Create the registered memory block and return a pointer to it
-  virtual void* regmem_alloc(size_t size) = 0;
-  // Free the regmem block
-  virtual void regmem_free() = 0;
+  // 'Registered' memory is for one-sided RDMA operations --
+  // it's size is specifed via ll:rsize option, and does not change.
   // Put bytes into the registered block at given offset
-  virtual void regmem_put(off_t offset, const void* src, size_t len) = 0;
+  virtual void regmem_put(NodeId target, off_t offset, const void* src, size_t len) = 0;
   // Read bytes from the registered block at given offset
-  virtual void regmem_get(off_t offset, void* dst, size_t len) = 0;
-  
-  
-  
-
+  virtual void regmem_get(NodeId target, off_t offset, void* dst, size_t len) = 0;
+  // Get pointer to the registered buffer -- local node may use it like normal memory
+  virtual void* get_regmem_ptr() = 0;
+  // Wait for all RDMA events to complete asyncrhonously
+  virtual void wait_for_rdmas() = 0;
+ 
   // Send messages 
   virtual int send(Message* m) = 0;
 

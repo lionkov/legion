@@ -1,15 +1,8 @@
 #include "fabric_libfabric.h"
 
-// run
-/*
-  int Message::reply(MessageId id, void *args, Payload *payload, bool inOrder)
-  {
-  Message *r = new Message(sndid, id, args, payload, inOrder);
-  return fabric->send(r);
-  }
-*/
-
 FabFabric::FabFabric() : id(0), num_nodes(1), max_send(1024*1024), pend_num(16),
+			 regmem_size_in_mb(0),
+			 rdmas_initiated(0),
 			 num_progress_threads(1),
 			 progress_threads(NULL),
 			 tx_handler_thread(NULL),
@@ -31,10 +24,10 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
   cp.add_option_int("-ll:exchange_server_send_port", exchange_server_send_port);
   cp.add_option_int("-ll:exchange_server_recv_port", exchange_server_recv_port);
   cp.add_option_string("-ll:exchange_server_host", exchange_server_host);
-
   // progress / cleanup thread options
   cp.add_option_int("-ll:stacksize", stacksize_in_mb);
   cp.add_option_int("-ll:handlers", num_progress_threads);
+  cp.add_option_int("-ll:rsize", regmem_size_in_mb);
 }
 
 /* 
@@ -115,6 +108,7 @@ bool FabFabric::init(bool manually_set_addresses) {
   add_message_type(new EventGatherMessageType(), "Event Gather Message");
   add_message_type(new EventBroadcastMessageType(), "Event Broadcast Message");
   add_message_type(new BarrierNotifyMessageType(), "Barrier Notify Message");
+  add_message_type(new RDMAExchangeMessageType(), "RDMA Exchange Message");
 
   
   std::cout << "Initializing fabric... " << std::endl;
@@ -129,14 +123,16 @@ bool FabFabric::init(bool manually_set_addresses) {
   struct fi_eq_attr eqattr; memset(&eqattr, 0, sizeof(eqattr));
   struct fi_av_attr avattr; memset(&avattr, 0, sizeof(avattr));
   struct fi_cntr_attr cntrattr; memset(&cntrattr, 0, sizeof(avattr));
+  struct fi_mr_attr mrattr; memset(&mrattr, 0, sizeof(mrattr));
 
   // SETUP HINTS
   hints = fi_allocinfo();
-  hints->ep_attr->type = FI_EP_RDM; // should be RDM, but maybe MSG will work with socks
-  hints->caps = FI_TAGGED | FI_MSG | FI_DIRECTED_RECV | FI_RMA;
+  hints->ep_attr->type = FI_EP_RDM;
+  hints->caps = FI_TAGGED | FI_MSG | FI_DIRECTED_RECV | FI_RMA | FI_RMA_EVENT;
   hints->mode = FI_CONTEXT | FI_LOCAL_MR;
   hints->domain_attr->mr_mode = FI_MR_BASIC;
   hints->addr_format = FI_FORMAT_UNSPEC;
+  hints->tx_attr->op_flags = FI_DELIVERY_COMPLETE | FI_COMPLETION;
 
   // SETUP FABRIC
   ret = fi_getinfo(FI_VERSION(1, 0), NULL, NULL, 0, hints, &fi);
@@ -173,7 +169,7 @@ bool FabFabric::init(bool manually_set_addresses) {
   tx_cqattr.wait_cond = FI_CQ_COND_NONE;
   // ASK -- what should the queue size be? It's not defined
   tx_cqattr.size = fi->tx_attr->size;
-  
+   
   ret = fi_cq_open(dom, &tx_cqattr, (struct fid_cq**) &tx_cq, NULL);
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_cq_open", __FILE__, __LINE__));
@@ -192,11 +188,25 @@ bool FabFabric::init(bool manually_set_addresses) {
   cntrattr.events = FI_CNTR_EVENTS_COMP;
   cntrattr.wait_obj = FI_WAIT_UNSPEC;
   cntrattr.flags = 0;
-
+  
   ret = fi_cntr_open(dom, &cntrattr, (struct fid_cntr**) &cntr, NULL);
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_cntr_open", __FILE__, __LINE__));
-
+  
+  // SETUP REGISTERED RDMA MEMORY
+  if (regmem_size_in_mb > 0) { 
+    regmem_buf = malloc(regmem_size_in_mb << 20);
+    if (!regmem_buf)
+      return init_fail(hints, fi, "Could not allocate RDMA buffer");
+    ret = fi_mr_reg(dom, regmem_buf, regmem_size_in_mb << 20,
+  		    FI_READ | FI_WRITE | FI_REMOTE_READ | FI_REMOTE_WRITE,
+  		    0, 0, 0, &rdma_mr, NULL);
+    if (ret != 0)
+      return init_fail(hints, fi, fi_error_str(ret, "fi_mr_reg", __FILE__, __LINE__));
+  } else {
+    regmem_buf = NULL;
+  }
+  
   //avattr.type = fi->domain_attr->av_type?fi->domain_attr->av_type : FI_AV_MAP;
   avattr.type = FI_AV_MAP;
   avattr.count = num_nodes;
@@ -219,8 +229,9 @@ bool FabFabric::init(bool manually_set_addresses) {
   ret = fi_ep_bind(ep, (fid_t) rx_cq, FI_RECV);
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_ep_bind", __FILE__, __LINE__));
-  
-  ret = fi_ep_bind(ep, (fid_t) cntr, FI_READ|FI_WRITE|FI_SEND|FI_RECV);
+
+  // cntr tracks RDMA events only
+  ret = fi_ep_bind(ep, (fid_t) cntr, FI_READ|FI_WRITE);
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_ep_bind", __FILE__, __LINE__));
 
@@ -228,13 +239,19 @@ bool FabFabric::init(bool manually_set_addresses) {
   if (ret != 0) 
     return init_fail(hints, fi, fi_error_str(ret, "fi_ep_bind", __FILE__, __LINE__));
 
-  ret = fi_av_bind(av, (fid_t) eq, 0);
-  if (ret != 0) 
-    return init_fail(hints, fi, fi_error_str(ret, "fi_ep_bind", __FILE__, __LINE__));
-
   ret = fi_enable(ep);
   if (ret != 0)
     return init_fail(hints, fi, fi_error_str(ret, "fi_enable", __FILE__, __LINE__));
+  
+  ret = fi_av_bind(av, (fid_t) eq, 0);
+  if (ret != 0) 
+    return init_fail(hints, fi, fi_error_str(ret, "fi_av_bind", __FILE__, __LINE__));
+
+  if (regmem_size_in_mb > 0) { 
+    ret = fi_ep_bind(ep, (fid_t) rdma_mr, 0);
+  if (ret != 0)
+    return init_fail(hints, fi, fi_error_str(ret, "fi_ep_bind", __FILE__, __LINE__));
+  }
 
  
   // GET ADDRESS FOR THIS NODE
@@ -295,6 +312,10 @@ bool FabFabric::init(bool manually_set_addresses) {
   free(addrs);
  
   start_progress_threads(num_progress_threads, 0);
+
+  // Exchange RDMA information
+  if (regmem_size_in_mb > 0)
+    exchange_rdma_info();
   
   return true;
 }
@@ -316,13 +337,16 @@ FabFabric::~FabFabric()
   shutdown();
   if(fi_addrs)
     free(fi_addrs);
+  if(regmem_size_in_mb > 0) {
+    delete[] keys;
+    delete[] mr_descs;
+  }
 }
 
 bool FabFabric::add_message_type(MessageType *mt, const std::string tag)
 {
   log_fabric().debug("registered message type: %s", tag.c_str());
 
-  
   if (mt->id == 0 || mts[mt->id] != NULL)
     return false;
 
@@ -340,6 +364,8 @@ void FabFabric::shutdown()
   fi_close(&(eq->fid));
   fi_close(&(dom->fid));
   fi_close(&(fab->fid));
+  if (regmem_size_in_mb > 0)
+    fi_close(&(rdma_mr->fid));
   done_mutex.unlock();
 }
 
@@ -424,34 +450,30 @@ int FabFabric::check_cq(fid_cq* cq, fi_cq_tagged_entry* ce, int timeout) {
   int ret;
   fi_addr_t src;
 
-    
   ret = fi_cq_sreadfrom(cq, ce, 1, &src, NULL, timeout);
-  if (ret >= 0)
+  if (ret >= 0) {
     return ret;
+  }
   
   // else, an error occured
-
-  if (ret == -FI_EAGAIN)
+  if (ret == -FI_EAGAIN) {
     return ret; // We need to try again, let caller decide how to handle this
+  }
 
   // A more serious error occured -- print it
   else if (ret == -FI_EAVAIL) {
     struct fi_cq_err_entry cqerr;
     const char *errstr;
     
-    ret = fi_cq_readerr(cq, &cqerr, 0);
-    if (ret != 0) {
-      // TODO: fix
-      fprintf(stderr, "unknown error: %d\n", ret);
-    }
+    fi_cq_readerr(cq, &cqerr, 0);
     
     // TODO: fix
     errstr = fi_cq_strerror(cq, cqerr.prov_errno, cqerr.err_data, NULL, 0);
-    fprintf(stderr, "%d %s\n", cqerr.err, fi_strerror(cqerr.err));
-    fprintf(stderr, "prov_err: %s (%d)\n", errstr, cqerr.prov_errno);
+    std::cerr << "Error in check_cq: " << cqerr.err << " " << fi_strerror(cqerr.err) << std::endl;
+    std::cerr << "Provider error: "  << cqerr.prov_errno << " "<< errstr << std::endl;
   } else {
     // TODO: fix
-    fprintf(stderr, "unknown error: %d\n", ret);
+    std::cout << "Unknown error in check_cq: " << ret << std::endl;
   }
  
   return ret;
@@ -505,18 +527,16 @@ void FabFabric::handle_tx(bool wait) {
       m = (Message *) ce.op_context;
       //if (m->rcvid != get_id()) // TODO : is this correct?
       delete m; // Ok to delete m now, as it's been successfully sent
-      
-    }
-
-    if (ret == 0) { // Nothing to recieve
-      if(!wait)
-	return; 
-    }
-    else {   // An error occured
-      if (ret == -FI_EAGAIN && !wait) 
-	return; // Try again only if we do not wait
-      else
+    } else if (ret == 0) { // Nothing to recieve
+      if(!wait) return; 
+    } else {   // An error occured
+      if ((ret == -FI_EAGAIN) && wait) 
+	continue; // Try again only if we do not wait
+      else {
+	std::cout << "WARNING -- the TX handler died " << std::endl;
+	std::cout << "error string: " << fi_strerror(ret) << std::endl;
 	return; // Return on all other errors
+      }
     }
   }
 }
@@ -894,6 +914,7 @@ std::string FabFabric::tostr() {
 	  << "    pend_num: "  << pend_num  << "\n"
 	  << "    num_progress_threads: " << num_progress_threads << "\n"
 	  << "    stacksize_in_mb: " << stacksize_in_mb << "\n"
+	  << "    regmem_size_in_mb: "    << regmem_size_in_mb << "\n"
 	  << "    exchange_server_host: " << exchange_server_host << "\n"
     	  << "    exchange_server_send_port: " << exchange_server_send_port << "\n"
 	  << "    exchange_server_recv_port: " << exchange_server_recv_port << "\n"
@@ -909,7 +930,8 @@ std::string FabFabric::tostr() {
 Realm::Event* FabFabric::gather_events(Realm::Event& event, NodeId root) {
   if (id == root) {
     event_gatherer.add_entry(event, id);
-    return event_gatherer.wait();
+    Realm::Event* result = event_gatherer.wait();
+    return result;
   } else {
     send(new EventGatherMessage(root, event, id));
   }
@@ -1013,24 +1035,89 @@ void FabFabric::fatal_shutdown(int code) {
   exit(code);
 }
 
-void* FabFabric::regmem_alloc(size_t size) {
-  // TODO
-  assert(false); 
-  return NULL;
+void FabFabric::regmem_get(NodeId target, off_t offset, void* dst, size_t len) {
+  ++rdmas_initiated;
+  ssize_t ret = fi_read(ep, dst, len, mr_descs[target], fi_addrs[target],
+  			offset, keys[target], &fi_ctx_read);
+
+  if (ret != 0) {
+    std::cerr << "Error -- fi_read failed to read from node " << target << "\n"
+	      << "fi_strerror: " << fi_strerror(-ret) << std::endl;
+    assert(false && "fi_read failed");
+  }
 }
 
-void FabFabric::regmem_free() {
-  // TODO
-  assert(false); 
+void FabFabric::regmem_put(NodeId target, off_t offset, const void* src, size_t len) {
+  ++rdmas_initiated;
+  //ssize_t ret = fi_writemsg(ep, &msg, 0)
+  ssize_t ret = fi_write(ep, src, len, mr_descs[target], fi_addrs[target],
+			 offset, keys[target], &fi_ctx_write);
+  if (ret != 0) {
+    std::cerr << "Error -- fi_write failed to write to node " << target << "\n"
+	      << "fi_strerror: " << fi_strerror(-ret) << std::endl;
+    assert(false && "fi_write failed");
+  }
 }
 
-
-void FabFabric::regmem_get(off_t offset, void* dst, size_t len) {
-  // TODO
-  assert(false);
+void* FabFabric::get_regmem_ptr() {
+  return regmem_buf;
 }
 
-void FabFabric::regmem_put(off_t offset, const void* src, size_t len) {
-  // TODO
-  assert(false);
+// blocks until RDMAs that have been initiated so far complete
+void FabFabric::wait_for_rdmas() {
+  // no timeout
+  int ret = fi_cntr_wait(cntr, rdmas_initiated.load(), -1);
+  if (ret != 0) {
+    std::cerr << "Error -- fi_cntr_wait failed \n"
+	      << "fi_strerror: " << fi_strerror(-ret) << std::endl
+	      << "errno: " << strerror(errno) << std::endl;
+    
+  }
+  std::cout << "CNTR: " << fi_cntr_read(cntr) << std::endl;
+  std::cout << "ATOM: " << rdmas_initiated.load() << std::endl;
+}
+
+// Exchange RDMA info with all other nodes -- each node must know all other
+// nodes' keys and memory descriptors. This is essentially an allgather operation
+// -- current implementation is not efficient
+void FabFabric::exchange_rdma_info() {
+  std::cout << "Exchanging RDMA info... " << std::endl;
+  rdma_descs_recvd.store(0);
+  keys  = new uint64_t[num_nodes];
+  mr_descs = new void*[num_nodes];
+  void* my_desc = fi_mr_desc(rdma_mr);
+  uint64_t my_key = fi_mr_key(rdma_mr);
+  ++rdma_descs_recvd;
+
+  // Wait until everyone else is ready to go
+  barrier_notify(RDMA_EXCHANGE_BARRIER_ID);
+  barrier_wait(RDMA_EXCHANGE_BARRIER_ID);
+  
+  // Add own info
+  recv_rdma_info(id, my_key, my_desc);
+
+  for(int i=0; i<num_nodes; ++i) {
+    if (i != id)
+      send(new RDMAExchangeMessage(i, id, my_key, my_desc));
+  }
+
+  while(rdma_descs_recvd.load() < num_nodes)
+    ; // Spin wait until all data is received
+  std::cout << "OK, all RDMA info received" << std::endl;
+}
+
+void FabFabric::recv_rdma_info(NodeId sender, uint64_t key, void* desc) {
+  mr_descs[sender] = desc;
+  keys[sender] = key;
+  std::cout << "Recived RDMA info from " << sender
+	    << " desc: " << desc
+	    << " key: "  << key << std::endl;
+  ++rdma_descs_recvd;
+}
+
+void RDMAExchangeMessageType::request(Message* m) {
+  RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
+  FabFabric* fab = dynamic_cast<FabFabric*>(fabric);
+  assert(fab != nullptr);
+  fab->recv_rdma_info(args->sender, args->key, args->desc);
 }
