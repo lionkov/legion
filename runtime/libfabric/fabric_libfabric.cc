@@ -353,7 +353,7 @@ bool FabFabric::add_message_type(MessageType *mt, const std::string tag)
   }
 
   mts[mt->id] = mt;
-  mdescs[mt->id] = tag;
+  mdescs[mt->id].copy()
   return true;
 }
 
