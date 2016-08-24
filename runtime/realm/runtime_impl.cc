@@ -16,16 +16,27 @@
 // Runtime implementation for Realm
 
 #include "runtime_impl.h"
+
 #include "proc_impl.h"
 #include "mem_impl.h"
 #include "inst_impl.h"
+
+#include "activemsg.h"
+
 #include "cmdline.h"
+
 #include "codedesc.h"
+
 #include "utils.h"
 
 // For doing backtraces
 #include <execinfo.h> // symbols
 #include <cxxabi.h>   // demangling
+
+#ifndef USE_GASNET
+/*extern*/ void *fake_gasnet_mem_base = 0;
+/*extern*/ size_t fake_gasnet_mem_size = 0;
+#endif
 
 // remote copy active messages from from lowlevel_dma.h for now
 #include "lowlevel_dma.h"
@@ -256,7 +267,8 @@ namespace Realm {
   //
 
   CoreModule::CoreModule(void)
-    : Module("core")    , num_cpu_procs(1), num_util_procs(1), num_io_procs(0)
+    : Module("core")
+    , num_cpu_procs(1), num_util_procs(1), num_io_procs(0)
     , concurrent_io_threads(1)  // Legion does not support values > 1 right now
     , sysmem_size_in_mb(512), stack_size_in_mb(2)
   {}
@@ -373,6 +385,7 @@ namespace Realm {
 	local_reservation_free_list(0), local_index_space_free_list(0),
 	local_proc_group_free_list(0), run_method_called(false),
 	shutdown_requested(false), shutdown_condvar(shutdown_mutex),
+	core_map(0), core_reservations(0),
 	sampling_profiler(true /*system default*/),
 	num_local_memories(0), num_local_processors(0),
 	module_registrar(this)
@@ -383,29 +396,30 @@ namespace Realm {
     RuntimeImpl::~RuntimeImpl(void)
     {
       delete machine;
+      delete core_reservations;
+      delete core_map;
     }
 
     Memory RuntimeImpl::next_local_memory_id(void)
     {
-      Memory m = ID(ID::ID_MEMORY, 
-		    fabric->get_id(), 
-		    num_local_memories++, 0).convert<Memory>();
+      Memory m = ID::make_memory(fabric->get_id(),
+				 num_local_memories++).convert<Memory>();
       return m;
     }
 
     Processor RuntimeImpl::next_local_processor_id(void)
     {
-      Processor p = ID(ID::ID_PROCESSOR, 
-		       fabric->get_id(), 
-		       num_local_processors++).convert<Processor>();
+      Processor p = ID::make_processor(fabric->get_id(), 
+				       num_local_processors++).convert<Processor>();
       return p;
     }
 
     void RuntimeImpl::add_memory(MemoryImpl *m)
     {
       // right now expect this to always be for the current node and the next memory ID
-      assert((ID(m->me).node() == fabric->get_id()) &&
-	     (ID(m->me).index_h() == nodes[fabric->get_id()].memories.size()));
+      ID id(m->me);
+      assert(id.memory.owner_node == fabric->get_id());
+      assert(id.memory.mem_idx == nodes[fabric->get_id()].memories.size());
 
       nodes[fabric->get_id()].memories.push_back(m);
     }
@@ -413,8 +427,9 @@ namespace Realm {
     void RuntimeImpl::add_processor(ProcessorImpl *p)
     {
       // right now expect this to always be for the current node and the next processor ID
-      assert((ID(p->me).node() == fabric->get_id()) &&
-	     (ID(p->me).index() == nodes[fabric->get_id()].processors.size()));
+      ID id(p->me);
+      assert(id.proc.owner_node == fabric->get_id());
+      assert(id.proc.proc_idx == nodes[fabric->get_id()].processors.size());
 
       nodes[fabric->get_id()].processors.push_back(p);
     }
@@ -441,7 +456,8 @@ namespace Realm {
 
     CoreReservationSet& RuntimeImpl::core_reservation_set(void)
     {
-      return core_reservations;
+      assert(core_reservations);
+      return *core_reservations;
     }
 
     const std::vector<DMAChannel *>& RuntimeImpl::get_dma_channels(void) const
@@ -543,9 +559,6 @@ namespace Realm {
 
       // very first thing - let the logger initialization happen
       Logger::configure_from_cmdline(cmdline);
-
-      sampling_profiler.configure_from_cmdline(cmdline, core_reservations);
-
       // now load modules
       module_registrar.create_static_modules(cmdline, modules);
       module_registrar.create_dynamic_modules(cmdline, modules);
@@ -560,11 +573,9 @@ namespace Realm {
       size_t disk_mem_size_in_mb = 0;
       // Static variable for stack size since we need to 
       // remember it when we launch threads in run 
-      stack_size_in_mb = 32;
       //unsigned cpu_worker_threads = 1;
       unsigned dma_worker_threads = 1;
       unsigned active_msg_worker_threads = 1;
-      unsigned active_msg_handler_threads = 1;
 #ifdef EVENT_TRACING
       size_t   event_trace_block_size = 1 << 20;
       double   event_trace_exp_arrv_rate = 1e3;
@@ -576,6 +587,8 @@ namespace Realm {
       // should local proc threads get dedicated cores?
       bool dummy_reservation_ok = true;
       bool show_reservations = false;
+      // are hyperthreads considered to share a physical core
+      bool hyperthread_sharing = true;
 
       CommandLineParser cp;
       cp.add_option_int("-ll:gsize", gasnet_mem_size_in_mb)
@@ -583,7 +596,8 @@ namespace Realm {
 	.add_option_int("-ll:dma", dma_worker_threads)
 	.add_option_int("-ll:amsg", active_msg_worker_threads)
 	.add_option_int("-ll:dummy_rsrv_ok", dummy_reservation_ok)
-	.add_option_bool("-ll:show_rsrv", show_reservations);
+	.add_option_bool("-ll:show_rsrv", show_reservations)
+	.add_option_int("-ll:ht_sharing", hyperthread_sharing);
 
       std::string event_trace_file, lock_trace_file;
 
@@ -650,13 +664,18 @@ namespace Realm {
 		"in legion_config.h", fabric->get_num_nodes(), MAX_NUM_NODES);
 	fabric->fatal_shutdown(1);
       }
-      if (fabric->get_num_nodes() > ((1 << ID::NODE_BITS) - 1))
+      if (fabric->get_num_nodes() > (ID::MAX_NODE_ID + 1))
       {
         fprintf(stderr,"ERROR: Launched %d nodes, but low-level IDs are only "
                        "configured for at most %d nodes. Update the allocation "
-                       "of bits in ID", fabric->get_num_nodes(), (1 << ID::NODE_BITS) - 1);
-	fabric->fatal_shutdown(1);
+		       "of bits in ID", fabric->num_nodes(), (ID::MAX_NODE_ID + 1));
+        fabric->fatal_shutdown(1);
       }
+
+      core_map = CoreMap::discover_core_map(hyperthread_sharing);
+      core_reservations = new CoreReservationSet(core_map);
+
+      sampling_profiler.configure_from_cmdline(cmdline, *core_reservations);
 
       // initialize barrier timestamp
       BarrierImpl::barrier_adjustment_timestamp
@@ -764,7 +783,7 @@ namespace Realm {
       LegionRuntime::LowLevel::create_builtin_dma_channels(this);
 
       LegionRuntime::LowLevel::start_dma_worker_threads(dma_worker_threads,
-							core_reservations);
+							*core_reservations);
 
 #ifdef EVENT_TRACING
       // Always initialize even if we won't dump to file, otherwise segfaults happen
@@ -787,18 +806,18 @@ namespace Realm {
       //gasnet_seginfo_t seginfos = new gasnet_seginfo_t[num_nodes];
       //CHECK_GASNET( gasnet_getSegmentInfo(seginfos, num_nodes) );
 
-      /* TODO -- convert global memory? Should we even have it? */
-      if(gasnet_mem_size_in_mb > 0) {
-	assert(false && "Global memory not implemented yet");
-	//global_memory = new GASNetMemory(ID(ID::ID_MEMORY, 0, ID::ID_GLOBAL_MEM, 0).convert<Memory>(),
-	//gasnet_mem_size_in_mb << 20);
-      }
+      if(gasnet_mem_size_in_mb > 0) { 
+	// use an 'owner_node' of all 1's for this
+        // SJT: actually, go back to an owner node of 0 and memory_idx of all 1's for now
+	assert(false && "Global memory not implemented yet");	
+	global_memory = new GASNetMemory(ID::make_memory(0, -1U).convert<Memory>(), gasnet_mem_size_in_mb << 20);
+	}
       else
 	global_memory = 0;
 
       Node *n = &nodes[fabric->get_id()];
 
-      // create memories and processors for all loaded module
+      // create memories and processors for all loaded modules
       for(std::vector<Module *>::const_iterator it = modules.begin();
 	  it != modules.end();
 	  it++)
@@ -816,14 +835,12 @@ namespace Realm {
 	assert(false && "Registered RDMA memory not yet implemented");
 	char *regmem_base = ((char *)(seginfos[fabric->get_id()].addr)) + (gasnet_mem_size_in_mb << 20);
 	delete[] seginfos;
-	regmem = new LocalCPUMemory(ID(ID::ID_MEMORY,
-				       fabric->get_id(),
-				       n->memories.size(), 0).convert<Memory>(),
+	regmem = new LocalCPUMemory(ID::make_memory(fabric->get_id(),
+						    n->memories.size()).convert<Memory>(),
 				    reg_mem_size_in_mb << 20,
 				    regmem_base,
 				    true);
 	n->memories.push_back(regmem);
-	
       } else
 	regmem = 0;
       */
@@ -831,9 +848,8 @@ namespace Realm {
       // create local disk memory
       DiskMemory *diskmem;
       if(disk_mem_size_in_mb > 0) {
-        diskmem = new DiskMemory(ID(ID::ID_MEMORY,
-				    fabric->get_id(),
-                                    n->memories.size(), 0).convert<Memory>(),
+        diskmem = new DiskMemory(ID::make_memory(fabric->get_id(),
+						 n->memories.size()).convert<Memory>(),
                                  disk_mem_size_in_mb << 20,
                                  "disk_file.tmp");
         n->memories.push_back(diskmem);
@@ -841,17 +857,15 @@ namespace Realm {
         diskmem = 0;
 
       FileMemory *filemem;
-      filemem = new FileMemory(ID(ID::ID_MEMORY,
-				  fabric->get_id(),
-				  n->memories.size(), 0).convert<Memory>());
+      filemem = new FileMemory(ID::make_memory(fabric->get_id(),
+					       n->memories.size()).convert<Memory>());
       n->memories.push_back(filemem);
 
 #ifdef USE_HDF
       // create HDF memory
       HDFMemory *hdfmem;
-      hdfmem = new HDFMemory(ID(ID::ID_MEMORY,
-				fabric->get_id(),
-                                n->memories.size(), 0).convert<Memory>());
+      hdfmem = new HDFMemory(ID::make_memory(fabric->get_id(),
+					     n->memories.size()).convert<Memory>());
       n->memories.push_back(hdfmem);
 #endif
 
@@ -868,11 +882,11 @@ namespace Realm {
       // now that we've created all the processors/etc., we can try to come up with core
       //  allocations that satisfy everybody's requirements - this will also start up any
       //  threads that have already been requested
-      bool ok = core_reservations.satisfy_reservations(dummy_reservation_ok);
+      bool ok = core_reservations->satisfy_reservations(dummy_reservation_ok);
       if(ok) {
 	if(show_reservations) {
-	  std::cout << *core_reservations.get_core_map() << std::endl;
-	  core_reservations.report_reservations(std::cout);
+	  std::cout << *core_map << std::endl;
+	  core_reservations->report_reservations(std::cout);
 	}
       } else {
 	printf("HELP!  Could not satisfy all core reservations!\n");
@@ -913,6 +927,7 @@ namespace Realm {
 	local_cpu_kinds.insert(Processor::LOC_PROC);
 	local_cpu_kinds.insert(Processor::UTIL_PROC);
 	local_cpu_kinds.insert(Processor::IO_PROC);
+	local_cpu_kinds.insert(Processor::PROC_SET);
 
 	for(std::set<Processor::Kind>::const_iterator it = local_cpu_kinds.begin();
 	    it != local_cpu_kinds.end();
@@ -1011,11 +1026,13 @@ namespace Realm {
 	  if(*it) {
 	    Processor p = (*it)->me;
 	    Processor::Kind k = (*it)->me.kind();
+        int num_cores = (*it)->num_cores;
 
 	    num_procs++;
 	    adata[apos++] = NODE_ANNOUNCE_PROC;
 	    adata[apos++] = p.id;
 	    adata[apos++] = k;
+        adata[apos++] = num_cores;
 
 	    std::vector<Machine::ProcessorMemoryAffinity> pmas;
 	    machine->get_proc_mem_affinity(pmas, p);
@@ -1088,7 +1105,7 @@ namespace Realm {
 	}
 #endif
       }
- 
+
       return true;
     }
 
@@ -1112,7 +1129,22 @@ namespace Realm {
     int priority;
   };
 
+#define DEBUG_COLLECTIVES
 
+#if defined(USE_GASNET) && defined(DEBUG_COLLECTIVES)
+  static const int GASNET_COLL_FLAGS = GASNET_COLL_IN_MYSYNC | GASNET_COLL_OUT_MYSYNC | GASNET_COLL_LOCAL;
+  
+  template <typename T>
+  static void broadcast_check(const T& val, const char *name)
+  {
+    T bval;
+    gasnet_coll_broadcast(GASNET_TEAM_ALL, &bval, 0, const_cast<T *>(&val), sizeof(T), GASNET_COLL_FLAGS);
+    if(val != bval) {
+      log_collective.fatal() << "collective mismatch on node " << gasnet_mynode() << " for " << name << ": " << val << " != " << bval;
+      assert(false);
+    }
+  }
+#endif
 
     Event RuntimeImpl::collective_spawn(Processor target_proc, Processor::TaskFuncID task_id, 
 					const void *args, size_t arglen,
@@ -1125,7 +1157,7 @@ namespace Realm {
 #ifdef USE_FABRIC
       
       // root node will be whoever owns the target proc
-      int root = ID(target_proc).node();
+      int root = ID(target_proc).proc.ownder_node;
       if(fabric->get_id() == root) {
 	// ROOT NODE
 
@@ -1140,12 +1172,14 @@ namespace Realm {
 	    event_set.insert(all_events[i]);
 	}
 	delete[] all_events;
+
 	Event merged_event = Event::merge_events(event_set);
 	log_collective.info() << "merged precondition: proc=" << target_proc
 			      << " func=" << task_id << " priority=" << priority
 			      << " before=" << merged_event;
 	// step 3: run the task
 	Event finish_event = target_proc.spawn(task_id, args, arglen, merged_event, priority);
+
 	// step 4: broadcast the finish event to everyone
 	fabric->broadcast_events(finish_event, root);
 	log_collective.info() << "collective spawn: proc=" << target_proc
@@ -1157,6 +1191,8 @@ namespace Realm {
 	// step 1: send our wait_on to the root for merging. 
 	fabric->gather_events(wait_on, root);
 	// steps 2 and 3: twiddle thumbs
+
+	// step 4: receive finish event
 	Event finish_event;
 	// step 4: wait for finish event to arrive
 	fabric->broadcast_events(finish_event, root);
@@ -1186,9 +1222,11 @@ namespace Realm {
 
 #ifdef USE_FABRIC
       // every node is involved in this one, so the root is arbitrary - we'll pick node 0
+
       Event merged_event;
       if(fabric->get_id() == 0) {
 	// ROOT NODE
+
 	// step 1: receive wait_on from every node
 	Event* all_events = fabric->gather_events(wait_on, 0);
 	// step 2: merge all the events
@@ -1199,13 +1237,16 @@ namespace Realm {
 	    event_set.insert(all_events[i]);
 	}
 	delete[] all_events;
+
 	merged_event = Event::merge_events(event_set);
 	fabric->broadcast_events(merged_event, 0);
 	} else {
 	// NON-ROOT NODE
+
 	// step 1: send our wait_on to the root for merging
 	fabric->gather_events(wait_on, 0);      
 	// step 2: twiddle thumbs
+
 	// step 3: receive merged wait_on event
 	fabric->broadcast_events(merged_event, 0);
       }
@@ -1230,6 +1271,7 @@ namespace Realm {
 				<< merged_event << " after=" << e;
 	  if(e.exists())
 	    event_set.insert(e);
+
 	  if(one_per_node)
 	    break;
 	}
@@ -1251,7 +1293,9 @@ namespace Realm {
 	    event_set.insert(all_events[i]);
 	}
 	delete[] all_events;
+
 	Event merged_finish = Event::merge_events(event_set);
+
 	// step 3: broadcast the merged event back to everyone
 	fabric->broadcast_events(merged_finish, 0);
 	log_collective.info() << "collective spawn: kind="
@@ -1260,9 +1304,11 @@ namespace Realm {
 	return merged_finish;
       } else {
 	// NON-ROOT NODE
+
 	// step 1: send our wait_on to the root for merging
 	fabric->gather_events(my_finish, 0);
 	// step 2: twiddle thumbs
+
 	// step 3: receive merged wait_on event
 	Event merged_finish;
 	fabric->broadcast_events(merged_finish, 0);
@@ -1534,64 +1580,64 @@ namespace Realm {
     EventImpl *RuntimeImpl::get_event_impl(Event e)
     {
       ID id(e);
-      switch(id.type()) {
-      case ID::ID_EVENT:
+      if(id.is_event())
 	return get_genevent_impl(e);
-      case ID::ID_BARRIER:
+      if(id.is_barrier())
 	return get_barrier_impl(e);
-      default:
-	assert(0);
-	return 0;
-      }
+      assert(0);
+      return 0;
     }
 
     GenEventImpl *RuntimeImpl::get_genevent_impl(Event e)
     {
       ID id(e);
-      assert(id.type() == ID::ID_EVENT);
+      assert(id.is_event());
 
-      Node *n = &nodes[id.node()];
-      GenEventImpl *impl = n->events.lookup_entry(id.index(), id.node());
-      assert(impl->me == id);
-
+      Node *n = &nodes[id.event.creator_node];
+      GenEventImpl *impl = n->events.lookup_entry(id.event.gen_event_idx, id.event.creator_node);
+      {
+	ID check(impl->me);
+	assert(check.event.creator_node == id.event.creator_node);
+	assert(check.event.gen_event_idx == id.event.gen_event_idx);
+      }
       return impl;
     }
 
     BarrierImpl *RuntimeImpl::get_barrier_impl(Event e)
     {
       ID id(e);
-      assert(id.type() == ID::ID_BARRIER);
+      assert(id.is_barrier());
 
-      Node *n = &nodes[id.node()];
-      BarrierImpl *impl = n->barriers.lookup_entry(id.index(), id.node());
-      assert(impl->me == id);
+      Node *n = &nodes[id.barrier.creator_node];
+      BarrierImpl *impl = n->barriers.lookup_entry(id.barrier.barrier_idx, id.barrier.creator_node);
+      {
+	ID check(impl->me);
+	assert(check.barrier.creator_node == id.barrier.creator_node);
+	assert(check.barrier.barrier_idx == id.barrier.barrier_idx);
+      }
       return impl;
     }
 
     ReservationImpl *RuntimeImpl::get_lock_impl(ID id)
     {
-      switch(id.type()) {
-      case ID::ID_LOCK:
-	{
-	  Node *n = &nodes[id.node()];
-	  ReservationImpl *impl = n->reservations.lookup_entry(id.index(), id.node());
-	  assert(impl->me == id.convert<Reservation>());
-	  return impl;
-	}
+      if(id.is_reservation()) {
+	Node *n = &nodes[id.rsrv.creator_node];
+	ReservationImpl *impl = n->reservations.lookup_entry(id.rsrv.rsrv_idx, id.rsrv.creator_node);
+	assert(impl->me == id.convert<Reservation>());
+	return impl;
+      }
 
-      case ID::ID_INDEXSPACE:
+      if(id.is_idxspace())
 	return &(get_index_space_impl(id)->lock);
 
-      case ID::ID_INSTANCE:
+      if(id.is_instance())
 	return &(get_instance_impl(id)->lock);
 
-      case ID::ID_PROCGROUP:
+      if(id.is_procgroup())
 	return &(get_procgroup_impl(id)->lock);
 
-      default:
-	assert(0);
-	return 0;
-      }
+      assert(0);
+      return 0;
     }
 
     template <class T>
@@ -1603,67 +1649,84 @@ namespace Realm {
 
     MemoryImpl *RuntimeImpl::get_memory_impl(ID id)
     {
-      switch(id.type()) {
-      case ID::ID_MEMORY:
-      case ID::ID_ALLOCATOR:
-      case ID::ID_INSTANCE:
-	if(id.index_h() == ID::ID_GLOBAL_MEM)
+      if(id.is_memory()) {
+        // support old encoding for global memory too
+	if((id.memory.owner_node > ID::MAX_NODE_ID) || (id.memory.mem_idx == ((1U << 12) - 1)))
 	  return global_memory;
-	return null_check(nodes[id.node()].memories[id.index_h()]);
-
-      default:
-	assert(0);
-	return 0;
+	else
+	  return null_check(nodes[id.memory.owner_node].memories[id.memory.mem_idx]);
       }
+
+#ifdef TODO
+      if(id.is_allocator()) {
+	if(id.allocator.owner_node > ID::MAX_NODE_ID)
+	  return global_memory;
+	else
+	  return null_check(nodes[id.allocator.owner_node].memories[id.allocator.mem_idx]);
+      }
+#endif
+
+      if(id.is_instance()) {
+        // support old encoding for global memory too
+	if((id.instance.owner_node > ID::MAX_NODE_ID) || (id.instance.mem_idx == ((1U << 12) - 1)))
+	  return global_memory;
+	else
+	  return null_check(nodes[id.instance.owner_node].memories[id.instance.mem_idx]);
+      }
+      assert(0);
+      return 0;
     }
 
     ProcessorImpl *RuntimeImpl::get_processor_impl(ID id)
     {
-      if(id.type() == ID::ID_PROCGROUP)
+      if(id.is_procgroup())
 	return get_procgroup_impl(id);
 
-      assert(id.type() == ID::ID_PROCESSOR);
-      return null_check(nodes[id.node()].processors[id.index()]);
+      assert(id.is_processor());
+      return null_check(nodes[id.proc.owner_node].processors[id.proc.proc_idx]);
     }
 
     ProcessorGroup *RuntimeImpl::get_procgroup_impl(ID id)
     {
-      assert(id.type() == ID::ID_PROCGROUP);
+      assert(id.is_procgroup());
 
-      Node *n = &nodes[id.node()];
-      ProcessorGroup *impl = n->proc_groups.lookup_entry(id.index(), id.node());
+      Node *n = &nodes[id.pgroup.owner_node];
+      ProcessorGroup *impl = n->proc_groups.lookup_entry(id.pgroup.pgroup_idx,
+							 id.pgroup.owner_node);
       assert(impl->me == id.convert<Processor>());
       return impl;
     }
 
     IndexSpaceImpl *RuntimeImpl::get_index_space_impl(ID id)
     {
-      assert(id.type() == ID::ID_INDEXSPACE);
+      assert(id.is_idxspace());
 
-      Node *n = &nodes[id.node()];
-      IndexSpaceImpl *impl = n->index_spaces.lookup_entry(id.index(), id.node());
+      Node *n = &nodes[id.idxspace.owner_node];
+      IndexSpaceImpl *impl = n->index_spaces.lookup_entry(id.idxspace.idxspace_idx,
+							  id.idxspace.owner_node);
       assert(impl->me == id.convert<IndexSpace>());
       return impl;
     }
 
     RegionInstanceImpl *RuntimeImpl::get_instance_impl(ID id)
     {
-      assert(id.type() == ID::ID_INSTANCE);
+      assert(id.is_instance());
       MemoryImpl *mem = get_memory_impl(id);
       
-      FabAutoLock al(mem->mutex);
+      AutoHSLLock al(mem->mutex);
 
-      if(id.index_l() >= mem->instances.size()) {
-	assert(id.node() != fabric->get_id());
+      // TODO: factor creator_node into lookup!
+      if(id.instance.inst_idx >= mem->instances.size()) {
+	assert(id.instance.owner_node != fabric->get_id());
 
 	size_t old_size = mem->instances.size();
-	if(id.index_l() >= old_size) {
+	if(id.instance.inst_idx >= old_size) {
 	  // still need to grow (i.e. didn't lose the race)
-	  mem->instances.resize(id.index_l() + 1);
+	  mem->instances.resize(id.instance.inst_idx + 1);
 
 	  // don't have region/offset info - will have to pull that when
 	  //  needed
-	  for(unsigned i = old_size; i <= id.index_l(); i++) 
+	  for(unsigned i = old_size; i <= id.instance.inst_idx; i++) 
 	    mem->instances[i] = 0;
 	}
       }
@@ -1771,5 +1834,6 @@ namespace Realm {
   /*static*/ void RuntimeShutdownMessageType::send_request(NodeId target) {
     fabric->send(new RuntimeShutdownMessage(target, fabric->get_id(), 0));
   }
+
   
 }; // namespace Realm

@@ -226,7 +226,7 @@ namespace Realm {
       // see if the freelist has an event we can reuse
       ReservationImpl *impl = get_runtime()->local_reservation_free_list->alloc_entry();
       assert(impl);
-      assert(ID(impl->me).type() == ID::ID_LOCK);
+      assert(ID(impl->me).is_reservation());
       if(impl) {
 	FabAutoLock al(impl->mutex);
 
@@ -290,8 +290,8 @@ namespace Realm {
       log_reservation.info() << "reservation destroyed: rsrv=" << *this;
 
       // a lock has to be destroyed on the node that created it
-      if(ID(*this).node() != fabric->get_id()) {
-	DestroyLockMessageType::send_request(ID(*this).node(), *this);
+      if(ID(*this).rsrv.creator_node != fabric->get_id()) {
+	DestroyLockMessage::send_request(ID(*this).rsrv.creator_node, *this);
 	return;
       }
 
@@ -377,7 +377,7 @@ namespace Realm {
 
       // it'd be bad if somebody tried to take a lock that had been 
       //   deleted...  (info is only valid on a lock's home node)
-      assert((ID(impl->me).node() != fabric->get_id()) ||
+      assert((ID(impl->me).rsvr.creator_node != fabric->get_id()) ||
 	     impl->in_use);
 
       // case 2: we're the owner, and nobody is holding the lock, so grant
@@ -543,7 +543,7 @@ namespace Realm {
 
 	// it'd be bad if somebody tried to take a lock that had been 
 	//   deleted...  (info is only valid on a lock's home node)
-	assert((ID(me).node() != fabric->get_id()) ||
+	assert((ID(me).rsrv.creator_node != fabric->get_id()) ||
 	       in_use);
 
 	// if this is just a placeholder nonblocking acquire, update the retry_count and
@@ -922,7 +922,7 @@ namespace Realm {
       // a careful check of the lock mode and count does require the mutex
       bool held;
       {
-	FabAutoLock a(mutex);
+	AutoHSLLock a(mutex);
 
 	held = ((count > ZERO_COUNT) &&
 		((mode == check_mode) || ((mode == 0) && excl_ok)));

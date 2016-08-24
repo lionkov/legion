@@ -16,6 +16,7 @@
 
 local builtins = require("regent/builtins")
 local passes = require("regent/passes")
+local passes_default = require("regent/passes_default")
 local std = require("regent/std")
 
 -- Add Language Builtins to Global Environment
@@ -39,38 +40,43 @@ add_builtin("regentlib", std)
 local language = {
   name = "legion",
   entrypoints = {
-    "task",
-    "fspace",
     "__demand",
+    "__forbid",
+    "fspace",
+    "rexpr",
+    "rquote",
+    "task",
   },
   keywords = {
     "__context",
     "__cuda",
+    "__delete",
     "__demand",
     "__fields",
     "__forbid",
     "__inline",
     "__parallel",
     "__physical",
-    "__delete",
     "__raw",
     "__runtime",
     "__spmd",
     "__trace",
     "__unroll",
     "__vectorize",
-    "__block",
+    "acquire",
     "aliased",
     "allocate_scratch_fields",
     "advance",
     "arrive",
     "await",
     "arrives",
+    "attach",
     "awaits",
     "atomic",
     "copy",
     "cross_product",
     "cross_product_array",
+    "detach",
     "disjoint",
     "dynamic_cast",
     "dynamic_collective",
@@ -78,6 +84,7 @@ local language = {
     "exclusive",
     "equal",
     "fill",
+    "hdf5",
     "image",
     "index_type", -- reserved for future use
     "isnull",
@@ -89,6 +96,7 @@ local language = {
     "list_invert",
     "list_phase_barriers",
     "list_range",
+    "list_ispace",
     "max",
     "min",
     "must_epoch",
@@ -103,6 +111,7 @@ local language = {
     "reads",
     "reduces",
     "relaxed",
+    "release",
     "region",
     "simultaneous",
     "static_cast",
@@ -114,17 +123,16 @@ local language = {
   },
 }
 
--- function language:expression(lex)
---   return function(environment_function)
---   end
--- end
+function language:expression(lex)
+  return passes.entry_expr(lex)
+end
 
 function language:statement(lex)
-  return passes.compile(lex)
+  return passes.entry_stat(lex)
 end
 
 function language:localstatement(lex)
-  return passes.compile(lex)
+  return passes.entry_stat(lex)
 end
 
 return language

@@ -25,6 +25,8 @@
 #include <sys/types.h>
 #include <dirent.h>
 
+GASNETT_THREADKEY_DEFINE(cur_preemptable_thread);
+
 #define CHECK_PTHREAD(cmd) do { \
   int ret = (cmd); \
   if(ret != 0) { \
@@ -58,7 +60,7 @@ namespace Realm {
     /*static*/ Processor Processor::create_group(const std::vector<Processor>& members)
     {
       // are we creating a local group?
-      if((members.size() == 0) || (ID(members[0]).node() == fabric->get_id())) {
+      if((members.size() == 0) || (ID(members[0]).proc.owner_node == gasnet_mynode())) {
 	ProcessorGroup *grp = get_runtime()->local_proc_group_free_list->alloc_entry();
 	grp->set_group_members(members);
 #ifdef EVENT_GRAPH_TRACE
@@ -97,15 +99,20 @@ namespace Realm {
     void Processor::get_group_members(std::vector<Processor>& members)
     {
       // if we're a plain old processor, the only member of our "group" is ourself
-      if(ID(*this).type() == ID::ID_PROCESSOR) {
+      if(ID(*this).is_processor()) {
 	members.push_back(*this);
 	return;
       }
 
-      assert(ID(*this).type() == ID::ID_PROCGROUP);
+      assert(ID(*this).is_procgroup());
 
       ProcessorGroup *grp = get_runtime()->get_procgroup_impl(*this);
       grp->get_group_members(members);
+    }
+
+    int Processor::get_num_cores(void) const
+    {
+      return get_runtime()->get_processor_impl(*this)->num_cores;
     }
 
     Event Processor::spawn(TaskFuncID func_id, const void *args, size_t arglen,
@@ -160,12 +167,10 @@ namespace Realm {
 
     AddressSpace Processor::address_space(void) const
     {
-      return ID(id).node();
-    }
-
-    ID::IDType Processor::local_id(void) const
-    {
-      return ID(id).index();
+      // this is a hack for the Legion runtime, which only calls it on processor, not proc groups
+      ID id(*this);
+      assert(id.is_processor());
+      return id.proc.owner_node;
     }
 
     Event Processor::register_task(TaskFuncID func_id,
@@ -200,14 +205,16 @@ namespace Realm {
       std::vector<Processor> local_procs;
       std::map<NodeId, std::vector<Processor> > remote_procs;
       // is the target a single processor or a group?
-      if(ID(*this).type() == ID::ID_PROCESSOR) {
-	NodeId n = ID(*this).node();
+      ID id(*this);
+      if(id.is_processor()) {
+	NodeId n = id.proc.owner_node;
 	if(n == fabric->get_id())
 	  local_procs.push_back(*this);
 	else
 	  remote_procs[n].push_back(*this);
       } else {
 	// assume we're a group
+	assert(id.is_procgroup());
 	ProcessorGroup *grp = get_runtime()->get_procgroup_impl(*this);
 	std::vector<Processor> members;
 	grp->get_group_members(members);
@@ -215,7 +222,7 @@ namespace Realm {
 	    it != members.end();
 	    it++) {
 	  Processor p = *it;
-	  NodeId n = ID(p).node();
+	  NodeId n = ID(p).proc.owner_node;
 	  if(n == fabric->get_id())
 	    local_procs.push_back(p);
 	  else
@@ -351,7 +358,7 @@ namespace Realm {
       assert(0);
     }
 
-  /*static*/ const char* Processor::get_kind_name(Kind kind)
+    /*static*/ const char* Processor::get_kind_name(Kind kind)
     {
       switch (kind)
       {
@@ -367,19 +374,23 @@ namespace Realm {
           return "IO_PROC";
         case PROC_GROUP:
           return "PROC_GROUP";
+        case PROC_SET:
+          return "PROC_SET";
         default:
           assert(0);
       }
       return NULL;
     }
 
+
   ////////////////////////////////////////////////////////////////////////
   //
   // class ProcessorImpl
   //
 
-    ProcessorImpl::ProcessorImpl(Processor _me, Processor::Kind _kind)
-      : me(_me), kind(_kind)
+    ProcessorImpl::ProcessorImpl(Processor _me, Processor::Kind _kind,
+                                 int _num_cores)
+      : me(_me), kind(_kind), num_cores(_num_cores)
     {
     }
 
@@ -426,16 +437,16 @@ namespace Realm {
 
     void ProcessorGroup::init(Processor _me, int _owner)
     {
-      assert(ID(_me).node() == (unsigned)_owner);
+      assert(ID(_me).pgroup.owner_node == (unsigned)_owner);
 
       me = _me;
-      lock.init(ID(me).convert<Reservation>(), ID(me).node());
+      lock.init(ID(me).convert<Reservation>(), ID(me).pgroup.owner_node);
     }
 
     void ProcessorGroup::set_group_members(const std::vector<Processor>& member_list)
     {
-      // can only be perform on owner node
-      assert(ID(me).node() == fabric->get_id());
+      // can only be performed on owner node
+      assert(ID(me).pgroup.owner_node == fabric->get_id());
       
       // can only be done once
       assert(!members_valid);
@@ -544,6 +555,15 @@ namespace Realm {
     void* data = m->payload->ptr();
     size_t datalen = m->payload->size();
 
+  ////////////////////////////////////////////////////////////////////////
+  //
+  // class SpawnTaskMessage
+  //
+
+  /*static*/ void SpawnTaskMessage::handle_request(RequestArgs args,
+						   const void *data,
+						   size_t datalen)
+  {
     DetailedTimer::ScopedPush sp(TIME_LOW_LEVEL);
     ProcessorImpl *p = get_runtime()->get_processor_impl(args->proc);
 
@@ -596,7 +616,6 @@ namespace Realm {
       // (if we need more than this, we'll pay for a realloc during serialization, but it
       //  will still work correctly)
       Serialization::DynamicBufferSerializer dbs(arglen + 512);
-
 
       dbs.append_bytes(args, arglen);
       dbs << *prs;
@@ -654,7 +673,6 @@ namespace Realm {
 						  args->reg_op,
 						  true /*successful*/);
   }
-  
 
   /*static*/ void RegisterTaskMessageType::send_request(NodeId target,
 						    Processor::TaskFuncID func_id,
@@ -683,6 +701,11 @@ namespace Realm {
     fabric->send(new RegisterTaskCompleteMessage(target, fabric->get_id(), reg_op, successful));
   }
 
+  /*static*/ void RegisterTaskCompleteMessage::send_request(gasnet_node_t target,
+							    RemoteTaskRegistration *reg_op,
+							    bool successful)
+  {
+    RequestArgs args;
 
   void RegisterTaskCompleteMessageType::request(Message* m) {
     RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
@@ -694,8 +717,9 @@ namespace Realm {
   // class RemoteProcessor
   //
 
-    RemoteProcessor::RemoteProcessor(Processor _me, Processor::Kind _kind)
-      : ProcessorImpl(_me, _kind)
+    RemoteProcessor::RemoteProcessor(Processor _me, Processor::Kind _kind,
+                                     int _num_cores)
+      : ProcessorImpl(_me, _kind, _num_cores)
     {
     }
 
@@ -726,7 +750,15 @@ namespace Realm {
 		       << " proc=" << me
 		       << " finish=" << finish_event;
 
-      NodeId target = ID(me).node();
+      ID id(me);
+      NodeId target;
+      if(id.is_processor())
+	target = id.proc.owner_node;
+      else if(id.is_procgroup())
+	target = id.pgroup.owner_node;
+      else {
+	assert(0);
+      }
 
       get_runtime()->optable.add_remote_operation(finish_event, target);
 
@@ -741,8 +773,9 @@ namespace Realm {
   // class LocalTaskProcessor
   //
 
-  LocalTaskProcessor::LocalTaskProcessor(Processor _me, Processor::Kind _kind)
-    : ProcessorImpl(_me, _kind)
+  LocalTaskProcessor::LocalTaskProcessor(Processor _me, Processor::Kind _kind,
+                                         int _num_cores)
+    : ProcessorImpl(_me, _kind, _num_cores)
     , sched(0)
     , ready_task_count(stringbuilder() << "realm/proc " << me << "/ready tasks")
   {

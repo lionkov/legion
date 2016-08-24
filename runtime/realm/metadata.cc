@@ -30,44 +30,171 @@ namespace Realm {
   // class MetadataBase
   //
 
-  MetadataBase::MetadataBase(void)
-    : state(STATE_INVALID), valid_event(Event::NO_EVENT)
-  {}
+    MetadataBase::MetadataBase(void)
+      : state(STATE_INVALID), valid_event(Event::NO_EVENT)
+    {}
 
-  MetadataBase::~MetadataBase(void)
-  {}
+    MetadataBase::~MetadataBase(void)
+    {}
 
-  void MetadataBase::mark_valid(void)
-  {
-    // don't actually need lock for this
-    assert(remote_copies.empty()); // should not have any valid remote copies if we weren't valid
-    state = STATE_VALID;
-  }
-
-  void MetadataBase::handle_request(int requestor)
-  {
-    // just add the requestor to the list of remote nodes with copies
-    FabAutoLock a(mutex);
-
-    assert(is_valid());
-    assert(!remote_copies.contains(requestor));
-    remote_copies.add(requestor);
-  }
-
-  void MetadataBase::handle_response(void)
-  {
-    // update the state, and
-    // if there was an event, we'll trigger it
-    Event to_trigger = Event::NO_EVENT;
+    void MetadataBase::mark_valid(void)
     {
-      FabAutoLock a(mutex);
+      // don't actually need lock for this
+      assert(remote_copies.empty()); // should not have any valid remote copies if we weren't valid
+      state = STATE_VALID;
+    }
+
+    void MetadataBase::handle_request(int requestor)
+    {
+      // just add the requestor to the list of remote nodes with copies
+      AutoHSLLock a(mutex);
+
+      assert(is_valid());
+      assert(!remote_copies.contains(requestor));
+      remote_copies.add(requestor);
+    }
+
+    void MetadataBase::handle_response(void)
+    {
+      // update the state, and
+      // if there was an event, we'll trigger it
+      Event to_trigger = Event::NO_EVENT;
+      {
+	FabAutoLock a(mutex);
+
+	switch(state) {
+	case STATE_REQUESTED:
+	  {
+	    to_trigger = valid_event;
+	    valid_event = Event::NO_EVENT;
+	    state = STATE_VALID;
+	    break;
+	  }
+
+	default:
+	  assert(0);
+	}
+      }
+
+      if(to_trigger.exists())
+	GenEventImpl::trigger(to_trigger, false /*!poisoned*/);
+    }
+
+    Event MetadataBase::request_data(int owner, ID::IDType id)
+    {
+      // early out - valid data need not be re-requested
+      if(state == STATE_VALID) 
+	return Event::NO_EVENT;
+
+      // sanity-check - should never be requesting data from ourselves
+      assert(((unsigned)owner) != gasnet_mynode());
+
+      Event e = Event::NO_EVENT;
+      bool issue_request = false;
+      {
+	FabAutoLock a(mutex);
+
+	switch(state) {
+	case STATE_VALID:
+	  {
+	    // possible if the data came in between our early out check
+	    // above and our taking of the lock - nothing more to do
+	    break;
+	  }
+
+	case STATE_INVALID: 
+	  {
+	    // if the current state is invalid, we'll need to issue a request
+	    state = STATE_REQUESTED;
+	    valid_event = GenEventImpl::create_genevent()->current_event();
+            e = valid_event;
+	    issue_request = true;
+	    break;
+	  }
+
+	case STATE_REQUESTED:
+	  {
+	    // request has already been issued, but return the event again
+	    assert(valid_event.exists());
+            e = valid_event;
+	    break;
+	  }
+
+	case STATE_INVALIDATE:
+	  assert(0 && "requesting metadata we've been told is invalid!");
+
+	case STATE_CLEANUP:
+	  assert(0 && "requesting metadata in CLEANUP state!");
+	}
+      }
+
+      if(issue_request)
+	MetadataRequestMessage::send_request(owner, id);
+
+      return e;
+    }
+
+    void MetadataBase::await_data(bool block /*= true*/)
+    {
+      // early out - valid data means no waiting
+      if(state == STATE_VALID) return;
+
+      // take lock to get event - must have already been requested (we don't have enough
+      //  information to do that now)
+      Event e = Event::NO_EVENT;
+      {
+	AutoHSLLock a(mutex);
+
+	assert(state != STATE_INVALID);
+	e = valid_event;
+      }
+
+      if(!e.has_triggered())
+        e.wait(); // FIXME
+    }
+
+    bool MetadataBase::initiate_cleanup(ID::IDType id)
+    {
+      NodeSet invals_to_send;
+      {
+	FabAutoLock a(mutex);
+
+	assert(state == STATE_VALID);
+
+	if(remote_copies.empty()) {
+	  state = STATE_INVALID;
+	} else {
+	  state = STATE_CLEANUP;
+	  invals_to_send = remote_copies;
+	}
+      }
+
+      // send invalidations outside the locked section
+      if(invals_to_send.empty())
+	return true;
+
+      MetadataInvalidateMessage::broadcast_request(invals_to_send, id);
+
+      // can't free object until we receive all the acks
+      return false;
+    }
+
+    void MetadataBase::handle_invalidate(void)
+    {
+      AutoHSLLock a(mutex);
 
       switch(state) {
+      case STATE_VALID: 
+	{
+	  // was valid, now invalid (up to app to make sure no races exist)
+	  state = STATE_INVALID;
+	  break;
+	}
+
       case STATE_REQUESTED:
 	{
-	  to_trigger = valid_event;
-	  valid_event = Event::NO_EVENT;
-	  state = STATE_VALID;
+	  // hopefully rare case where invalidation passes response to initial request
+	  state = STATE_INVALIDATE;
 	  break;
 	}
 
@@ -76,159 +203,33 @@ namespace Realm {
       }
     }
 
-    if(to_trigger.exists())
-      GenEventImpl::trigger(to_trigger, false /*!poisoned*/);
-  }
-
-  Event MetadataBase::request_data(int owner, ID::IDType id)
-  {
-    // early out - valid data need not be re-requested
-    if(state == STATE_VALID) 
-      return Event::NO_EVENT;
-
-    // sanity-check - should never be requesting data from ourselves
-    assert(((unsigned)owner) != fabric->get_id());
-
-    Event e = Event::NO_EVENT;
-    bool issue_request = false;
+    bool MetadataBase::handle_inval_ack(int sender)
     {
-      FabAutoLock a(mutex);
-
-      switch(state) {
-      case STATE_VALID:
-	{
-	  // possible if the data came in between our early out check
-	  // above and our taking of the lock - nothing more to do
-	  break;
-	}
-
-      case STATE_INVALID: 
-	{
-	  // if the current state is invalid, we'll need to issue a request
-	  state = STATE_REQUESTED;
-	  valid_event = GenEventImpl::create_genevent()->current_event();
-	  e = valid_event;
-	  issue_request = true;
-	  break;
-	}
-
-      case STATE_REQUESTED:
-	{
-	  // request has already been issued, but return the event again
-	  assert(valid_event.exists());
-	  e = valid_event;
-	  break;
-	}
-
-      case STATE_INVALIDATE:
-	assert(0 && "requesting metadata we've been told is invalid!");
-
-      case STATE_CLEANUP:
-	assert(0 && "requesting metadata in CLEANUP state!");
-      }
-    }
-
-    if(issue_request)
-      MetadataRequestMessageType::send_request(owner, id);
-
-    return e;
-  }
-
-  void MetadataBase::await_data(bool block /*= true*/)
-  {
-    // early out - valid data means no waiting
-    if(state == STATE_VALID) return;
-
-    // take lock to get event - must have already been requested (we don't have enough
-    //  information to do that now)
-    Event e = Event::NO_EVENT;
-    {
-      FabAutoLock a(mutex);
-
-      assert(state != STATE_INVALID);
-      e = valid_event;
-    }
-
-    if(!e.has_triggered())
-      e.wait(); // FIXME
-  }
-
-  bool MetadataBase::initiate_cleanup(ID::IDType id)
-  {
-    NodeSet invals_to_send;
-    {
-      FabAutoLock a(mutex);
-
-      assert(state == STATE_VALID);
-
-      if(remote_copies.empty()) {
-	state = STATE_INVALID;
-      } else {
-	state = STATE_CLEANUP;
-	invals_to_send = remote_copies;
-      }
-    }
-
-    // send invalidations outside the locked section
-    if(invals_to_send.empty())
-      return true;
-    
-    MetadataInvalidateMessageType::broadcast_request(invals_to_send, id);
-
-    // can't free object until we receive all the acks
-    return false;
-  }
-
-  void MetadataBase::handle_invalidate(void)
-  {
-    FabAutoLock a(mutex);
-
-    switch(state) {
-    case STATE_VALID: 
+      bool last_copy;
       {
-	// was valid, now invalid (up to app to make sure no races exist)
-	state = STATE_INVALID;
-	break;
+	AutoHSLLock a(mutex);
+
+	assert(remote_copies.contains(sender));
+	remote_copies.remove(sender);
+	last_copy = remote_copies.empty();
       }
 
-    case STATE_REQUESTED:
-      {
-	// hopefully rare case where invalidation passes response to initial request
-	state = STATE_INVALIDATE;
-	break;
-      }
-
-    default:
-      assert(0);
-    }
-  }
-
-  bool MetadataBase::handle_inval_ack(int sender)
-  {
-    bool last_copy;
-    {
-      FabAutoLock a(mutex);
-
-      assert(remote_copies.contains(sender));
-      remote_copies.remove(sender);
-      last_copy = remote_copies.empty();
+      return last_copy;
     }
 
-    return last_copy;
-  }
 
-  void MetadataRequestMessageType::request(Message* m)
+ void MetadataRequestMessageType::request(Message* m)
   {
     RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
     void *data = 0;
     size_t datalen = 0;
     
     // switch on different types of objects that can have metadata
-    switch(ID(args->id).type()) {
+    switch(ID(args.id).type()) {
     case ID::ID_INSTANCE:
       {
-	RegionInstanceImpl *impl = get_runtime()->get_instance_impl(args->id);
-	impl->metadata.handle_request(args->node);
+	RegionInstanceImpl *impl = get_runtime()->get_instance_impl(args.id);
+	impl->metadata.handle_request(args.node);
 	data = impl->metadata.serialize(datalen);
 	break;
       }
@@ -258,16 +259,12 @@ namespace Realm {
 		      args->id, datalen);
 
     // switch on different types of objects that can have metadata
-    switch(ID(args->id).type()) {
-    case ID::ID_INSTANCE:
-      {
-	RegionInstanceImpl *impl = get_runtime()->get_instance_impl(args->id);
-	impl->metadata.deserialize(data, datalen);
-	impl->metadata.handle_response();
-	break;
-      }
-
-    default:
+    ID id(args.id);
+    if(id.is_instance()) {
+      RegionInstanceImpl *impl = get_runtime()->get_instance_impl(args.id);
+      impl->metadata.deserialize(data, datalen);
+      impl->metadata.handle_response();
+    } else {
       assert(0);
     }
   }
@@ -283,6 +280,12 @@ namespace Realm {
 							     datalen);
     fabric->send(new MetadataResponseMessage(target, id, payload));
   }
+  
+  
+  ////////////////////////////////////////////////////////////////////////
+  //
+  // class MetadataInvalidateMessage
+  //
 
   void MetadataInvalidateMessageType::request(Message* m) {
     RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
@@ -291,15 +294,11 @@ namespace Realm {
 
     //
     // switch on different types of objects that can have metadata
-    switch(ID(args->id).type()) {
-    case ID::ID_INSTANCE:
-      {
-	RegionInstanceImpl *impl = get_runtime()->get_instance_impl(args->id);
-	impl->metadata.handle_invalidate();
-	break;
-      }
-
-    default:
+    ID id(args.id);
+    if(id.is_instance()) {
+      RegionInstanceImpl *impl = get_runtime()->get_instance_impl(args.id);
+      impl->metadata.handle_invalidate();
+    } else {
       assert(0);
     }
 
@@ -332,15 +331,11 @@ namespace Realm {
 
     // switch on different types of objects that can have metadata
     bool last_ack = false;
-    switch(ID(args->id).type()) {
-    case ID::ID_INSTANCE:
-      {
-	RegionInstanceImpl *impl = get_runtime()->get_instance_impl(args->id);
-	last_ack = impl->metadata.handle_inval_ack(args->node);
-	break;
-      }
-
-    default:
+    ID id(args.id);
+    if(id.is_instance()) {
+      RegionInstanceImpl *impl = get_runtime()->get_instance_impl(args.id);
+      last_ack = impl->metadata.handle_inval_ack(args.node);
+    } else {
       assert(0);
     }
 

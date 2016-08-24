@@ -59,6 +59,7 @@ namespace Realm {
         UTIL_PROC = ::UTIL_PROC, // Utility core
         IO_PROC = ::IO_PROC, // I/O core
         PROC_GROUP = ::PROC_GROUP, // Processor group
+        PROC_SET = ::PROC_SET, // Set of Processors for OpenMP/Kokkos etc.
       };
 
       // Return what kind of processor this is
@@ -70,6 +71,8 @@ namespace Realm {
 
       static Processor create_group(const std::vector<Processor>& members);
       void get_group_members(std::vector<Processor>& members);
+
+      int get_num_cores(void) const;
 
       // special task IDs
       enum {
@@ -116,7 +119,7 @@ namespace Realm {
       // reports a problem with a processor in general (this is primarily for fault injection)
       void report_processor_fault(int reason,
 				  const void *reason_data, size_t reason_size) const;
-      
+
       static const char* get_kind_name(Kind kind);
     };
 

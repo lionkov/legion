@@ -50,7 +50,7 @@ using namespace Realm::Serialization;
 namespace LegionRuntime {
   namespace LowLevel {
 
-    //typedef Realm::GASNetMemory GASNetMemory;
+    typedef Realm::GASNetMemory GASNetMemory;
     typedef Realm::DiskMemory DiskMemory;
     typedef Realm::FileMemory FileMemory;
     typedef Realm::Thread Thread;
@@ -4375,8 +4375,12 @@ namespace Realm {
                                          fill_value_size, wait_on,
                                          ev, 0/*priority*/, requests);
         Memory mem = it->inst.get_location();
-        int node = ID(mem).node();
-        if (((unsigned)node) == fabric->get_id()) {
+        unsigned node = ID(mem).memory.owner_node;
+	if(node > ID::MAX_NODE_ID) {
+	  assert(0 && "fills to GASNet memory not supported yet");
+	  return Event::NO_EVENT;
+	}
+        if (node == (unsigned)fabric->get_id()) {
 	  get_runtime()->optable.add_local_operation(ev, r);
           r->check_readiness(false, dma_queue);
         } else {
@@ -4428,8 +4432,8 @@ namespace LegionRuntime {
     static int select_dma_node(Memory src_mem, Memory dst_mem,
 			       ReductionOpID redop_id, bool red_fold)
     {
-      int src_node = ID(src_mem).node();
-      int dst_node = ID(dst_mem).node();
+      int src_node = ID(src_mem).memory.owner_node;
+      int dst_node = ID(dst_mem).memory.owner_node;
 
       bool src_is_rdma = get_runtime()->get_memory_impl(src_mem)->kind == MemoryImpl::MKIND_GLOBAL;
       bool dst_is_rdma = get_runtime()->get_memory_impl(dst_mem)->kind == MemoryImpl::MKIND_GLOBAL;
@@ -4565,20 +4569,19 @@ namespace Realm {
               r->check_readiness(false, dma_queue);
               finish_events.insert(ev);
             } else {
-              RemoteCopyArgs* args = new RemoteCopyArgs();
-	      args->redop_id = 0;
-              args->red_fold = false;
-              args->before_copy = wait_on;
-              args->after_copy = ev;
-              args->priority = priority;
+              RemoteCopyArgs args;
+              args.redop_id = 0;
+              args.red_fold = false;
+              args.before_copy = wait_on;
+              args.after_copy = ev;
+              args.priority = priority;
 
               size_t msglen = r->compute_size();
               void *msgdata = malloc(msglen);
 
               r->serialize(msgdata);
 
-              log_dma.debug("performing serdez on remote node (%d), event=" IDFMT "/%d",
-			    dma_node, args->after_copy.id, args->after_copy.gen);
+              log_dma.debug("performing serdez on remote node (%d), event=" IDFMT, dma_node, args.after_copy.id);
 	      get_runtime()->optable.add_remote_operation(ev, dma_node);
 	      FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_FREE, msgdata, msglen);
 	      fabric->send(new RemoteCopyMessage(dma_node, args, payload));
@@ -4671,8 +4674,7 @@ namespace Realm {
 
             r->serialize(msgdata);
 
-	    log_dma.debug("performing copy on remote node (%d), event=" IDFMT "/%d",
-			  dma_node, args->after_copy.id, args->after_copy.gen);
+	    log_dma.debug("performing copy on remote node (%d), event=" IDFMT, dma_node, args.after_copy.id);
 	    get_runtime()->optable.add_remote_operation(ev, dma_node);
 	    
 	    FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_FREE,
@@ -4701,7 +4703,7 @@ namespace Realm {
 	    src_it != srcs.end();
 	    src_it++)
 	{
-	  int n = ID(src_it->inst).node();
+	  int n = ID(src_it->inst).instance.owner_node;
 	  if((src_node != -1) && (src_node != n)) {
 	    // for now, don't handle case where source data is split across nodes
 	    assert(0);
@@ -4745,8 +4747,8 @@ namespace Realm {
           void *msgdata = malloc(msglen);
           r->serialize(msgdata);
 
-	  log_dma.debug("performing reduction on remote node (%d), event=" IDFMT "/%d",
-		       src_node, args->after_copy.id, args->after_copy.gen);
+	  log_dma.debug("performing reduction on remote node (%d), event=" IDFMT,
+		       src_node, args.after_copy.id);
 	  get_runtime()->optable.add_remote_operation(ev, src_node);
 
 	  FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_FREE,

@@ -172,7 +172,7 @@ CC_FLAGS        += -DUSE_CUDA
 NVCC_FLAGS      += -DUSE_CUDA
 INC_FLAGS	+= -I$(CUDA)/include 
 ifeq ($(strip $(DEBUG)),1)
-NVCC_FLAGS	+= -DDEBUG_REALM -DDEBUG_LEGION -O0 #-g -O0
+NVCC_FLAGS	+= -DDEBUG_REALM -DDEBUG_LEGION -g -O0
 #NVCC_FLAGS	+= -G
 else
 NVCC_FLAGS	+= -O2
@@ -280,7 +280,7 @@ endif # ifeq SHARED_LOWLEVEL
 
 
 ifeq ($(strip $(DEBUG)),1)
-CC_FLAGS	+= -DDEBUG_REALM -DDEBUG_LEGION -ggdb
+CC_FLAGS	+= -DDEBUG_REALM -DDEBUG_LEGION -ggdb #-ggdb -Wall
 else
 CC_FLAGS	+= -O2 -fno-strict-aliasing #-ggdb
 endif
@@ -290,7 +290,7 @@ endif
 CC_FLAGS	+= -DCOMPILE_TIME_MIN_LEVEL=$(OUTPUT_LEVEL)
 
 # demand warning-free compilation
-CC_FLAGS        += -Wno-strict-overflow
+CC_FLAGS        += -Wall -Wno-strict-overflow
 ifeq ($(strip $(WARN_AS_ERROR)),1)
 CC_FLAGS        += -Werror
 endif
@@ -299,7 +299,7 @@ endif
 
 LOW_RUNTIME_SRC	?=
 HIGH_RUNTIME_SRC?=
-fGPU_RUNTIME_SRC	?=
+GPU_RUNTIME_SRC	?=
 MAPPER_SRC	?=
 ASM_SRC		?=
 
@@ -325,6 +325,7 @@ LOW_RUNTIME_SRC += $(LG_RT_DIR)/realm/runtime_impl.cc \
                    $(LG_RT_DIR)/lowlevel_disk.cc
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/realm/numa/numa_module.cc \
 		   $(LG_RT_DIR)/realm/numa/numasysif.cc
+LOW_RUNTIME_SRC += $(LG_RT_DIR)/realm/procset/procset_module.cc
 ifeq ($(strip $(USE_CUDA)),1)
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/realm/cuda/cuda_module.cc \
 		   $(LG_RT_DIR)/realm/cuda/cudart_hijack.cc
@@ -356,6 +357,8 @@ LOW_RUNTIME_SRC += $(LG_RT_DIR)/realm/logging.cc \
 	           $(LG_RT_DIR)/realm/codedesc.cc \
 		   $(LG_RT_DIR)/realm/timers.cc
 
+# If you want to go back to using the shared mapper, comment out the next line
+# and uncomment the one after that
 MAPPER_SRC	+= $(LG_RT_DIR)/mappers/default_mapper.cc \
 		   $(LG_RT_DIR)/mappers/mapping_utilities.cc \
 		   $(LG_RT_DIR)/mappers/shim_mapper.cc \
@@ -404,8 +407,6 @@ SCP	:= scp
 
 GEN_OBJS	:= $(GEN_SRC:.cc=.o)
 LOW_RUNTIME_OBJS:= $(LOW_RUNTIME_SRC:.cc=.o)
-#$(info $$var is [${LOW_RUNTIME_SRC}])
-#$(info $$var is [${LOW_RUNTIME_OBJS}])
 HIGH_RUNTIME_OBJS:=$(HIGH_RUNTIME_SRC:.cc=.o)
 MAPPER_OBJS	:= $(MAPPER_SRC:.cc=.o)
 ASM_OBJS	:= $(ASM_SRC:.S=.o)
@@ -424,7 +425,7 @@ all: $(OUTFILE)
 
 # If we're using the general low-level runtime we have to link with nvcc
 $(OUTFILE) : $(GEN_OBJS) $(GEN_GPU_OBJS) $(SLIB_LEGION) $(SLIB_REALM) $(SLIB_SHAREDLLR)
-		@echo "---> Linking objects into one binary: $(OUTFILE)"
+	@echo "---> Linking objects into one binary: $(OUTFILE)"
 	$(CXX) -o $(OUTFILE) $(GEN_OBJS) $(GEN_GPU_OBJS) $(LD_FLAGS) $(LEGION_LIBS) $(LEGION_LD_FLAGS) $(GASNET_FLAGS)
 
 $(SLIB_LEGION) : $(HIGH_RUNTIME_OBJS) $(MAPPER_OBJS)

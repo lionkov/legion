@@ -161,15 +161,19 @@ namespace Realm {
     bool parse_level_argument(const std::string& s);
 
     bool cmdline_read;
-    Logger::LoggingLevel default_level;
+    Logger::LoggingLevel default_level, stderr_level;
     std::map<std::string, Logger::LoggingLevel> category_levels;
     std::string cats_enabled;
     std::set<Logger *> pending_configs;
-    LoggerOutputStream *stream;
+    LoggerOutputStream *stream, *stderr_stream;
   };
 
   LoggerConfig::LoggerConfig(void)
-    : cmdline_read(false), default_level(Logger::LEVEL_PRINT), stream(0)
+    : cmdline_read(false)
+    , default_level(Logger::LEVEL_PRINT)
+    , stderr_level(Logger::LEVEL_ERROR)
+    , stream(0)
+    , stderr_stream(0)
   {}
 
   LoggerConfig::~LoggerConfig(void)
@@ -188,6 +192,55 @@ namespace Realm {
     LoggerConfig *cfg = get_config();
     if(cfg->stream)
       cfg->stream->flush();
+  }
+
+  template <>
+  bool convert_integer_cmdline_argument<Logger::LoggingLevel>(const std::string& s, Logger::LoggingLevel& target)
+  {
+    // match strings first
+    if(s == "spew") {
+      target = Logger::LEVEL_SPEW;
+      return true;
+    }
+    if(s == "debug") {
+      target = Logger::LEVEL_DEBUG;
+      return true;
+    }
+    if(s == "info") {
+      target = Logger::LEVEL_INFO;
+      return true;
+    }
+    if(s == "print") {
+      target = Logger::LEVEL_PRINT;
+      return true;
+    }
+    if((s == "warning") || (s == "warn")) {
+      target = Logger::LEVEL_WARNING;
+      return true;
+    }
+    if(s == "error") {
+      target = Logger::LEVEL_ERROR;
+      return true;
+    }
+    if(s == "fatal") {
+      target = Logger::LEVEL_FATAL;
+      return true;
+    }
+    if(s == "none") {
+      target = Logger::LEVEL_NONE;
+      return true;
+    }
+
+    // try to decode an integer between LEVEL_SPEW and LEVEL_NONE
+    errno = 0;  // no errors from before
+    char *pos;
+    long v = strtol(s.c_str(), &pos, 10);
+    if((errno == 0) && (*pos == 0) && 
+       (v >= Logger::LEVEL_SPEW) && (v <= Logger::LEVEL_NONE)) {
+      target = static_cast<Logger::LoggingLevel>(v);
+      return true;
+    } else 
+      return false;
   }
 
   bool LoggerConfig::parse_level_argument(const std::string& s)
@@ -214,22 +267,20 @@ namespace Realm {
 	p1 = p2 + 1;
       }
 
-      // levels are small integers
-      if(isdigit(*p1)) {
-	char *p2;
-	errno = 0; // no leftover errors from elsewhere
-	long v = strtol(p1, &p2, 10);
+      // levels are small integers or words - scan forward to the first thing
+      //  that's not a digit or a number - should be, or \0
+      Logger::LoggingLevel lvl = Logger::LEVEL_SPEW;
+      const char *p2 = p1;
+      while(*p2 && isalnum(*p2)) p2++;
+      if((!*p2 || (*p2 == ',')) &&
+	 convert_integer_cmdline_argument(std::string(p1, p2-p1), lvl)) {
+	if(catname.empty())
+	  default_level = lvl;
+	else
+	  category_levels[catname] = lvl;
 
-	if((errno == 0) && ((*p2 == 0) || (*p2) == ',') &&
-	   (v >= 0) && (v <= Logger::LEVEL_NONE)) {
-	  if(catname.empty())
-	    default_level = (Logger::LoggingLevel)v;
-	  else
-	    category_levels[catname] = (Logger::LoggingLevel)v;
-
-	  p1 = p2;
-	  continue;
-	}
+	p1 = p2;
+	continue;
       }
 
       fprintf(stderr, "ERROR: logger level malformed or out of range: '%s'\n", p1);
@@ -247,6 +298,7 @@ namespace Realm {
       .add_option_string("-cat", cats_enabled)
       .add_option_string("-logfile", logname)
       .add_option_method("-level", this, &LoggerConfig::parse_level_argument)
+      .add_option_int("-errlevel", stderr_level)
       .parse_command_line(cmdline);
 
     if(!ok) {
@@ -305,6 +357,11 @@ namespace Realm {
       setbuf(f, 0); // disable output buffering
       stream = new LoggerStreamSerialized<LoggerFileStream>(new LoggerFileStream(f, true),
 							    true);
+
+      // when logging to a file, also sent critical-enough messages to stderr
+      if(stderr_level < Logger::LEVEL_NONE)
+	stderr_stream = new LoggerStreamSerialized<LoggerFileStream>(new LoggerFileStream(stderr, false),
+								     true);
     }
 
     atexit(LoggerConfig::flush_all_streams);
@@ -358,6 +415,14 @@ namespace Realm {
     logger->add_stream(stream, level, 
 		       false,  /* don't delete */
 		       false); /* don't flush each write */
+
+    // also use the stderr_stream, if present
+    // make sure not to log at a level noisier than requested for this category
+    if(stderr_stream)
+      logger->add_stream(stderr_stream, 
+			 ((level > stderr_level) ? level : stderr_level),
+			 false, /* don't delete */
+			 true); /* flush each write */
   }
 
   ////////////////////////////////////////////////////////////////////////
@@ -400,13 +465,42 @@ namespace Realm {
 		       fabric->get_id(), (unsigned long)pthread_self(),
 		       level, name.c_str());
     int amt = msg.length();
+    // Unusual case, but handle it
     if((len + amt) >= MAXLEN)
+    {
+      // If this is an error or a warning, print out the 
+      // whole message no matter what
+      if ((level == LEVEL_FATAL) || 
+          (level == LEVEL_ERROR) || (level == LEVEL_WARNING))
+      {
+        const size_t full_len = len + amt + 2;
+        char *full_buffer = (char*)malloc(full_len);
+        memcpy(full_buffer, buffer, len); 
+        memcpy(full_buffer + len, msg.data(), amt);
+        full_buffer[len+amt] = '\n';
+        full_buffer[len+amt+1] = 0;
+        // go through all the streams
+        for(std::vector<LogStream>::iterator it = streams.begin();
+            it != streams.end();
+            it++) {
+          if(level < it->min_level)
+            continue;
+
+          it->s->write(full_buffer, full_len);
+
+          if(it->flush_each_write)
+            it->s->flush();
+        }
+        free(full_buffer);
+        return;
+      }
       amt = MAXLEN - 2 - len;
+    }
     memcpy(buffer + len, msg.data(), amt);
     len += amt;
     buffer[len++] = '\n';
     buffer[len] = 0;
-    
+
     // go through all the streams
     for(std::vector<LogStream>::iterator it = streams.begin();
 	it != streams.end();
@@ -443,9 +537,20 @@ namespace Realm {
   LoggerMessage& LoggerMessage::vprintf(const char *fmt, va_list args)
   {
     if(active) {
-      char msg[256];
-      vsnprintf(msg, 256, fmt, args);
-      (*oss) << msg;
+      static const int MAXLEN = 4096;
+      char msg[MAXLEN];
+      int full = vsnprintf(msg, MAXLEN, fmt, args);
+      // If this is an error or a warning, print out the full string
+      // no matter what
+      if((full >= MAXLEN) && ((level == Logger::LEVEL_FATAL) || 
+          (level == Logger::LEVEL_ERROR) || (level == Logger::LEVEL_WARNING))) {
+        char *full_msg = (char*)malloc(full+1);
+        vsnprintf(full_msg, full+1, fmt, args);
+        (*oss) << full_msg;
+        free(full_msg);
+      } else {
+        (*oss) << msg;
+      }
     }
     return *this;
   }

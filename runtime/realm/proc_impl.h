@@ -1,17 +1,17 @@
 /* Copyright 2016 Stanford University, NVIDIA Corporation
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *     http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   */
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 // Processor/ProcessorGroup implementations for Realm
 
@@ -35,219 +35,220 @@
 
 namespace Realm {
 
-  class ProcessorGroup;
+    class ProcessorGroup;
 
-  class ProcessorImpl {
-  public:
-    ProcessorImpl(Processor _me, Processor::Kind _kind);
+    class ProcessorImpl {
+    public:
+      ProcessorImpl(Processor _me, Processor::Kind _kind, int _num_cores=1);
 
-    virtual ~ProcessorImpl(void);
+      virtual ~ProcessorImpl(void);
 
-    virtual void enqueue_task(Task *task) = 0;
+      virtual void enqueue_task(Task *task) = 0;
 
-    virtual void spawn_task(Processor::TaskFuncID func_id,
-			    const void *args, size_t arglen,
-			    const ProfilingRequestSet &reqs,
-			    Event start_event, Event finish_event,
-			    int priority) = 0;
+      virtual void spawn_task(Processor::TaskFuncID func_id,
+			      const void *args, size_t arglen,
+                              const ProfilingRequestSet &reqs,
+			      Event start_event, Event finish_event,
+                              int priority) = 0;
 
-    // blocks until things are cleaned up
-    virtual void shutdown(void);
+      // blocks until things are cleaned up
+      virtual void shutdown(void);
 
-    virtual void add_to_group(ProcessorGroup *group) = 0;
+      virtual void add_to_group(ProcessorGroup *group) = 0;
 
-    virtual void register_task(Processor::TaskFuncID func_id,
-			       CodeDescriptor& codedesc,
-			       const ByteArrayRef& user_data);
+      virtual void register_task(Processor::TaskFuncID func_id,
+				 CodeDescriptor& codedesc,
+				 const ByteArrayRef& user_data);
 
-  protected:
-    friend class Task;
+    protected:
+      friend class Task;
 
-    virtual void execute_task(Processor::TaskFuncID func_id,
-			      const ByteArrayRef& task_args);
+      virtual void execute_task(Processor::TaskFuncID func_id,
+				const ByteArrayRef& task_args);
 
-  public:
-    Processor me;
-    Processor::Kind kind;
-  }; 
+    public:
+      Processor me;
+      Processor::Kind kind;
+      int num_cores;
+    }; 
 
-  // generic local task processor - subclasses must create and configure a task
-  // scheduler and pass in with the set_scheduler() method
-  class LocalTaskProcessor : public ProcessorImpl {
-  public:
-    LocalTaskProcessor(Processor _me, Processor::Kind _kind);
-    virtual ~LocalTaskProcessor(void);
+    // generic local task processor - subclasses must create and configure a task
+    // scheduler and pass in with the set_scheduler() method
+    class LocalTaskProcessor : public ProcessorImpl {
+    public:
+      LocalTaskProcessor(Processor _me, Processor::Kind _kind, int num_cores=1);
+      virtual ~LocalTaskProcessor(void);
 
-    virtual void enqueue_task(Task *task);
+      virtual void enqueue_task(Task *task);
 
-    virtual void spawn_task(Processor::TaskFuncID func_id,
-			    const void *args, size_t arglen,
-			    const ProfilingRequestSet &reqs,
-			    Event start_event, Event finish_event,
-			    int priority);
+      virtual void spawn_task(Processor::TaskFuncID func_id,
+			      const void *args, size_t arglen,
+                              const ProfilingRequestSet &reqs,
+			      Event start_event, Event finish_event,
+                              int priority);
 
-    virtual void register_task(Processor::TaskFuncID func_id,
-			       CodeDescriptor& codedesc,
-			       const ByteArrayRef& user_data);
+      virtual void register_task(Processor::TaskFuncID func_id,
+				 CodeDescriptor& codedesc,
+				 const ByteArrayRef& user_data);
 
-    // blocks until things are cleaned up
-    virtual void shutdown(void);
+      // blocks until things are cleaned up
+      virtual void shutdown(void);
 
-    virtual void add_to_group(ProcessorGroup *group);
+      virtual void add_to_group(ProcessorGroup *group);
 
-  protected:
-    void set_scheduler(ThreadedTaskScheduler *_sched);
+    protected:
+      void set_scheduler(ThreadedTaskScheduler *_sched);
 
     ThreadedTaskScheduler *sched;
     PriorityQueue<Task *, FabMutex> task_queue;
     ProfilingGauges::AbsoluteRangeGauge<int> ready_task_count;
 
-    struct TaskTableEntry {
-      Processor::TaskFuncPtr fnptr;
-      ByteArray user_data;
+      struct TaskTableEntry {
+	Processor::TaskFuncPtr fnptr;
+	ByteArray user_data;
+      };
+
+      std::map<Processor::TaskFuncID, TaskTableEntry> task_table;
+
+      virtual void execute_task(Processor::TaskFuncID func_id,
+				const ByteArrayRef& task_args);
     };
 
-    std::map<Processor::TaskFuncID, TaskTableEntry> task_table;
+    // three simple subclasses for:
+    // a) "CPU" processors, which request a dedicated core and use user threads
+    //      when possible
+    // b) "utility" processors, which also use user threads but share cores with
+    //      other runtime threads
+    // c) "IO" processors, which use kernel threads so that blocking IO calls
+    //      are permitted
+    //
+    // each of these is implemented just by supplying the right kind of scheduler to
+    //  LocalTaskProcessor in the constructor
 
-    virtual void execute_task(Processor::TaskFuncID func_id,
-			      const ByteArrayRef& task_args);
-  };
+    class LocalCPUProcessor : public LocalTaskProcessor {
+    public:
+      LocalCPUProcessor(Processor _me, CoreReservationSet& crs, size_t _stack_size);
+      virtual ~LocalCPUProcessor(void);
+    protected:
+      CoreReservation *core_rsrv;
+    };
 
-  // three simple subclasses for:
-  // a) "CPU" processors, which request a dedicated core and use user threads
-  //      when possible
-  // b) "utility" processors, which also use user threads but share cores with
-  //      other runtime threads
-  // c) "IO" processors, which use kernel threads so that blocking IO calls
-  //      are permitted
-  //
-  // each of these is implemented just by supplying the right kind of scheduler to
-  //  LocalTaskProcessor in the constructor
+    class LocalUtilityProcessor : public LocalTaskProcessor {
+    public:
+      LocalUtilityProcessor(Processor _me, CoreReservationSet& crs, size_t _stack_size);
+      virtual ~LocalUtilityProcessor(void);
+    protected:
+      CoreReservation *core_rsrv;
+    };
 
-  class LocalCPUProcessor : public LocalTaskProcessor {
-  public:
-    LocalCPUProcessor(Processor _me, CoreReservationSet& crs, size_t _stack_size);
-    virtual ~LocalCPUProcessor(void);
-  protected:
-    CoreReservation *core_rsrv;
-  };
+    class LocalIOProcessor : public LocalTaskProcessor {
+    public:
+      LocalIOProcessor(Processor _me, CoreReservationSet& crs, size_t _stack_size,
+		       int _concurrent_io_threads);
+      virtual ~LocalIOProcessor(void);
+    protected:
+      CoreReservation *core_rsrv;
+    };
 
-  class LocalUtilityProcessor : public LocalTaskProcessor {
-  public:
-    LocalUtilityProcessor(Processor _me, CoreReservationSet& crs, size_t _stack_size);
-    virtual ~LocalUtilityProcessor(void);
-  protected:
-    CoreReservation *core_rsrv;
-  };
+    class RemoteProcessor : public ProcessorImpl {
+    public:
+      RemoteProcessor(Processor _me, Processor::Kind _kind, int _num_cores=1);
+      virtual ~RemoteProcessor(void);
 
-  class LocalIOProcessor : public LocalTaskProcessor {
-  public:
-    LocalIOProcessor(Processor _me, CoreReservationSet& crs, size_t _stack_size,
-		     int _concurrent_io_threads);
-    virtual ~LocalIOProcessor(void);
-  protected:
-    CoreReservation *core_rsrv;
-  };
+      virtual void enqueue_task(Task *task);
 
-  class RemoteProcessor : public ProcessorImpl {
-  public:
-    RemoteProcessor(Processor _me, Processor::Kind _kind);
-    virtual ~RemoteProcessor(void);
+      virtual void add_to_group(ProcessorGroup *group);
 
-    virtual void enqueue_task(Task *task);
+      virtual void spawn_task(Processor::TaskFuncID func_id,
+			      const void *args, size_t arglen,
+                              const ProfilingRequestSet &reqs,
+			      Event start_event, Event finish_event,
+                              int priority);
+    };
 
-    virtual void add_to_group(ProcessorGroup *group);
+    class ProcessorGroup : public ProcessorImpl {
+    public:
+      ProcessorGroup(void);
 
-    virtual void spawn_task(Processor::TaskFuncID func_id,
-			    const void *args, size_t arglen,
-			    const ProfilingRequestSet &reqs,
-			    Event start_event, Event finish_event,
-			    int priority);
-  };
+      virtual ~ProcessorGroup(void);
 
-  class ProcessorGroup : public ProcessorImpl {
-  public:
-    ProcessorGroup(void);
+      static const ID::ID_Types ID_TYPE = ID::ID_PROCGROUP;
 
-    virtual ~ProcessorGroup(void);
+      void init(Processor _me, int _owner);
 
-    static const ID::ID_Types ID_TYPE = ID::ID_PROCGROUP;
+      void set_group_members(const std::vector<Processor>& member_list);
 
-    void init(Processor _me, int _owner);
+      void get_group_members(std::vector<Processor>& member_list);
 
-    void set_group_members(const std::vector<Processor>& member_list);
+      virtual void enqueue_task(Task *task);
 
-    void get_group_members(std::vector<Processor>& member_list);
+      virtual void add_to_group(ProcessorGroup *group);
 
-    virtual void enqueue_task(Task *task);
+      virtual void spawn_task(Processor::TaskFuncID func_id,
+			      const void *args, size_t arglen,
+                              const ProfilingRequestSet &reqs,
+			      Event start_event, Event finish_event,
+                              int priority);
 
-    virtual void add_to_group(ProcessorGroup *group);
+    public: //protected:
+      bool members_valid;
+      bool members_requested;
+      std::vector<ProcessorImpl *> members;
+      ReservationImpl lock;
+      ProcessorGroup *next_free;
 
-    virtual void spawn_task(Processor::TaskFuncID func_id,
-			    const void *args, size_t arglen,
-			    const ProfilingRequestSet &reqs,
-			    Event start_event, Event finish_event,
-			    int priority);
-
-  public: //protected:
-    bool members_valid;
-    bool members_requested;
-    std::vector<ProcessorImpl *> members;
-    ReservationImpl lock;
-    ProcessorGroup *next_free;
-
-    void request_group_members(void);
+      void request_group_members(void);
 
     PriorityQueue<Task *, FabMutex> task_queue;
     ProfilingGauges::AbsoluteRangeGauge<int> *ready_task_count;
   };
     
-  // this is generally useful to all processor implementations, so put it here
-  class DeferredTaskSpawn : public EventWaiter {
-  public:
-  DeferredTaskSpawn(ProcessorImpl *_proc, Task *_task) 
-    : proc(_proc), task(_task) {}
+    // this is generally useful to all processor implementations, so put it here
+    class DeferredTaskSpawn : public EventWaiter {
+    public:
+      DeferredTaskSpawn(ProcessorImpl *_proc, Task *_task) 
+        : proc(_proc), task(_task) {}
 
-    virtual ~DeferredTaskSpawn(void)
+      virtual ~DeferredTaskSpawn(void)
       {
         // we do _NOT_ own the task - do not free it
       }
 
-    virtual bool event_triggered(Event e, bool poisoned);
-    virtual void print(std::ostream& os) const;
-    virtual Event get_finish_event(void) const;
+      virtual bool event_triggered(Event e, bool poisoned);
+      virtual void print(std::ostream& os) const;
+      virtual Event get_finish_event(void) const;
 
-  protected:
-    ProcessorImpl *proc;
-    Task *task;
-  };
+    protected:
+      ProcessorImpl *proc;
+      Task *task;
+    };
 
-  // a task registration can take a while if remote processors and/or JITs are
-  //  involved
-  class TaskRegistration : public Operation {
-  public:
-    TaskRegistration(const CodeDescriptor& _codedesc,
-		     const ByteArrayRef& _userdata,
-		     Event _finish_event, const ProfilingRequestSet &_requests);
+    // a task registration can take a while if remote processors and/or JITs are
+    //  involved
+    class TaskRegistration : public Operation {
+    public:
+      TaskRegistration(const CodeDescriptor& _codedesc,
+		       const ByteArrayRef& _userdata,
+		       Event _finish_event, const ProfilingRequestSet &_requests);
 
-  protected:
-    // deletion performed when reference count goes to zero
-    virtual ~TaskRegistration(void);
+    protected:
+      // deletion performed when reference count goes to zero
+      virtual ~TaskRegistration(void);
 
-  public:
-    virtual void print(std::ostream& os) const;
+    public:
+      virtual void print(std::ostream& os) const;
 
-    CodeDescriptor codedesc;
-    ByteArray userdata;
-  };
+      CodeDescriptor codedesc;
+      ByteArray userdata;
+    };
 
-  class RemoteTaskRegistration : public Operation::AsyncWorkItem {
-  public:
-    RemoteTaskRegistration(TaskRegistration *reg_op, int _target_node);
+    class RemoteTaskRegistration : public Operation::AsyncWorkItem {
+    public:
+      RemoteTaskRegistration(TaskRegistration *reg_op, int _target_node);
 
-    virtual void request_cancellation(void);
+      virtual void request_cancellation(void);
 
-    virtual void print(std::ostream& os) const;
+      virtual void print(std::ostream& os) const;
 
   protected:
     int target_node;
@@ -260,21 +261,18 @@ namespace Realm {
     : MessageType(SPAWN_TASK_MSGID, sizeof(RequestArgs), true, true) { }
 
     struct RequestArgs {
-    RequestArgs(Processor _proc, Event::id_t _start_id, Event::id_t _finish_id,
+    RequestArgs(Processor _proc, Event _start_event, Event _finish_event,
 		size_t _user_arglen, int _priority, Processor::TaskFuncID _func_id,
 		Event::gen_t _start_gen, Event::gen_t _finish_gen)
-      : proc(_proc), start_id(_start_id), finish_id(_finish_id),
-	user_arglen(_user_arglen), priority(_priority), func_id(_func_id),
-	start_gen(_start_gen), finish_gen(_finish_gen) { }
+      : proc(_proc), start_event(_start_event), finish_event(_finish_event),
+	user_arglen(_user_arglen), priority(_priority), func_id(_func_id) { }
       
       Processor proc;
-      Event::id_t start_id;
-      Event::id_t finish_id;
+      Event start_event;
+      Event finish_event;
       size_t user_arglen;
       int priority;
       Processor::TaskFuncID func_id;
-      Event::gen_t start_gen;
-      Event::gen_t finish_gen;
     };
 
     virtual void request(Message* m);
@@ -290,21 +288,31 @@ namespace Realm {
 			     int priority);      
   };
 
+    struct SpawnTaskMessage {
+      // Employ some fancy struct packing here to fit in 64 bytes
+      struct RequestArgs : public BaseMedium {
+	Processor proc;
+	Event::id_t start_id;
+	Event::id_t finish_id;
+	size_t user_arglen;
+	int priority;
+	Processor::TaskFuncID func_id;
+	Event::gen_t start_gen;
+	Event::gen_t finish_gen;
+      };
 
   class SpawnTaskMessage : public Message {
   public: 
   SpawnTaskMessage(NodeId dest,
 		   Processor proc,
-		   Event::id_t start_id,
-		   Event::id_t finish_id,
+		   Event start_event,
+		   Event finish_evnet,
 		   size_t user_arglen,
 		   int priority,
 		   Processor::TaskFuncID func_id,
-		   Event::gen_t start_gen,
-		   Event::gen_t finish_gen,
 		   FabPayload* payload)
     : Message(dest, SPAWN_TASK_MSGID, &args, payload),
-      args(proc, start_id, finish_id, user_arglen, priority, func_id, start_gen, finish_gen) { }
+      args(proc, start_event, finish_event, user_arglen, priority, func_id) { }
 
     SpawnTaskMessageType::RequestArgs args;    
   };
@@ -323,6 +331,14 @@ namespace Realm {
       Processor::Kind kind;
       RemoteTaskRegistration *reg_op;
     };
+    
+    struct RegisterTaskMessage {
+      struct RequestArgs : public BaseMedium {
+	gasnet_node_t sender;
+	Processor::TaskFuncID func_id;
+	Processor::Kind kind;
+	RemoteTaskRegistration *reg_op;
+      };
 
     void request(Message* m);
       
@@ -358,6 +374,13 @@ namespace Realm {
       RemoteTaskRegistration *reg_op;
       bool successful;
     };
+    
+    struct RegisterTaskCompleteMessage {
+      struct RequestArgs {
+	gasnet_node_t sender;
+	RemoteTaskRegistration *reg_op;
+	bool successful;
+      };
 
     void request(Message* m);
       

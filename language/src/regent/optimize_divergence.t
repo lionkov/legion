@@ -50,9 +50,7 @@ end
 
 local function analyze_region_divergence_node(cx)
   return function(node)
-    if node:is(ast.typed.expr.FieldAccess) or
-      node:is(ast.typed.expr.Deref)
-    then
+    if node:is(ast.typed.expr.Deref) then
       local value_type = std.as_read(node.value.expr_type)
       if std.is_bounded_type(value_type) and #value_type:bounds() > 1 then
         cx:mark_region_divergence(unpack(value_type:bounds()))
@@ -80,7 +78,7 @@ end
 
 local optimize_divergence = {}
 
-function optimize_divergence.stat_task(cx, node)
+function optimize_divergence.top_task(cx, node)
   local cx = cx:new_task_scope()
   analyze_region_divergence(cx, node.body)
   local divergence = invert_forest(cx.region_div)
@@ -88,9 +86,9 @@ function optimize_divergence.stat_task(cx, node)
   return node { region_divergence = divergence }
 end
 
-function optimize_divergence.stat_top(cx, node)
-  if node:is(ast.typed.stat.Task) then
-    return optimize_divergence.stat_task(cx, node)
+function optimize_divergence.top(cx, node)
+  if node:is(ast.typed.top.Task) then
+    return optimize_divergence.top_task(cx, node)
 
   else
     return node
@@ -99,7 +97,9 @@ end
 
 function optimize_divergence.entry(node)
   local cx = context.new_global_scope()
-  return optimize_divergence.stat_top(cx, node)
+  return optimize_divergence.top(cx, node)
 end
+
+optimize_divergence.pass_name = "optimize_divergence"
 
 return optimize_divergence
