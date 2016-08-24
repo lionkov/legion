@@ -262,8 +262,7 @@ namespace Realm {
 
     struct RequestArgs {
     RequestArgs(Processor _proc, Event _start_event, Event _finish_event,
-		size_t _user_arglen, int _priority, Processor::TaskFuncID _func_id,
-		Event::gen_t _start_gen, Event::gen_t _finish_gen)
+		size_t _user_arglen, int _priority, Processor::TaskFuncID _func_id)
       : proc(_proc), start_event(_start_event), finish_event(_finish_event),
 	user_arglen(_user_arglen), priority(_priority), func_id(_func_id) { }
       
@@ -288,25 +287,13 @@ namespace Realm {
 			     int priority);      
   };
 
-    struct SpawnTaskMessage {
-      // Employ some fancy struct packing here to fit in 64 bytes
-      struct RequestArgs : public BaseMedium {
-	Processor proc;
-	Event::id_t start_id;
-	Event::id_t finish_id;
-	size_t user_arglen;
-	int priority;
-	Processor::TaskFuncID func_id;
-	Event::gen_t start_gen;
-	Event::gen_t finish_gen;
-      };
 
   class SpawnTaskMessage : public Message {
   public: 
   SpawnTaskMessage(NodeId dest,
 		   Processor proc,
 		   Event start_event,
-		   Event finish_evnet,
+		   Event finish_event,
 		   size_t user_arglen,
 		   int priority,
 		   Processor::TaskFuncID func_id,
@@ -331,14 +318,6 @@ namespace Realm {
       Processor::Kind kind;
       RemoteTaskRegistration *reg_op;
     };
-    
-    struct RegisterTaskMessage {
-      struct RequestArgs : public BaseMedium {
-	gasnet_node_t sender;
-	Processor::TaskFuncID func_id;
-	Processor::Kind kind;
-	RemoteTaskRegistration *reg_op;
-      };
 
     void request(Message* m);
       
@@ -374,13 +353,6 @@ namespace Realm {
       RemoteTaskRegistration *reg_op;
       bool successful;
     };
-    
-    struct RegisterTaskCompleteMessage {
-      struct RequestArgs {
-	gasnet_node_t sender;
-	RemoteTaskRegistration *reg_op;
-	bool successful;
-      };
 
     void request(Message* m);
       

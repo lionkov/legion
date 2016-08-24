@@ -291,7 +291,7 @@ namespace Realm {
 
       // a lock has to be destroyed on the node that created it
       if(ID(*this).rsrv.creator_node != fabric->get_id()) {
-	DestroyLockMessage::send_request(ID(*this).rsrv.creator_node, *this);
+	DestroyLockMessageType::send_request(ID(*this).rsrv.creator_node, *this);
 	return;
       }
 
@@ -377,8 +377,9 @@ namespace Realm {
 
       // it'd be bad if somebody tried to take a lock that had been 
       //   deleted...  (info is only valid on a lock's home node)
-      assert((ID(impl->me).rsvr.creator_node != fabric->get_id()) ||
-	     impl->in_use);
+      assert((ID(impl->me).rsrv.creator_node != fabric->get_id()) ||
+	       impl->in_use);
+
 
       // case 2: we're the owner, and nobody is holding the lock, so grant
       //  it to the (original) requestor
@@ -922,7 +923,7 @@ namespace Realm {
       // a careful check of the lock mode and count does require the mutex
       bool held;
       {
-	AutoHSLLock a(mutex);
+	FabAutoLock a(mutex);
 
 	held = ((count > ZERO_COUNT) &&
 		((mode == check_mode) || ((mode == 0) && excl_ok)));

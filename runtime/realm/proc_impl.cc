@@ -25,8 +25,6 @@
 #include <sys/types.h>
 #include <dirent.h>
 
-GASNETT_THREADKEY_DEFINE(cur_preemptable_thread);
-
 #define CHECK_PTHREAD(cmd) do { \
   int ret = (cmd); \
   if(ret != 0) { \
@@ -60,7 +58,7 @@ namespace Realm {
     /*static*/ Processor Processor::create_group(const std::vector<Processor>& members)
     {
       // are we creating a local group?
-      if((members.size() == 0) || (ID(members[0]).proc.owner_node == gasnet_mynode())) {
+      if((members.size() == 0) || (ID(members[0]).proc.owner_node == fabric->get_id())) {
 	ProcessorGroup *grp = get_runtime()->local_proc_group_free_list->alloc_entry();
 	grp->set_group_members(members);
 #ifdef EVENT_GRAPH_TRACE
@@ -554,29 +552,14 @@ namespace Realm {
     RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
     void* data = m->payload->ptr();
     size_t datalen = m->payload->size();
-
-  ////////////////////////////////////////////////////////////////////////
-  //
-  // class SpawnTaskMessage
-  //
-
-  /*static*/ void SpawnTaskMessage::handle_request(RequestArgs args,
-						   const void *data,
-						   size_t datalen)
-  {
+    
     DetailedTimer::ScopedPush sp(TIME_LOW_LEVEL);
     ProcessorImpl *p = get_runtime()->get_processor_impl(args->proc);
-
-    Event start_event, finish_event;
-    start_event.id = args->start_id;
-    start_event.gen = args->start_gen;
-    finish_event.id = args->finish_id;
-    finish_event.gen = args->finish_gen;
 
     log_task.debug() << "received remote spawn request:"
 		     << " func=" << args->func_id
 		     << " proc=" << args->proc
-		     << " finish=" << finish_event;
+		     << " finish=" << args->finish_event;
 
     Serialization::FixedBufferDeserializer fbd(data, datalen);
     fbd.extract_bytes(0, args->user_arglen);  // skip over task args - we'll access those directly
@@ -587,7 +570,7 @@ namespace Realm {
       fbd >> prs;
       
     p->spawn_task(args->func_id, data, args->user_arglen, prs,
-		  start_event, finish_event, args->priority);
+		  args->start_event, args->finish_event, args->priority);
 
   }
   
@@ -605,9 +588,8 @@ namespace Realm {
       FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_COPY,
 							       (void*) args,
 							       arglen);
-      fabric->send(new SpawnTaskMessage(target, proc, start_event.id, finish_event.id, arglen,
-					priority, func_id, start_event.gen, finish_event.gen,
-					payload));
+      fabric->send(new SpawnTaskMessage(target, proc, start_event, finish_event, arglen,
+					priority, func_id, payload));
     } else {
       // need to serialize both the task args and the profiling request
       //  into a single payload
@@ -626,9 +608,8 @@ namespace Realm {
       FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_FREE,
 							       data,
 							       datalen);
-      fabric->send(new SpawnTaskMessage(target, proc, start_event.id, finish_event.id, arglen,
-					priority, func_id, start_event.gen, finish_event.gen,
-					payload));
+      fabric->send(new SpawnTaskMessage(target, proc, start_event, finish_event, arglen,
+					priority, func_id, payload));
     }
   }
 
@@ -700,17 +681,6 @@ namespace Realm {
 
     fabric->send(new RegisterTaskCompleteMessage(target, fabric->get_id(), reg_op, successful));
   }
-
-  /*static*/ void RegisterTaskCompleteMessage::send_request(gasnet_node_t target,
-							    RemoteTaskRegistration *reg_op,
-							    bool successful)
-  {
-    RequestArgs args;
-
-  void RegisterTaskCompleteMessageType::request(Message* m) {
-    RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
-    args->reg_op->mark_finished(args->successful);
-  }  
 
   ////////////////////////////////////////////////////////////////////////
   //

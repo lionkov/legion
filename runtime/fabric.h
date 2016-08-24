@@ -105,7 +105,7 @@ class Fabric {
   virtual uint32_t get_num_nodes() = 0;
   virtual size_t get_iov_limit() = 0;
   virtual size_t get_iov_limit(MessageId id) = 0;
-  virtual int get_max_send() = 0;
+  virtual size_t get_max_send() = 0;
   virtual void wait_for_shutdown() = 0;
 
   Realm::Logger* log;

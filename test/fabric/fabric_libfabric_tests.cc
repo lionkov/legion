@@ -230,22 +230,22 @@ int FabTester::test_broadcast(int runs) {
   fabric->broadcast_events(e, 0);
       
   // All nodes now have an event with id 12345.
-  e.gen = fabric->get_id();
-  // We should now get an array of events where each event
-  // has ID 12345 and gen correspondes to the node.
-
+  if (e.id != 12345) {
+    errors += 1;
+    std::cerr << "ERROR in test_broadcast() on " << fabric->get_id()
+	      << ": Expected id " << 12345 << " but got " << e.id << std::endl;
+    e.id = -1; // Set bogus ID so the error is caught at the root
+  } else {
+    // Set the event ID to out node ID and gather backto root
+    e.id = fabric->get_id();
+  }
   Realm::Event* es = fabric->gather_events(e, 0);
   
   if(fabric->get_id() == 0) {
     for (size_t i=0; i<fabric->get_num_nodes(); ++i)  {
-      if (es[i].id != 12345) {
+      if (es[i].id != i) {
 	std::cerr << "ERROR in test_broadcast() -- expected event " << i
-		  << " to have ID 12345, got: " << es[i].id << std::endl;
-	++errors;
-      }
-      if (es[i].gen != i) {
-	std::cerr << "ERROR in test_broadcast() -- expected event " << i
-		  << " to have gen " << i << " got " << es[i].gen << std::endl;
+		  << " to have id " << i << " got " << es[i].id << std::endl;
 	++errors;
       }
     }

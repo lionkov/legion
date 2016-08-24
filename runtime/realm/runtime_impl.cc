@@ -16,17 +16,11 @@
 // Runtime implementation for Realm
 
 #include "runtime_impl.h"
-
 #include "proc_impl.h"
 #include "mem_impl.h"
 #include "inst_impl.h"
-
-#include "activemsg.h"
-
 #include "cmdline.h"
-
 #include "codedesc.h"
-
 #include "utils.h"
 
 // For doing backtraces
@@ -569,7 +563,6 @@ namespace Realm {
 #else
       size_t gasnet_mem_size_in_mb = 0;
 #endif
-      size_t reg_mem_size_in_mb = 0;
       size_t disk_mem_size_in_mb = 0;
       // Static variable for stack size since we need to 
       // remember it when we launch threads in run 
@@ -668,7 +661,7 @@ namespace Realm {
       {
         fprintf(stderr,"ERROR: Launched %d nodes, but low-level IDs are only "
                        "configured for at most %d nodes. Update the allocation "
-		       "of bits in ID", fabric->num_nodes(), (ID::MAX_NODE_ID + 1));
+		       "of bits in ID", fabric->get_num_nodes(), (ID::MAX_NODE_ID + 1));
         fabric->fatal_shutdown(1);
       }
 
@@ -810,7 +803,7 @@ namespace Realm {
 	// use an 'owner_node' of all 1's for this
         // SJT: actually, go back to an owner node of 0 and memory_idx of all 1's for now
 	assert(false && "Global memory not implemented yet");	
-	global_memory = new GASNetMemory(ID::make_memory(0, -1U).convert<Memory>(), gasnet_mem_size_in_mb << 20);
+	//global_memory = new GASNetMemory(ID::make_memory(0, -1U).convert<Memory>(), gasnet_mem_size_in_mb << 20);
 	}
       else
 	global_memory = 0;
@@ -1157,7 +1150,7 @@ namespace Realm {
 #ifdef USE_FABRIC
       
       // root node will be whoever owns the target proc
-      int root = ID(target_proc).proc.ownder_node;
+      int root = ID(target_proc).proc.owner_node;
       if(fabric->get_id() == root) {
 	// ROOT NODE
 
@@ -1713,7 +1706,7 @@ namespace Realm {
       assert(id.is_instance());
       MemoryImpl *mem = get_memory_impl(id);
       
-      AutoHSLLock al(mem->mutex);
+      FabAutoLock al(mem->mutex);
 
       // TODO: factor creator_node into lookup!
       if(id.instance.inst_idx >= mem->instances.size()) {
@@ -1731,14 +1724,14 @@ namespace Realm {
 	}
       }
 
-      if(!mem->instances[id.index_l()]) {
-	if(!mem->instances[id.index_l()]) {
+      if(!mem->instances[id.instance.inst_idx]) {
+	if(!mem->instances[id.instance.inst_idx]) {
 	  //printf("[%d] creating proxy instance: inst=" IDFMT "\n", fabric->get_id(), id.id());
-	  mem->instances[id.index_l()] = new RegionInstanceImpl(id.convert<RegionInstance>(), mem->me);
+	  mem->instances[id.instance.inst_idx] = new RegionInstanceImpl(id.convert<RegionInstance>(), mem->me);
 	}
       }
 	  
-      return mem->instances[id.index_l()];
+      return mem->instances[id.instance.inst_idx];
     }
 
     /*static*/

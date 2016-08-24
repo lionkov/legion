@@ -796,7 +796,7 @@ namespace Realm {
 				  bool make_copy = false);
     
   extern unsigned do_remote_write(Memory mem, off_t offset,
-				  const SpanList& spans, size_t datalen,
+				  SpanList* spans, size_t datalen,
 				  unsigned sequence_id,
 				  bool make_copy = false);
     

@@ -353,7 +353,7 @@ bool FabFabric::add_message_type(MessageType *mt, const std::string tag)
   }
 
   mts[mt->id] = mt;
-  mdescs[mt->id].copy()
+  mdescs[mt->id] = tag;
   return true;
 }
 
@@ -802,7 +802,7 @@ int FabFabric::add_address(char* first_address, int index, void* addr) {
 	return 0;  
 }
 
-int FabFabric::get_max_send() {
+size_t FabFabric::get_max_send() {
   return max_send;
 }
 

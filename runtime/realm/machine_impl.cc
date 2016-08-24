@@ -168,18 +168,14 @@ namespace Realm {
 
 	case NODE_ANNOUNCE_MEM:
 	  {
-	    ID id((ID::IDType)*cur++);
-	    Memory m = id.convert<Memory>();
-	    assert(id.index_h() < num_memories);
-            Memory::Kind kind = (Memory::Kind)(*cur++);
-	    size_t size = *cur++;
-	    void *regbase = (void *)(*cur++);
-	    log_annc.debug() << "adding memory " << m << " (kind = " << kind
-			     << ", size = " << size << ", regbase = " << regbase << ")";
-	    if(remote) {
-	      RemoteMemory *mem = new RemoteMemory(m, size, kind, regbase);
-	      get_runtime()->nodes[ID(m).node()].memories[ID(m).index_h()] = mem;
-	    }
+	    Machine::ProcessorMemoryAffinity pma;
+	    pma.p = ID((ID::IDType)*cur++).convert<Processor>();
+	    pma.m = ID((ID::IDType)*cur++).convert<Memory>();
+	    pma.bandwidth = *cur++;
+	    pma.latency = *cur++;
+	    log_annc.debug() << "adding affinity " << pma.p << " -> " << pma.m
+			     << " (bw = " << pma.bandwidth << ", latency = " << pma.latency << ")";
+	    proc_mem_affinities.push_back(pma);
 	  }
 	  break;
 
@@ -257,7 +253,7 @@ namespace Realm {
 	  it != proc_mem_affinities.end();
 	  it++) {
 	Processor p = (*it).p;
-	if((ID(p).node() == gasnet_mynode()) && (p.kind() == kind))
+	if((ID(p).proc.owner_node == fabric->get_id()))
 	  pset.insert(p);
       }
     }
@@ -295,7 +291,7 @@ namespace Realm {
     void MachineImpl::get_shared_processors(Memory m, std::set<Processor>& pset) const
     {
       // TODO: consider using a reader/writer lock here instead
-      AutoHSLLock al(mutex);
+      FabAutoLock al(mutex);
       for(std::vector<Machine::ProcessorMemoryAffinity>::const_iterator it = proc_mem_affinities.begin();
 	  it != proc_mem_affinities.end();
 	  it++) {
@@ -1194,7 +1190,7 @@ namespace Realm {
 	  it != machine->proc_mem_affinities.end();
 	  it++) {
 	Memory m =(*it).m;
-	if(is_restricted && (ID(m).node() != (unsigned)restricted_node_id))
+	if(is_restricted && (ID(m).memory.owner_node != (unsigned)restricted_node_id))
 	  continue;
 	bool ok = true;
 	for(std::vector<QueryPredicate<Memory> *>::const_iterator it2 = predicates.begin();
@@ -1250,10 +1246,6 @@ namespace Realm {
     void* data = m->payload->ptr();
     size_t datalen = m->payload->size();
 
-  /*static*/ void NodeAnnounceMessage::handle_request(RequestArgs args,
-						      const void *data,
-						      size_t datalen)
-  {
     DetailedTimer::ScopedPush sp(TIME_LOW_LEVEL);
     log_annc.info("%d: received announce from %d (%d procs, %d memories)\n",
 		  fabric->get_id(),
@@ -1300,12 +1292,7 @@ namespace Realm {
     while((int)announcements_received < (int)(fabric->get_num_nodes() - 1))
       // Gasnet implemetation would poll to send along some messages --
       // however, since message queueing now take places inside libfabric, just spin
-      ;
-    
+      ; 
     log_annc.info("node %d has received all of its announcements\n", fabric->get_id());
   }
-
-    log_annc.info("node %d has received all of its announcements\n", gasnet_mynode());
-  }
-
 }; // namespace Realm

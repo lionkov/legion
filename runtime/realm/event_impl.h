@@ -133,7 +133,7 @@ namespace Realm {
       GenEventImpl *next_free;
 
       // everything below here protected by this mutex
-      GASNetHSL mutex;
+      FabMutex mutex;
 
       // local waiters are tracked by generation - an easily-accessed list is used
       //  for the "current" generation, whereas a map-by-generation-id is used for
@@ -196,7 +196,7 @@ namespace Realm {
       // if delta < 0, timestamp says which positive adjustment this arrival must wait for
       void adjust_arrival(gen_t barrier_gen, int delta, 
 			  Barrier::timestamp_t timestamp, Event wait_on,
-			  gasnet_node_t sender, bool forwarded,
+			  NodeId sender, bool forwarded,
 			  const void *reduce_value, size_t reduce_value_size);
 
       bool get_result(gen_t result_gen, void *value, size_t value_size);
@@ -208,7 +208,7 @@ namespace Realm {
       gen_t first_generation;
       BarrierImpl *next_free;
 
-      GASNetHSL mutex; // controls which local thread has access to internal data (not runtime-visible event)
+      FabMutex mutex; // controls which local thread has access to internal data (not runtime-visible event)
 
       // class to track per-generation status
       class Generation {
@@ -253,7 +253,7 @@ namespace Realm {
     : MessageType(EVENT_SUBSCRIBE_MSGID, sizeof(RequestArgs), false, true) { }
     
     struct RequestArgs {
-    RequestArgs(NodeId _node, Event _event, gen_t _previous_subscribe_gen)
+      RequestArgs(NodeId _node, Event _event, EventImpl::gen_t _previous_subscribe_gen)
     : node(_node), event(_event), previous_subscribe_gen(_previous_subscribe_gen) { }
       NodeId node;
       Event event;
@@ -315,7 +315,7 @@ namespace Realm {
 
     struct BroadcastHelper : RequestArgs {
     BroadcastHelper(Event _event, int num_poisoned,
-		    const Event::gen_t* poisoned_generations,
+		    const EventImpl::gen_t* poisoned_generations,
 		    int payload_mode)
       : RequestArgs(_event),
 	payload(new FabContiguousPayload(payload_mode,
@@ -330,10 +330,10 @@ namespace Realm {
    
     void request(Message* m);
     static void send_request(NodeId target, Event event,
-			     int num_poisoned, const Event::gen_t *poisoned_generations);
+			     int num_poisoned, const EventImpl::gen_t *poisoned_generations);
     
     static void broadcast_request(const NodeSet& targets, Event event,
-				  int num_poisoned, const Event::gen_t* poisoned_generations);
+				  int num_poisoned, const EventImpl::gen_t* poisoned_generations);
   };
 
   class EventUpdateMessage : public Message {
@@ -379,15 +379,13 @@ namespace Realm {
     BarrierAdjustMessageType::RequestArgs args;
   };
 
-      static void handle_request(RequestArgs args);
-
   class BarrierSubscribeMessageType : public MessageType {
   public:
   BarrierSubscribeMessageType()
     : MessageType(BARRIER_SUBSCRIBE_MSGID, sizeof(RequestArgs), false, true) { }
     
     struct RequestArgs {
-    RequestArgs(NodeId _subscriber, ID::IDType _barrier_id, Event::gen_t _subscribe_gen, bool _forwarded)
+    RequestArgs(NodeId _subscriber, ID::IDType _barrier_id, EventImpl::gen_t _subscribe_gen, bool _forwarded)
     : subscriber(_subscriber), barrier_id(_barrier_id), subscribe_gen(_subscribe_gen), forwarded(_forwarded) { }
       NodeId subscriber;
       ID::IDType barrier_id;
@@ -397,7 +395,7 @@ namespace Realm {
 
     void request(Message* m);
     static void send_request(NodeId target, ID::IDType barrier_id,
-			     Event::gen_t subscribe_gen,
+			     EventImpl::gen_t subscribe_gen,
 			     NodeId subscriber, bool forwarded);
   };
 

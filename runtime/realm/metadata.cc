@@ -47,7 +47,7 @@ namespace Realm {
     void MetadataBase::handle_request(int requestor)
     {
       // just add the requestor to the list of remote nodes with copies
-      AutoHSLLock a(mutex);
+      FabAutoLock a(mutex);
 
       assert(is_valid());
       assert(!remote_copies.contains(requestor));
@@ -87,7 +87,7 @@ namespace Realm {
 	return Event::NO_EVENT;
 
       // sanity-check - should never be requesting data from ourselves
-      assert(((unsigned)owner) != gasnet_mynode());
+      assert(((unsigned)owner) != fabric->get_id());
 
       Event e = Event::NO_EVENT;
       bool issue_request = false;
@@ -129,7 +129,7 @@ namespace Realm {
       }
 
       if(issue_request)
-	MetadataRequestMessage::send_request(owner, id);
+	MetadataRequestMessageType::send_request(owner, id);
 
       return e;
     }
@@ -143,7 +143,7 @@ namespace Realm {
       //  information to do that now)
       Event e = Event::NO_EVENT;
       {
-	AutoHSLLock a(mutex);
+	FabAutoLock a(mutex);
 
 	assert(state != STATE_INVALID);
 	e = valid_event;
@@ -173,7 +173,7 @@ namespace Realm {
       if(invals_to_send.empty())
 	return true;
 
-      MetadataInvalidateMessage::broadcast_request(invals_to_send, id);
+      MetadataInvalidateMessageType::broadcast_request(invals_to_send, id);
 
       // can't free object until we receive all the acks
       return false;
@@ -181,7 +181,7 @@ namespace Realm {
 
     void MetadataBase::handle_invalidate(void)
     {
-      AutoHSLLock a(mutex);
+      FabAutoLock a(mutex);
 
       switch(state) {
       case STATE_VALID: 
@@ -207,7 +207,7 @@ namespace Realm {
     {
       bool last_copy;
       {
-	AutoHSLLock a(mutex);
+	FabAutoLock a(mutex);
 
 	assert(remote_copies.contains(sender));
 	remote_copies.remove(sender);
@@ -225,16 +225,12 @@ namespace Realm {
     size_t datalen = 0;
     
     // switch on different types of objects that can have metadata
-    switch(ID(args.id).type()) {
-    case ID::ID_INSTANCE:
-      {
-	RegionInstanceImpl *impl = get_runtime()->get_instance_impl(args.id);
-	impl->metadata.handle_request(args.node);
-	data = impl->metadata.serialize(datalen);
-	break;
-      }
-
-    default:
+    ID id(args->id);
+    if(id.is_instance()) {
+      RegionInstanceImpl *impl = get_runtime()->get_instance_impl(args->id);
+      impl->metadata.handle_request(args->node);
+      data = impl->metadata.serialize(datalen);
+    } else {
       assert(0);
     }
 
@@ -259,9 +255,9 @@ namespace Realm {
 		      args->id, datalen);
 
     // switch on different types of objects that can have metadata
-    ID id(args.id);
+    ID id(args->id);
     if(id.is_instance()) {
-      RegionInstanceImpl *impl = get_runtime()->get_instance_impl(args.id);
+      RegionInstanceImpl *impl = get_runtime()->get_instance_impl(args->id);
       impl->metadata.deserialize(data, datalen);
       impl->metadata.handle_response();
     } else {
@@ -294,9 +290,9 @@ namespace Realm {
 
     //
     // switch on different types of objects that can have metadata
-    ID id(args.id);
+    ID id(args->id);
     if(id.is_instance()) {
-      RegionInstanceImpl *impl = get_runtime()->get_instance_impl(args.id);
+      RegionInstanceImpl *impl = get_runtime()->get_instance_impl(args->id);
       impl->metadata.handle_invalidate();
     } else {
       assert(0);
@@ -331,10 +327,10 @@ namespace Realm {
 
     // switch on different types of objects that can have metadata
     bool last_ack = false;
-    ID id(args.id);
+    ID id(args->id);
     if(id.is_instance()) {
-      RegionInstanceImpl *impl = get_runtime()->get_instance_impl(args.id);
-      last_ack = impl->metadata.handle_inval_ack(args.node);
+      RegionInstanceImpl *impl = get_runtime()->get_instance_impl(args->id);
+      last_ack = impl->metadata.handle_inval_ack(args->node);
     } else {
       assert(0);
     }
