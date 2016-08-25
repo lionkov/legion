@@ -675,10 +675,17 @@ namespace Realm {
     fabric->send(new RegisterTaskMessage(target, fabric->get_id(), func_id, kind, reg_op, payload));
   }
 
+  
+  void RegisterTaskCompleteMessageType::request(Message* m) {
+    RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
+    args->reg_op->mark_finished(args->successful);
+  }
+
+
+  
   /*static*/ void RegisterTaskCompleteMessageType::send_request(NodeId target,
 								RemoteTaskRegistration *reg_op,
 								bool successful) {
-
     fabric->send(new RegisterTaskCompleteMessage(target, fabric->get_id(), reg_op, successful));
   }
 
@@ -743,9 +750,8 @@ namespace Realm {
   // class LocalTaskProcessor
   //
 
-  LocalTaskProcessor::LocalTaskProcessor(Processor _me, Processor::Kind _kind,
-                                         int _num_cores)
-    : ProcessorImpl(_me, _kind, _num_cores)
+  LocalTaskProcessor::LocalTaskProcessor(Processor _me, Processor::Kind _kind)
+    : ProcessorImpl(_me, _kind)
     , sched(0)
     , ready_task_count(stringbuilder() << "realm/proc " << me << "/ready tasks")
   {
