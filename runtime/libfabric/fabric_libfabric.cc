@@ -1,7 +1,11 @@
 #include "fabric_libfabric.h"
 
-FabFabric::FabFabric() : id(0), num_nodes(1), max_send(1024*1024), pend_num(16),
+FabFabric::FabFabric() : id(0),
+			 num_nodes(1),
+			 max_send(1024*1024),
+			 pend_num(16),
 			 regmem_size_in_mb(0),
+			 initialized(false),
 			 rdmas_initiated(0),
 			 num_progress_threads(1),
 			 progress_threads(NULL),
@@ -316,7 +320,8 @@ bool FabFabric::init(bool manually_set_addresses) {
   // Exchange RDMA information
   if (regmem_size_in_mb > 0)
     exchange_rdma_info();
-  
+
+  initialized = true;
   return true;
 }
 
@@ -359,16 +364,20 @@ bool FabFabric::add_message_type(MessageType *mt, const std::string tag)
 
 void FabFabric::shutdown()
 {
-  free_progress_threads();
-  fi_close(&(ep->fid));
-  fi_close(&(av->fid));
-  fi_close(&(tx_cq->fid));
-  fi_close(&(rx_cq->fid));
-  fi_close(&(eq->fid));
-  fi_close(&(dom->fid));
-  fi_close(&(fab->fid));
-  if (regmem_size_in_mb > 0)
-    fi_close(&(rdma_mr->fid));
+  // TODO -- make sure we clean things up if
+  // init failed
+  if (initialized) {
+    free_progress_threads();
+    fi_close(&(ep->fid));
+    fi_close(&(av->fid));
+    fi_close(&(tx_cq->fid));
+    fi_close(&(rx_cq->fid));
+    fi_close(&(eq->fid));
+    fi_close(&(dom->fid));
+    fi_close(&(fab->fid));
+    if (regmem_size_in_mb > 0)
+      fi_close(&(rdma_mr->fid));
+  }
   done_mutex.unlock();
 }
 

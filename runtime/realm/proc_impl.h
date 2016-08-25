@@ -76,7 +76,7 @@ namespace Realm {
     // scheduler and pass in with the set_scheduler() method
     class LocalTaskProcessor : public ProcessorImpl {
     public:
-      LocalTaskProcessor(Processor _me, Processor::Kind _kind);
+      LocalTaskProcessor(Processor _me, Processor::Kind _kind, int num_cores=1);
       virtual ~LocalTaskProcessor(void);
 
       virtual void enqueue_task(Task *task);

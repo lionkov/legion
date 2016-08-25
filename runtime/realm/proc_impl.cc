@@ -107,12 +107,13 @@ namespace Realm {
       ProcessorGroup *grp = get_runtime()->get_procgroup_impl(*this);
       grp->get_group_members(members);
     }
-
+  
     int Processor::get_num_cores(void) const
     {
       return get_runtime()->get_processor_impl(*this)->num_cores;
     }
 
+  
     Event Processor::spawn(TaskFuncID func_id, const void *args, size_t arglen,
 			   //std::set<RegionInstance> instances_needed,
 			   Event wait_on, int priority) const
@@ -253,9 +254,9 @@ namespace Realm {
 	RemoteTaskRegistration *reg_op = new RemoteTaskRegistration(tro, target);
 	tro->add_async_work_item(reg_op);
 	RegisterTaskMessageType::send_request(target, func_id, NO_KIND, it->second,
-					  tro->codedesc,
-					  tro->userdata.base(), tro->userdata.size(),
-					  reg_op);
+					      tro->codedesc,
+					      tro->userdata.base(), tro->userdata.size(),
+					      reg_op);
       }
 
       tro->mark_finished(true /*successful*/);
@@ -319,9 +320,9 @@ namespace Realm {
 	  RemoteTaskRegistration *reg_op = new RemoteTaskRegistration(tro, target);
 	  tro->add_async_work_item(reg_op);
 	  RegisterTaskMessageType::send_request(target, func_id, target_kind, std::vector<Processor>(),
-					    tro->codedesc,
-					    tro->userdata.base(), tro->userdata.size(),
-					    reg_op);
+						tro->codedesc,
+						tro->userdata.base(), tro->userdata.size(),
+						reg_op);
 	}
       }
 
@@ -386,9 +387,9 @@ namespace Realm {
   // class ProcessorImpl
   //
 
-    ProcessorImpl::ProcessorImpl(Processor _me, Processor::Kind _kind,
-                                 int _num_cores)
-      : me(_me), kind(_kind), num_cores(_num_cores)
+  ProcessorImpl::ProcessorImpl(Processor _me, Processor::Kind _kind,
+			       int _num_cores)
+    : me(_me), kind(_kind), num_cores(_num_cores)
     {
     }
 
@@ -694,9 +695,9 @@ namespace Realm {
   // class RemoteProcessor
   //
 
-    RemoteProcessor::RemoteProcessor(Processor _me, Processor::Kind _kind,
-                                     int _num_cores)
-      : ProcessorImpl(_me, _kind, _num_cores)
+  RemoteProcessor::RemoteProcessor(Processor _me, Processor::Kind _kind,
+				   int _num_cores)
+    : ProcessorImpl(_me, _kind, _num_cores)
     {
     }
 
@@ -750,8 +751,9 @@ namespace Realm {
   // class LocalTaskProcessor
   //
 
-  LocalTaskProcessor::LocalTaskProcessor(Processor _me, Processor::Kind _kind)
-    : ProcessorImpl(_me, _kind)
+  LocalTaskProcessor::LocalTaskProcessor(Processor _me, Processor::Kind _kind,
+					 int _num_cores)
+    : ProcessorImpl(_me, _kind, _num_cores)
     , sched(0)
     , ready_task_count(stringbuilder() << "realm/proc " << me << "/ready tasks")
   {

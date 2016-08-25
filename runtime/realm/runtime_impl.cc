@@ -1483,6 +1483,7 @@ namespace Realm {
       LegionRuntime::LowLevel::stop_dma_worker_threads();
       
       // TODO -- clean up shutdown procedure?
+      
       fabric->shutdown();
 
       sampling_profiler.shutdown();

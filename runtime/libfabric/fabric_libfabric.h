@@ -152,6 +152,7 @@ protected:
 
     
   // Fabric objects
+  bool initialized;
   struct fid_fabric* fab;
   struct fid_domain* dom;
   struct fid_eq* eq;
