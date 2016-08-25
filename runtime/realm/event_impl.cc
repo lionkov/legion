@@ -1053,6 +1053,7 @@ namespace Realm {
 		   const void *_payload, size_t _payload_size,
 		   int _payload_mode)
     {
+      log_event.debug() << "broadcasting payload: " << payload;
       payload = _payload;
       payload_size = _payload_size;
       payload_mode = _payload_mode;
@@ -1702,7 +1703,7 @@ namespace Realm {
 							 const void *data,
 							 size_t datalen) { 
 
-    FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_KEEP,
+    FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_COPY,
 							     (void*) data,
 							     datalen);
 

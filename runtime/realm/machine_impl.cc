@@ -168,14 +168,18 @@ namespace Realm {
 
 	case NODE_ANNOUNCE_MEM:
 	  {
-	    Machine::ProcessorMemoryAffinity pma;
-	    pma.p = ID((ID::IDType)*cur++).convert<Processor>();
-	    pma.m = ID((ID::IDType)*cur++).convert<Memory>();
-	    pma.bandwidth = *cur++;
-	    pma.latency = *cur++;
-	    log_annc.debug() << "adding affinity " << pma.p << " -> " << pma.m
-			     << " (bw = " << pma.bandwidth << ", latency = " << pma.latency << ")";
-	    proc_mem_affinities.push_back(pma);
+	    ID id((ID::IDType)*cur++);
+	    Memory m = id.convert<Memory>();
+	    assert(id.memory.mem_idx < num_memories);
+            Memory::Kind kind = (Memory::Kind)(*cur++);
+	    size_t size = *cur++;
+	    void *regbase = (void *)(*cur++);
+	    log_annc.debug() << "adding memory " << m << " (kind = " << kind
+			     << ", size = " << size << ", regbase = " << regbase << ")";
+	    if(remote) {
+	      RemoteMemory *mem = new RemoteMemory(m, size, kind, regbase);
+	      get_runtime()->nodes[id.memory.owner_node].memories[id.memory.mem_idx] = mem;
+	    }
 	  }
 	  break;
 
@@ -253,7 +257,7 @@ namespace Realm {
 	  it != proc_mem_affinities.end();
 	  it++) {
 	Processor p = (*it).p;
-	if((ID(p).proc.owner_node == fabric->get_id()))
+	if((ID(p).proc.owner_node == fabric->get_id()) && (p.kind() == kind))
 	  pset.insert(p);
       }
     }
@@ -1261,8 +1265,8 @@ namespace Realm {
     // data structures
     {
       get_machine()->parse_node_announce_data(args->node_id,
-					      args->num_procs, args->
-					      num_memories,
+					      args->num_procs,
+					      args->num_memories,
 					      data, datalen, true);
 
       __sync_fetch_and_add(&announcements_received, 1);

@@ -270,6 +270,8 @@ namespace Realm {
 						      const void *user_data /*= 0*/,
 						      size_t user_data_len /*= 0*/)
     {
+      log_taskreg.debug() << "registering tasks by kind: kind=" << target_kind
+			  << " func=" << func_id << " global=" << global;
       // some sanity checks first
       if(codedesc.type() != TypeConv::from_cpp_type<TaskFuncPtr>()) {
 	log_taskreg.fatal() << "attempt to register a task function of improper type: " << codedesc.type();
@@ -380,7 +382,6 @@ namespace Realm {
       }
       return NULL;
     }
-
 
   ////////////////////////////////////////////////////////////////////////
   //
@@ -657,12 +658,12 @@ namespace Realm {
   }
 
   /*static*/ void RegisterTaskMessageType::send_request(NodeId target,
-						    Processor::TaskFuncID func_id,
-						    Processor::Kind kind,
-						    const std::vector<Processor>& procs,
-						    const CodeDescriptor& codedesc,
-						    const void *userdata, size_t userlen,
-						    RemoteTaskRegistration *reg_op) {
+							Processor::TaskFuncID func_id,
+							Processor::Kind kind,
+							const std::vector<Processor>& procs,
+							const CodeDescriptor& codedesc,
+							const void *userdata, size_t userlen,
+							RemoteTaskRegistration *reg_op) {
 
     Serialization::DynamicBufferSerializer dbs(1024);
     dbs << procs;
@@ -831,6 +832,7 @@ namespace Realm {
 					 const ByteArrayRef& user_data)
   {
     // first, make sure we haven't seen this task id before
+    log_taskreg.debug() << "registered task: proc=" << me << " func=" << func_id;
     if(task_table.count(func_id) > 0) {
       log_taskreg.fatal() << "duplicate task registration: proc=" << me << " func=" << func_id;
       assert(0);
