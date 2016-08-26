@@ -21,6 +21,23 @@ enum {
   FAB_PAYLOAD_ERROR // something went wrong, discard this payload
 };
 
+typedef struct {
+  int mode;
+  std::string desc;
+} PayloadDescription;
+
+const PayloadDescription payload_descs[] = {
+  { FAB_PAYLOAD_NONE,  "FAB_PAYLOAD_NONE" }, 
+  { FAB_PAYLOAD_KEEP,  "FAB_PAYLOAD_KEEP" }, 
+  { FAB_PAYLOAD_FREE,  "FAB_PAYLOAD_FREE" }, 
+  { FAB_PAYLOAD_COPY,  "FAB_PAYLOAD_COPY" }, 
+  { FAB_PAYLOAD_SRCPTR,  "FAB_PAYLOAD_SRCPTR" }, 
+  { FAB_PAYLOAD_PENDING,  "FAB_PAYLOAD_PENDING" }, 
+  { FAB_PAYLOAD_KEEPREG,  "FAB_PAYLOAD_KEEPREG" }, 
+  { FAB_PAYLOAD_EMPTY,  "FAB_PAYLOAD_EMPTY" }, 
+  { FAB_PAYLOAD_ERROR,  "FAB_PAYLOAD_ERROR" },
+};
+
 typedef std::pair<const void *, size_t> SpanListEntry;
 typedef std::vector<SpanListEntry> SpanList;
 

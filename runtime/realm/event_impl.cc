@@ -1220,7 +1220,7 @@ namespace Realm {
   }
 
   void EventUpdateMessageType::BroadcastHelper::broadcast(const NodeSet& targets) {
-    assert((payload->get_mode() != FAB_PAYLOAD_FREE) && "cannot useFAB_PAYLOAD_FREE with broadcast!");
+    assert((payload->get_mode() != FAB_PAYLOAD_FREE) && "cannot use FAB_PAYLOAD_FREE with broadcast!");
     targets.map(*this);
   }
   
