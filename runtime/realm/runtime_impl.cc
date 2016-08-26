@@ -1080,6 +1080,10 @@ namespace Realm {
 	}
 #endif
 
+	// Make sure everyone else is ready to receive info
+	fabric->barrier_notify(REALM_INIT_READY_BARRIER_ID);
+	fabric->barrier_wait(REALM_INIT_READY_BARRIER_ID);
+
 	// now announce ourselves to everyone else
 	for(unsigned i = 0; i < fabric->get_num_nodes(); ++i)
 	  if(i != fabric->get_id())
