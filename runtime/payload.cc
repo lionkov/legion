@@ -7,8 +7,7 @@ FabContiguousPayload::FabContiguousPayload(int m, void *d, size_t s)
 
 FabContiguousPayload::~FabContiguousPayload(void) {
   
-  std::cout << "DESTRUCTING PAYLOAD -- data: " << (char*) data
-	    << " mode: " << payload_descs[mode].desc << std::endl;
+  std::cout << "DESTRUCTING PAYLOAD -- " << " mode: " << payload_descs[mode].desc << std::endl;
   
   if (mode == FAB_PAYLOAD_FREE && data) 
     free(data);
