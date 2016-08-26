@@ -401,8 +401,8 @@ int FabFabric::send(Message* m)
   if (mt == NULL)
     return -EINVAL;
 
-  std::cout << id << ": Sending message of type: " << mdescs[mt->id] << std::endl;
 
+  log_fabric().debug() << "Sending message of type: " << mdescs[mt->id];
 
   if (!m->mtype->payload) {
     ret = fi_tsend(ep, m->get_arg_ptr(), m->mtype->argsz, NULL,		
@@ -607,10 +607,9 @@ bool FabFabric::incoming(Message *m)
     m->payload = new FabContiguousPayload(FAB_PAYLOAD_KEEP, data, len);
   }
 
-  std::cout << id << ": Incoming message of type: " << mdescs[m->mtype->id] << std::endl;
+  log_fabric().debug() << "Incoming message of type: " << mdescs[m->mtype->id];
   m->mtype->request(m);
   // Anything else?
-
   return true;
 }
 

@@ -6,15 +6,12 @@ FabContiguousPayload::FabContiguousPayload(int m, void *d, size_t s)
 }
 
 FabContiguousPayload::~FabContiguousPayload(void) {
-  
-  std::cout << "DESTRUCTING PAYLOAD -- " << " mode: " << payload_descs[mode].desc << std::endl;
-  
+  //std::cout << "DESTRUCTING PAYLOAD -- " << " mode: " << payload_descs[mode].desc << std::endl;
   if (mode == FAB_PAYLOAD_FREE && data) 
     free(data);
   
   if (mode == FAB_PAYLOAD_COPY && internal_buffer)
     free(internal_buffer);
-  
 }
 
 // If the payload mode is FAB_PAYLOAD_COPY, copies the data pointer
