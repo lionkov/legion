@@ -1208,7 +1208,7 @@ namespace Realm {
 						       int num_poisoned,
 						       const EventImpl::gen_t *poisoned_generations) { 
         
-    FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_KEEP,
+    FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_COPY,
 							     (void*) poisoned_generations,
 							     num_poisoned*sizeof(EventImpl::gen_t));
 
@@ -1229,7 +1229,7 @@ namespace Realm {
   /*static*/ void EventUpdateMessageType::broadcast_request(const NodeSet& targets, Event event,
 							    int num_poisoned,
 							    const EventImpl::gen_t *poisoned_generations) {
-    BroadcastHelper helper(event, num_poisoned, poisoned_generations, FAB_PAYLOAD_KEEP);
+    BroadcastHelper helper(event, num_poisoned, poisoned_generations, FAB_PAYLOAD_COPY);
     helper.broadcast(targets);
   }
 

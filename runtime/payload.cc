@@ -7,10 +7,10 @@ FabContiguousPayload::FabContiguousPayload(int m, void *d, size_t s)
 
 FabContiguousPayload::~FabContiguousPayload(void) {
   //std::cout << "DESTRUCTING PAYLOAD -- " << " mode: " << payload_descs[mode].desc << std::endl;
-  if (mode == FAB_PAYLOAD_FREE && data) 
+  if ((mode == FAB_PAYLOAD_FREE) && data) 
     free(data);
   
-  if (mode == FAB_PAYLOAD_COPY && internal_buffer)
+  if ((mode == FAB_PAYLOAD_COPY) && internal_buffer)
     free(internal_buffer);
 }
 
@@ -19,7 +19,7 @@ FabContiguousPayload::~FabContiguousPayload(void) {
 // Otherwise, does nothing.
 
 // Returns 0 on success, -1 on failure (in which case this payload object
-// is invalid.)./f
+// is invalid).
 int FabContiguousPayload::checkmode() {
   switch (mode) {
   default:
@@ -109,10 +109,10 @@ FabTwoDPayload::FabTwoDPayload(int m, void *d, size_t line_size, size_t line_cou
 
 FabTwoDPayload::~FabTwoDPayload(void) {
   std::cout << "DESTRUCTING TWOD PAYLOAD -- data: " << (char*) data << std::endl;
-  if (mode == FAB_PAYLOAD_FREE && data) 
+  if ((mode == FAB_PAYLOAD_FREE) && data) 
     free(data);
   
-  if (mode == FAB_PAYLOAD_COPY && internal_buffer)
+  if ((mode == FAB_PAYLOAD_COPY) && internal_buffer)
     free(internal_buffer);
 }
 
@@ -262,8 +262,7 @@ FabSpanPayload::~FabSpanPayload(void) {
 	free((void*) it->first);
     }
     delete data;
-  }
-  
+  }  
 }
 
 
