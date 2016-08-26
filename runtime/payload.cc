@@ -23,7 +23,7 @@ FabContiguousPayload::~FabContiguousPayload(void) {
 // Otherwise, does nothing.
 
 // Returns 0 on success, -1 on failure (in which case this payload object
-// is invalid.)
+// is invalid.)./f
 int FabContiguousPayload::checkmode() {
   switch (mode) {
   default:
