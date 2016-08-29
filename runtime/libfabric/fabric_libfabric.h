@@ -119,7 +119,7 @@ public:
   void barrier_wait(uint32_t barrier_id);
   void barrier_notify(uint32_t barrier_id);
   void recv_barrier_notify(uint32_t barrier_id, NodeId sender);
-  void recv_rdma_info(NodeId sender, uint64_t key, void* desc);
+  void recv_rdma_info(NodeId sender, uint64_t key, uint64_t desc);
   void wait_for_rdmas();
 
   bool incoming(Message *);
@@ -173,8 +173,8 @@ protected:
   size_t addrlen;   // length of addresses in this fabric
   void* regmem_buf; // registered RDMA buffer -- local node may access directly, otherers may RDMA
   uint64_t* keys;   // array of Libfabric memory keys for each node's registered mem
-  void** mr_descs;  // Libfabric memory descriptors for each node's registered mem
-  std::atomic<uint64_t> rdma_descs_recvd; // tracks incoming RDMA exchange info
+  uint64_t* mr_addrs; // virtual address of each RDMA buffer
+  std::atomic<uint64_t> rdma_keys_recvd; // tracks incoming RDMA exchange info
 
   // Threads -- progress threads execute handlers,
   // tx_handler_thread cleans up sent messages
@@ -221,11 +221,11 @@ public:
     : MessageType(RDMA_EXCHANGE_MSGID, sizeof(RequestArgs), false, true) { }
 
   struct RequestArgs {
-    RequestArgs(NodeId _sender, uint64_t _key, void* _desc)
-      : sender(_sender), key(_key), desc(_desc) { }
+    RequestArgs(NodeId _sender, uint64_t _key, uint64_t _addr)
+      : sender(_sender), key(_key), addr(_addr) { }
     NodeId sender;
     uint64_t key;
-    void* desc;
+    uint64_t addr;
   };
   
   void request(Message* m);
@@ -233,9 +233,9 @@ public:
 
 class RDMAExchangeMessage : public Message {
 public:
-  RDMAExchangeMessage(NodeId dest, NodeId sender, uint64_t key, void* desc)
+  RDMAExchangeMessage(NodeId dest, NodeId sender, uint64_t key, uint64_t addr)
     : Message(dest, RDMA_EXCHANGE_MSGID, &args, NULL),
-      args(sender, key, desc) { }
+      args(sender, key, addr) { }
 
   RDMAExchangeMessageType::RequestArgs args;  
 };

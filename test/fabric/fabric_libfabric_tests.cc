@@ -52,7 +52,7 @@ int FabTester::init(std::vector<std::string> cmdline, bool manually_set_addresse
     std::cout << "ERROR -- Fabric init failed." << std::endl;
     assert(false);
   }
-    std::cout << "Test Fabric object created." << std::endl;
+  std::cout << "Test Fabric object created." << std::endl;
     
   return 0;
 }
@@ -118,19 +118,17 @@ int FabTester::run() {
     errors += 1;
     std::cout << "ERROR -- test_barrier -- FAILED" << std::endl;    
   } else {
-    std::cout << "test_barrier -- OK" << std::endl;    
+  std::cout << "test_barrier -- OK" << std::endl;    
   }
- 
-  /*
+  
+  
   std::cout << std::endl << std::endl << "running: test_rdma" << std::endl;
-  if (test_rdma(4) != 0) {
+  if (test_rdma(20) != 0) {
     errors += 1;
     std::cout << "ERROR -- test_rdma -- FAILED" << std::endl;    
   } else {
     std::cout << "test_rdma -- OK" << std::endl;    
   }
-  */
-  
 
   // Wait for all other RTs to complete, then shut down
   std::cout << "Starting shutdown barrier" << std::endl;
@@ -149,36 +147,36 @@ int FabTester::test_rdma(int runs) {
 
   int errors = 0;
   char msg[50];
+  char compare[50];
   sprintf(msg, "RDMA from Node %d", fabric->get_id());
-  std::cout << msg << std::endl;
 
   // Put own string in everyone else's memory
-  for (NodeId i=0; i<fabric->get_num_nodes(); ++i) {
-    fabric->regmem_put(i, fabric->get_id()*50, msg, 50);
+  for (NodeId target=0; target<fabric->get_num_nodes(); ++target) {
+    fabric->regmem_put(target, 50*fabric->get_id(), msg, 50);
   }
 
   // Synchronize...
   fabric->wait_for_rdmas();
   fabric->barrier_notify(5678);
   fabric->barrier_wait(5678);
-
-  sleep(1);
+  
+  sprintf(msg, "");
   // Veryify that everone has the right data
-  /*
-  for (NodeId i=0; i<fabric->get_num_nodes(); ++i) {
-    for (NodeId ii=0; ii<fabric->get_num_nodes(); ++ii) {
-      fabric->regmem_get(i, ii*50, msg, 50);
-      std::cout << "Id: " << i << " msg: " << msg << std::endl;
+  for (NodeId target=0; target<fabric->get_num_nodes(); ++target) {
+    for (size_t index=0; index<fabric->get_num_nodes(); ++index) {
+      sprintf(compare, "RDMA from Node %d", index);
+      fabric->regmem_get(target, index*50, (void*) msg, 50);
+      fabric->wait_for_rdmas(); // Must wait for get to complete
+      if (strcmp(msg, compare) != 0) {
+	std::cout << "Error on node " << target << " index " << index << "\n"
+	  	  << "Expected string: " << compare << "\n"
+		  << "Got string: " << msg << std::endl;
+	++errors;
+      }
     }
   }
-  */
-  char* regmem_buf = (char*)fabric->get_regmem_ptr();
-  for (int i=0; i<fabric->get_num_nodes(); ++i) {
-    std::cout << regmem_buf+50*i << std::endl;
-  }
   
-
-  return (errors == 0) ? 0 : 1;
+  return errors + test_rdma(runs-1);
 }
 
 
@@ -208,10 +206,8 @@ int FabTester::test_gather(int runs) {
   // Root broadcasts to all other nodes that this gather is done,
   // synchronizing for the next broadcast.
   fabric->broadcast_events(e, 0);
- 
-  errors += test_gather(runs-1);
   
-  return (errors == 0) ? 0 : 1;
+  return errors + test_gather(runs-1);
 }
 
 // Have 0 broadcast to all other nodes. Then, gather back to the root
@@ -252,8 +248,7 @@ int FabTester::test_broadcast(int runs) {
     delete[] es;
   }
 
-  errors += test_broadcast(runs-1);
-  return (errors == 0) ? 0 : 1;
+  return errors + test_broadcast(runs-1);
 }
 
 
@@ -304,8 +299,7 @@ int FabTester::test_message_pingpong(int runs) {
   }
 
   delete[] ack_table;
-  errors += test_message_pingpong(runs-1);
-  return (errors == 0) ? 0 : 1;
+  return errors+test_message_pingpong(runs-1);
 }
 
 

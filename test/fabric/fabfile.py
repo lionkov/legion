@@ -58,7 +58,7 @@ def start():
 @parallel
 def ctxswitch():
     with cd(legion_root + '/test/realm'), shell_env(LG_RT_DIR=str(legion_root + '/runtime')):
-        run('./test_profiling -ll:num_nodes '
+        run('raa./test_profiling -ll:num_nodes '
             + str(nnodes) +
             ' -ll:exchange_server_host '
             + exchange_host)
