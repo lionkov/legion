@@ -725,6 +725,8 @@ namespace Realm {
       std::cout << "WARNING -- RUNNING IN SINGLE NODE MODE" << std::endl;
       Realm::Clock::set_zero_time();
 #endif // USE_FABRIC
+
+      size_t regmem_size_in_mb = fabric->get_regmem_size_in_mb();
       
       nodes = new Node[fabric->get_num_nodes()];
       // create allocators for local node events/locks/index spaces
@@ -821,22 +823,17 @@ namespace Realm {
 	  it++)
 	(*it)->create_processors(this);
 
-      // TODO -- fabric should export registered memory as a LocalCPUMemory
       LocalCPUMemory *regmem = 0;
-      /*
-      if(reg_mem_size_in_mb > 0) {
-	assert(false && "Registered RDMA memory not yet implemented");
-	char *regmem_base = ((char *)(seginfos[fabric->get_id()].addr)) + (gasnet_mem_size_in_mb << 20);
-	delete[] seginfos;
+      if(regmem_size_in_mb > 0) {
+	char* regmem_base = (char*) fabric->get_regmem_ptr();
 	regmem = new LocalCPUMemory(ID::make_memory(fabric->get_id(),
 						    n->memories.size()).convert<Memory>(),
-				    reg_mem_size_in_mb << 20,
+				    regmem_size_in_mb << 20,
 				    regmem_base,
 				    true);
 	n->memories.push_back(regmem);
       } else
 	regmem = 0;
-      */
 
       // create local disk memory
       DiskMemory *diskmem;

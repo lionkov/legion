@@ -564,7 +564,6 @@ namespace Realm {
 					       const ProfilingRequestSet &reqs,
 					       RegionInstance parent_inst)
   {
-    assert(false && "Fabric RemoteMemory not implemeneted yet!");
     return create_instance_remote(r, linearization_bits, bytes_needed,
 				  block_size, element_size, field_sizes, redopid,
 				  list_size, reqs, parent_inst);
@@ -602,13 +601,10 @@ namespace Realm {
   {
     // this better be an RDMA-able memory
 #ifdef USE_FABRIC
-    assert(false && "Fabric RDMA not implemented yet");
     assert(kind == MemoryImpl::MKIND_RDMA);
-    void *srcptr = ((char *)regbase) + offset;
-    //gasnet_get(dst, ID(me).node(), srcptr, size);
-    
+    fabric->get_bytes(ID(me).memory.owner_node, offset, dst, size);
 #else
-      assert(0 && "no remote get_bytes without GASNET");
+      assert(0 && "RDMA not supported by this communication fabric");
 #endif
     }
 
