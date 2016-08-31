@@ -3,6 +3,7 @@
 #include "fabric.h"
 #include "cmdline.h"
 #include "timers.h"
+#include "address_exchange.h"
 #include <iostream>
 #include <cstdio>
 #include <pthread.h>
@@ -212,6 +213,9 @@ protected:
   static int add_address(char* first_address, int index, void* addr);
   void* exchange_addresses();
   void exchange_rdma_info();
+
+  // Uses PMI for address exchange
+  PMIAddressExchange pmi_exchange;
   friend class FabMessage;
     
 };

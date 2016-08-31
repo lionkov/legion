@@ -111,7 +111,7 @@ endif
 
 INC_FLAGS	+= -I$(LG_RT_DIR) -I$(LG_RT_DIR)/realm -I$(LG_RT_DIR)/legion -I$(LG_RT_DIR)/mappers
 ifneq ($(shell uname -s),Darwin)
-LEGION_LD_FLAGS	+= -lrt -lpthread -lfabric 
+LEGION_LD_FLAGS	+= -lrt -lpthread -lfabric -lshmem_pmi
 else
 LEGION_LD_FLAGS	+= -lpthread
 endif
@@ -344,6 +344,7 @@ LOW_RUNTIME_SRC += $(LG_RT_DIR)/fabric.cc
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/payload.cc	
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/libfabric/fabric_libfabric.cc
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/barrier.cc
+LOW_RUNTIME_SRC += $(LG_RT_DIR)/address_exchange.cc
 LEGION_LD_FLAGS += -L /usr/lib/x86_64-linux-gnu/ -lzmq
 
 GPU_RUNTIME_SRC +=

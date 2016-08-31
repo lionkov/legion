@@ -272,22 +272,10 @@ bool FabFabric::init(bool manually_set_addresses) {
   memset(fi_addrs, 0, sizeof(fi_addr_t*)*num_nodes);
   void* addrs;
   
-  if(!manually_set_addresses) {
-    // Contact the address change server, wait for all other nodes to post
-    // their addresses, and load results into addrs array:
-    std::cout << "Exchanging addresses... " << std::endl;
-    addrs = exchange_addresses();
-    if (ret < 0)
-      return init_fail(hints, fi, "address exchange failed");
-  } else {
-    // Insert only this node's address. The complete AV will need to be set later
-    // using set_address_vector.
-    num_nodes = 1;
-    std::cout << "WARNING -- address vector not set. You must set it manually to access other fabrics"
-	      << std::endl;
-    addrs = (void*) malloc(addrlen);
-    memcpy(addrs, addr, addrlen);
-  }
+  std::cout << "Exchanging addresses... " << std::endl;
+  addrs = exchange_addresses();
+  if (!addrs) 
+    return init_fail(hints, fi, "Address exchange failed");
   
   // Load addresses into AV
   ret = fi_av_insert(av, addrs, num_nodes, fi_addrs, 0, NULL);
@@ -853,17 +841,23 @@ size_t FabFabric::get_iov_limit(MessageId id) {
 // returns a pointer to the addrs array on success, or NULL
 // on failure.
 void* FabFabric::exchange_addresses() {
-  if(num_nodes == 1) {
-    // single node mode, no need to exchange
-    void* addrs = (void*) malloc(num_nodes*addrlen);
-    memcpy(addrs, addr, addrlen);
-    return addrs;
-  }
-     
   
+  char* addrs = (char*) malloc(num_nodes*addrlen);
+  // single node mode, no need to exchange
+  //if(num_nodes == 1) {
+  //memcpy(addrs, addr, addrlen);
+  //return addrs;
+  //}
+
+  // Otherwise, use PMI interface
   int ret;
-  void* addrs = (void*) malloc(num_nodes*addrlen);
-  
+  ret = pmi_exchange.exchange(id, num_nodes, addr, addrs, addrlen);
+  if (ret != 0) {
+    std::cout << "ERROR -- address exchange failed" << std::endl;
+    return NULL;
+  }
+
+  exit(1);
   void* context = zmq_ctx_new();
   void* sender = zmq_socket(context, ZMQ_PUSH);
   void* receiver = zmq_socket(context, ZMQ_PULL);
