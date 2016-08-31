@@ -12,5 +12,13 @@ core
 *.bbl
 *.blg
 *.aux
+GPATH
+GRTAGS
+GSYMS
+GTAGS
+ckt_sim
+exchange
+ghost
+runtests
 /profiler/config.js
 
