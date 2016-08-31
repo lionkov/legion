@@ -41,6 +41,10 @@ class CondVar {
   Mutex *lock;
 };
 
+// A MessageType is a static instance of a message -- it describes message attributes
+// that do not change, i.e. message parameters, the handler function (request()), and
+// optionally a struct for containing message arguments. Each MessageType must be registered
+// with the fabric before use via the add_message_type() method.
 class MessageType {
  public:
   MessageId	id;		// message id
@@ -57,56 +61,108 @@ class MessageType {
 
 class Fabric {
  public:
-  // all message types need to be added before init() is called
+  
   Fabric() : log(NULL), num_msgs_added(0) { }
   virtual ~Fabric() { }
 
-  // Refers to each registered message type
+  // Holds references to each registered message type.
   MessageType* mts[MAX_MESSAGE_TYPES];
   std::string mdescs[MAX_MESSAGE_TYPES];
   
-  // Initialization, shutdown
+  // INITIALIZATION AND SHUTDOWN
   // Each message type must be added before initialization
   virtual bool add_message_type(MessageType *mt, const std::string tag) = 0;
+  
   // register_options must be called before init() for command
   // line parameters to take effect
   virtual void register_options(Realm::CommandLineParser& cp) = 0;
+
+  // Initialize the fabric. This must be called after adding all message types
+  // and registering command line options. It must be called before any futher use of
+  // the fabric.
   virtual bool init(bool manually_set_addresses = false) = 0;
+
+  // Request that the fabric clean up and shut down
   virtual void shutdown() = 0;
+
+  // Block until the fabric shuts down, either from a local shutdown() call
+  // or a remote request
+  virtual void wait_for_shutdown() = 0;
+  
+  // Called after init, this method exchanges messages between all nodes to
+  // attempt clock synchronization.
   virtual void synchronize_clocks() = 0;
-  // call on fatal error - clean up RT and exit
+  
+  // call on fatal error - clean up RT and exit immediately
   virtual void fatal_shutdown(int code) = 0;
 
+  // REGISTERED MEMORY
   // 'Registered' memory is for one-sided RDMA operations --
   // it's size is specifed via ll:rsize option, and does not change.
+  // Legion will use this region like a normal memory on the local node, and
+  // will export it to other nodes as a RemoteMemory
+  
   // Put bytes into the registered block at given offset
-  virtual void regmem_put(NodeId target, off_t offset, const void* src, size_t len) = 0;
+  virtual void put_bytes(NodeId target, off_t offset, const void* src, size_t len) = 0;
+  
   // Read bytes from the registered block at given offset
-  virtual void regmem_get(NodeId target, off_t offset, void* dst, size_t len) = 0;
+  virtual void get_bytes(NodeId target, off_t offset, void* dst, size_t len) = 0;
+  
   // Get pointer to the registered buffer -- local node may use it like normal memory
   virtual void* get_regmem_ptr() = 0;
-  // Wait for all RDMA events to complete asyncrhonously
+  
+  // Wait for all RDMA events to complete asynchronously
   virtual void wait_for_rdmas() = 0;
- 
-  // Send messages 
+
+  // Get the size of the RDMA-able buffer in megabytes
+  virtual size_t get_regmem_size_in_mb() = 0;
+
+  // SENDING MESSAGES, COLLECTIVES
+  
+  // Send a message, created using new
   virtual int send(Message* m) = 0;
 
-  // Collectives and barriers
+  // Gather events to the node root. The root nodes will receive an array of Event objects
+  // which it now owns, and should deallocate with delete[]. All other nodes receive NULL.
   virtual Realm::Event* gather_events(Realm::Event& event, NodeId root) = 0;
+
+  // Register an incoming gather event
   virtual void recv_gather_event(Realm::Event& event, NodeId sender) = 0;
+
+  // Broadcast an event from the root node to all other nodes. The broadcasted data will
+  // be recieved into event. The root node will send its data to other nodes; other nodes
+  // will wait until the broadcast event is received.
   virtual void broadcast_events(Realm::Event& event, NodeId root) = 0;
+
+  // Register an incoming broadcast event
   virtual void recv_broadcast_event(Realm::Event& event, NodeId sender) = 0;
+
+  // Wait until all nodes in fabric have called barrier_notify with id barrier_id
   virtual void barrier_wait(uint32_t barrier_id) = 0;
+
+  // Send barrier notification for this node on barrier barrier_id
   virtual void barrier_notify(uint32_t barrier_id) = 0;
+
+  // Register a barrier notification
   virtual void recv_barrier_notify(uint32_t barrier_id, NodeId sender) = 0;
 
-  // Query fabric parameters
+  // QUERYING FABRIC PARAMETERS
+  
+  // Get this node's ID
   virtual NodeId get_id() = 0;
+
+  // Get the number of nodes in the fabric
   virtual uint32_t get_num_nodes() = 0;
+
+  // Get the maximum number of IOVs that can be sent in a single message
   virtual size_t get_iov_limit() = 0;
+
+  // Get the maximum number of IOVs that can be sent for a message of this type
+  // -- this method may allow you to send extra IOVs for some message types
   virtual size_t get_iov_limit(MessageId id) = 0;
+
+  // Get the maximum number of bytes that can be sent in a payload
   virtual size_t get_max_send() = 0;
-  virtual void wait_for_shutdown() = 0;
 
   Realm::Logger* log;
   Realm::Logger& log_fabric() {
@@ -115,8 +171,8 @@ class Fabric {
   }
 
  protected:
-  // Handles current in-progress Event gather. You need to initialize it once number of
-  // nodes are known
+  // Handles current in-progress Event gather. Must be initialized in init(), once
+  // number of nodes is known
   Gatherer<Realm::Event> event_gatherer;
 
   // Handles current Broadcast. Does not need to be initialized
@@ -125,13 +181,17 @@ class Fabric {
   // Handles barriers. Must be initialized once number of nodes is known.
   BarrierWaiter barrier_waiter;
   
-  uint32_t num_msgs_added; // Keeps track of number of messages added
+  // Keeps track of number of messages added
+  uint32_t num_msgs_added;
 };
 
 // Global fabric singleton
 extern Fabric* fabric;
 
-
+// The Message class represents an instance of a MessageType.
+// It may contain arguments and an optional payload.
+// The corresponding MessageType handler will be invoked when a
+// Message is recieved.
 class Message {
  public:
   MessageType*  mtype;		// message type
@@ -148,9 +208,6 @@ class Message {
       delete iov;
   }
   
-  // can be called by the request handler to send a reply
-  // Commented out for now, I'm not sure yet if legion will actually use this
-  //virtual int reply(MessageId id, void *args, Payload *payload, bool inOrder) = 0;
   struct iovec* iov;
   struct iovec siov[6];
 
@@ -167,7 +224,7 @@ class Message {
   
 };   
 
-// Message types
+// MESSAGE TYPES
 
 // EventGatherMessage -- register and incoming Event for a gather collective
 class EventGatherMessageType : public MessageType {

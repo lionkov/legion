@@ -10,7 +10,7 @@ FabFabric::FabFabric() : id(0),
 			 num_progress_threads(1),
 			 progress_threads(NULL),
 			 tx_handler_thread(NULL),
-			 stacksize_in_mb(32),
+			 handler_stacksize_in_mb(4),
 			 stop_flag(false),
 			 exchange_server_send_port(8080),
 			 exchange_server_recv_port(8081),
@@ -28,8 +28,7 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
   cp.add_option_int("-ll:exchange_server_send_port", exchange_server_send_port);
   cp.add_option_int("-ll:exchange_server_recv_port", exchange_server_recv_port);
   cp.add_option_string("-ll:exchange_server_host", exchange_server_host);
-  // progress / cleanup thread options
-  cp.add_option_int("-ll:stacksize", stacksize_in_mb);
+  cp.add_option_int("-ll:handler_stacksize", handler_stacksize_in_mb);
   cp.add_option_int("-ll:handlers", num_progress_threads);
   cp.add_option_int("-ll:rsize", regmem_size_in_mb);
 }
@@ -687,7 +686,7 @@ void FabFabric::start_progress_threads(const int count, const size_t stack_size)
   num_progress_threads = count;
   progress_threads = new pthread_t[count];
   pthread_attr_init(&thread_attrs);
-  pthread_attr_setstacksize(&thread_attrs, stacksize_in_mb*1024*1024);
+  pthread_attr_setstacksize(&thread_attrs, handler_stacksize_in_mb*1024*1024);
   
   for (int i = 0; i < count; ++i) {
     pthread_create(&progress_threads[i], &thread_attrs, &FabFabric::bootstrap_progress, this);
@@ -928,7 +927,7 @@ std::string FabFabric::tostr() {
 	  << "    max_send: "  << max_send  << "\n"
 	  << "    pend_num: "  << pend_num  << "\n"
 	  << "    num_progress_threads: " << num_progress_threads << "\n"
-	  << "    stacksize_in_mb: " << stacksize_in_mb << "\n"
+	  << "    handler_stacksize_in_mb: " << handler_stacksize_in_mb << "\n"
 	  << "    regmem_size_in_mb: "    << regmem_size_in_mb << "\n"
 	  << "    exchange_server_host: " << exchange_server_host << "\n"
     	  << "    exchange_server_send_port: " << exchange_server_send_port << "\n"
@@ -1050,7 +1049,7 @@ void FabFabric::fatal_shutdown(int code) {
   exit(code);
 }
 
-void FabFabric::regmem_get(NodeId target, off_t offset, void* dst, size_t len) {
+void FabFabric::get_bytes(NodeId target, off_t offset, void* dst, size_t len) {
   ++rdmas_initiated;
   ssize_t ret = fi_read(ep, dst, len, NULL, fi_addrs[target],
 			mr_addrs[target]+offset,
@@ -1062,7 +1061,7 @@ void FabFabric::regmem_get(NodeId target, off_t offset, void* dst, size_t len) {
   }
 }
 
-void FabFabric::regmem_put(NodeId target, off_t offset, const void* src, size_t len) {
+void FabFabric::put_bytes(NodeId target, off_t offset, const void* src, size_t len) {
   ++rdmas_initiated;
   ssize_t ret = fi_write(ep, src, len, NULL, fi_addrs[target],
 			 mr_addrs[target]+offset,
@@ -1072,6 +1071,11 @@ void FabFabric::regmem_put(NodeId target, off_t offset, const void* src, size_t 
 	      << "fi_strerror: " << fi_strerror(-ret) << std::endl;
     assert(false && "fi_write failed");
   }
+}
+
+// Returns regmem size in mb
+size_t FabFabric::get_regmem_size_in_mb() {
+  return regmem_size_in_mb;
 }
 
 void* FabFabric::get_regmem_ptr() {

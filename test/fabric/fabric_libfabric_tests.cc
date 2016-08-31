@@ -145,6 +145,12 @@ int FabTester::test_rdma(int runs) {
   if (runs <= 0)
     return 0;
 
+  if (fabric->get_regmem_size_in_mb() <= 0) {
+    std::cout << "ERROR -- can't run RDMA test, no registered memory was created. \n"
+	      << "Rerun this test with option: -ll:rsize 16" << std::endl;
+    return 1;
+  }
+
   int errors = 0;
   char msg[50];
   char compare[50];
@@ -152,7 +158,7 @@ int FabTester::test_rdma(int runs) {
 
   // Put own string in everyone else's memory
   for (NodeId target=0; target<fabric->get_num_nodes(); ++target) {
-    fabric->regmem_put(target, 50*fabric->get_id(), msg, 50);
+    fabric->put_bytes(target, 50*fabric->get_id(), msg, 50);
   }
 
   // Synchronize...
@@ -165,7 +171,7 @@ int FabTester::test_rdma(int runs) {
   for (NodeId target=0; target<fabric->get_num_nodes(); ++target) {
     for (size_t index=0; index<fabric->get_num_nodes(); ++index) {
       sprintf(compare, "RDMA from Node %d", index);
-      fabric->regmem_get(target, index*50, (void*) msg, 50);
+      fabric->get_bytes(target, index*50, (void*) msg, 50);
       fabric->wait_for_rdmas(); // Must wait for get to complete
       if (strcmp(msg, compare) != 0) {
 	std::cout << "Error on node " << target << " index " << index << "\n"

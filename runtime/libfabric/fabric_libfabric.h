@@ -108,9 +108,10 @@ public:
   void fatal_shutdown(int code);
   NodeId get_id();
   uint32_t get_num_nodes();
-  void regmem_put(NodeId target, off_t offset, const void* src, size_t len);
-  void regmem_get(NodeId target, off_t offset, void* dst, size_t len);
+  void put_bytes(NodeId target, off_t offset, const void* src, size_t len);
+  void get_bytes(NodeId target, off_t offset, void* dst, size_t len);
   void* get_regmem_ptr();
+  size_t get_regmem_size_in_mb();
   int send(Message* m);
   Realm::Event* gather_events(Realm::Event& event, NodeId root);
   void broadcast_events(Realm::Event& event, NodeId root);
@@ -182,7 +183,7 @@ protected:
   pthread_attr_t thread_attrs;
   pthread_t* progress_threads;
   pthread_t* tx_handler_thread;
-  size_t stacksize_in_mb;
+  size_t handler_stacksize_in_mb;
     
   std::atomic<bool> stop_flag;
   std::mutex done_mutex;

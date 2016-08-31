@@ -173,6 +173,7 @@ void top_level_task(const Task *task,
   // done without ever blocking and thereby exposing as much task-level
   // parallelism to the Legion runtime as possible.  We'll discuss the
   // implications of Legion's deferred execution model in a later example.
+
   runtime->destroy_logical_region(ctx, input_lr);
   runtime->destroy_logical_region(ctx, output_lr);
   runtime->destroy_field_space(ctx, input_fs);
@@ -265,6 +266,7 @@ void check_task(const Task *task,
       task->regions[0].region.get_index_space());
   Rect<1> rect = dom.get_rect<1>();
   bool all_passed = true;
+  int p = 0;
   for (GenericPointInRectIterator<1> pir(rect); pir; pir++)
   {
     double expected = alpha * acc_x.read(DomainPoint::from_point<1>(pir.p)) + 
@@ -273,12 +275,20 @@ void check_task(const Task *task,
     // Probably shouldn't check for floating point equivalence but
     // the order of operations are the same should they should
     // be bitwise equal.
-    if (expected != received)
+    if (expected != received) {
       all_passed = false;
+      printf("ERROR on point: %d\n", p);
+      printf("Expected: %f\n", expected);
+      printf("Received: %f\n", received);
+      std::cout << "acc_x: " << acc_x.read(DomainPoint::from_point<1>(pir.p)) << std::endl;
+      std::cout << "acc_y: " << acc_y.read(DomainPoint::from_point<1>(pir.p)) << std::endl;
+      std::cout << "alpha: " << alpha << std::endl;
+    }
+    ++p;
   }
   if (all_passed)
     printf("SUCCESS!\n");
-  else
+  else 
     printf("FAILURE!\n");
 }
 
