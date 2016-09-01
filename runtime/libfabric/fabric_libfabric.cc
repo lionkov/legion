@@ -842,22 +842,23 @@ size_t FabFabric::get_iov_limit(MessageId id) {
 // on failure.
 void* FabFabric::exchange_addresses() {
   
+  int ret;
   char* addrs = (char*) malloc(num_nodes*addrlen);
-  // single node mode, no need to exchange
-  //if(num_nodes == 1) {
-  //memcpy(addrs, addr, addrlen);
-  //return addrs;
-  //}
+  //single node mode, no need to exchange
+  if(num_nodes == 1) {
+    memcpy(addrs, addr, addrlen);
+    return addrs;
+  }
 
   // Otherwise, use PMI interface
-  int ret;
+  /*
   ret = pmi_exchange.exchange(id, num_nodes, addr, addrs, addrlen);
   if (ret != 0) {
     std::cout << "ERROR -- address exchange failed" << std::endl;
     return NULL;
   }
-
   exit(1);
+  */
   void* context = zmq_ctx_new();
   void* sender = zmq_socket(context, ZMQ_PUSH);
   void* receiver = zmq_socket(context, ZMQ_PULL);

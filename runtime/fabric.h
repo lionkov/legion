@@ -31,15 +31,76 @@ class Mutex {
 };
 
 class CondVar {
- public:
-  CondVar(Mutex *);
+public:
   virtual void signal(void) = 0;
   virtual void broadcast(void) = 0;
   virtual void wait(void) = 0;
-
- protected:
-  Mutex *lock;
+  virtual Mutex& get_mutex() = 0;
 };
+
+class AutoLock {
+public:
+  virtual void release() = 0;
+  virtual void reacquire() = 0;
+};
+
+// Default mutex/cond implementations -- use pthreads
+class FabMutex : public Mutex {
+public:
+  FabMutex(void) { pthread_mutex_init(&_lock, NULL); }
+  FabMutex(FabMutex& other) { assert(false && "Cannot copy FabMutex"); }
+  FabMutex(FabMutex&& rhs) { assert(false && "Cannot move FabMutex"); }
+  ~FabMutex(void) { pthread_mutex_destroy(&_lock); }
+    
+  void lock(void) { pthread_mutex_lock(&_lock); }
+  void unlock(void) { pthread_mutex_unlock(&_lock); }
+    
+protected:
+  friend class FabCondVar;
+  pthread_mutex_t _lock;
+
+private:
+  // Should never be copied
+  FabMutex(const FabMutex& m) { assert(false); }
+  FabMutex& operator=(const FabMutex &m) { assert(false); return *this; }
+};
+
+class FabCondVar : public CondVar {
+public:
+  FabCondVar(FabMutex &m) : mutex(m) { pthread_cond_init(&cond, NULL); }
+  FabCondVar(FabCondVar& other) : mutex(other.mutex)
+  { assert(false && "Cannot copy FabCondVar"); }
+  FabCondVar(FabCondVar&& other) : mutex(other.mutex)
+  { assert(false && "Cannot move FabCondVar"); }
+  ~FabCondVar(void) { pthread_cond_destroy(&cond); }
+  
+  void signal(void) { pthread_cond_signal(&cond); }
+  void broadcast(void) { pthread_cond_broadcast(&cond); }
+  void wait(void) { pthread_cond_wait(&cond, &mutex._lock); }
+  
+  FabMutex& get_mutex() { return mutex; };
+   
+protected:
+  friend class FabAutoLock;
+  FabMutex &mutex;
+  pthread_cond_t cond;
+};
+
+class FabAutoLock {
+public:
+  FabAutoLock(FabMutex& _mutex) : mutex(_mutex), held(true) { mutex.lock(); }
+  FabAutoLock(FabCondVar& cond) : mutex(cond.mutex), held(true) { mutex.lock(); }
+  FabAutoLock(FabAutoLock& other) : mutex(other.mutex) { assert(false && "Cannot copy FabAutoLock"); }
+  FabAutoLock(FabAutoLock&& other): mutex(other.mutex) { assert(false && "Cannot move FabAutoLock"); }
+  ~FabAutoLock();
+  void release();
+  void reacquire();
+
+protected:
+  FabMutex& mutex;
+  bool held;
+};
+
 
 // A MessageType is a static instance of a message -- it describes message attributes
 // that do not change, i.e. message parameters, the handler function (request()), and
