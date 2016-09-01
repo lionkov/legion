@@ -32,6 +32,7 @@ typedef enum {
   EXCHANGE_SUCCESS = 0,
   EXCHANGE_INIT_FAILED = 1,
   EXCHANGE_PUT_FAILED,
+  EXCHANGE_GET_FAILED,
 } ExchangeError;
 
 class PMIAddressExchange {
@@ -48,13 +49,13 @@ public:
 
   // Exchange addresses. Will write node's ID into id, number
   // of nodes in to num_nodes, and addresses into addrs.
-  size_t exchange(NodeId& id, uint32_t& num_nodes, char* addr, char* addrs, size_t addrlen);
+  size_t exchange(NodeId& id, uint32_t& num_nodes, const char* addr, char* addrs, size_t addrlen);
   
  
 private:
   size_t init_pmi();
-  size_t pmi_put_address(char* addr, size_t addrlen);
-  size_t pmi_get_addresses(char* addrs, size_t addrlen); 
+  size_t pmi_put_address(const char* addr, size_t addrlen) const;
+  size_t pmi_get_addresses(char* addrs, size_t addrlen) const; 
   int rank; // rank of this process
   int size; // process group size
   char* kvs_name;

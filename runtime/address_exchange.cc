@@ -53,7 +53,7 @@ size_t PMIAddressExchange::init_pmi() {
 
 // Add this node's address to the KVS, commit the change, and wait
 // for all other nodes to commit as well.
-size_t PMIAddressExchange::pmi_put_address(char* addr, size_t addrlen) {
+size_t PMIAddressExchange::pmi_put_address(const char* addr, size_t addrlen) const {
 
   assert((addrlen <= max_name_len) && "Addresses are too small to be exchanged by PMI");
   snprintf(kvs_key, max_key_len, "fabric-%lu-addr", (unsigned long) rank);
@@ -71,13 +71,29 @@ size_t PMIAddressExchange::pmi_put_address(char* addr, size_t addrlen) {
   return 0;
 }
 
+size_t PMIAddressExchange::pmi_get_addresses(char* addrs, size_t addrlen) const {
+
+  // Just iterate through all other nodes -- not scalable? This could be done lazily,
+  // but I'd prefer not to
+  char* p = addrs;
+  char lookup[256];
+  for (unsigned long i=0; i<size; ++i) {
+    snprintf(lookup, 256, "fabric-%lu-addr", i);  
+    if (PMI_KVS_Get(kvs_name, lookup, p, addrlen) != PMI_SUCCESS) {
+      return 1;
+    }
+    p += addrlen;
+  }
+  
+  return 0;
+}
 
 
 // Exchange addresses. Return 0 on success, else an error code.
 // Error codes are defined in address_exchange.h
 size_t PMIAddressExchange::exchange(NodeId& id,
 				    uint32_t& num_nodes,
-				    char* addr,
+				    const char* addr,
 				    char* addrs,
 				    size_t addrlen) {
   int ret;
@@ -95,12 +111,24 @@ size_t PMIAddressExchange::exchange(NodeId& id,
   }
 
   // Look up everyone else's addresses
+ 
   ret = pmi_get_addresses(addrs, addrlen);
-    
+  if (ret != 0) {
+    std::cerr << "pmi_get_addresses failed with code: " << ret << std::endl;
+    return EXCHANGE_GET_FAILED;
+  }
+  
   // Set rank information for the root
   id = rank;
   num_nodes = size;
-
+  
+  std::cout << "ADDR: " << addr << std::endl;
+  char* p;
+  for (int i = 0; i < size; ++i) {
+    std::cout << "ADDRS " << i << ": " << p << std::endl;
+    p += addrlen;
+  }
+  
   std::cout << "PMI Information: \n"
 	    << " rank: " << rank << "\n"
 	    << " size: " << size << "\n"
@@ -113,7 +141,3 @@ size_t PMIAddressExchange::exchange(NodeId& id,
   return EXCHANGE_SUCCESS;
 }
 
-size_t PMIAddressExchange::pmi_get_addresses(char* addrs, size_t addrlen) {
-  
-  return 0;
-}
