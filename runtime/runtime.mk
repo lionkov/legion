@@ -344,7 +344,7 @@ LOW_RUNTIME_SRC += $(LG_RT_DIR)/fabric.cc
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/payload.cc	
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/libfabric/fabric_libfabric.cc
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/barrier.cc
-LOW_RUNTIME_SRC += $(LG_RT_DIR)/address_exchange.cc
+#LOW_RUNTIME_SRC += $(LG_RT_DIR)/address_exchange.cc
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/single_node_fabric.cc
 LEGION_LD_FLAGS += -L /usr/lib/x86_64-linux-gnu/ -lzmq
 
