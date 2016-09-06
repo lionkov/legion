@@ -149,7 +149,7 @@ protected:
   void exchange_rdma_info();
 
   // Uses PMI for address exchange
-  PMIAddressExchange pmi_exchange;
+  // PMIAddressExchange pmi_exchange;
   friend class FabMessage;
     
 };
