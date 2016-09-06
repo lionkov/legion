@@ -46,6 +46,7 @@ public:
   int test_rdma(int runs);
   void wait_for_shutdown() {
     fabric->wait_for_shutdown();
+    delete fabric;
   }
   
 protected:

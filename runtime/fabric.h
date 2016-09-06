@@ -3,8 +3,7 @@
 
 // TEMPORARY -- remove this in case people want to compile without fabric
 #define USE_FABRIC
-
-
+  
 // For now, fabric will depend on ActiveMessagIDs and
 // Payload definitions from activemsg.h. When GASNET has
 // been fully removed, this will be moved back in to fabric.h / msg.h
@@ -123,8 +122,8 @@ class MessageType {
 class Fabric {
  public:
   
-  Fabric() : log(NULL), num_msgs_added(0) { }
-  virtual ~Fabric() { }
+  Fabric();
+  virtual ~Fabric();
 
   // Holds references to each registered message type.
   MessageType* mts[MAX_MESSAGE_TYPES];
@@ -132,7 +131,7 @@ class Fabric {
   
   // INITIALIZATION AND SHUTDOWN
   // Each message type must be added before initialization
-  virtual bool add_message_type(MessageType *mt, const std::string tag) = 0;
+  virtual bool add_message_type(MessageType *mt, const std::string tag);
   
   // register_options must be called before init() for command
   // line parameters to take effect
@@ -261,12 +260,16 @@ class Message {
   MessageId     id; 
   void*         arg_ptr;
   FabPayload*	payload;
+  bool          recvd_message;  // true if this message exists on the receiver side
 
   virtual ~Message() {
     if (payload)
       delete payload;
     if (iov != siov && iov)
       delete iov;
+    // Delete the args if this is a recieved message
+    if(siov[0].iov_len != 0 && recvd_message)
+      free(siov[0].iov_base);
   }
   
   struct iovec* iov;
@@ -276,11 +279,10 @@ class Message {
   void set_arg_ptr(void* a) { arg_ptr = a; }
 
   Message(NodeId dest, MessageId _id, void *a, FabPayload *p)
-     : rcvid(dest), id(_id), arg_ptr(a), payload(p) {
+    : rcvid(dest), id(_id), arg_ptr(a), payload(p), recvd_message(false), iov(NULL) {
     mtype = fabric->mts[id];
-    rcvid = dest;
     sndid = fabric->get_id();
-    iov = NULL;
+    siov[0].iov_len = 0; // This length must be initialized so we know if it was used
   }
   
 };   

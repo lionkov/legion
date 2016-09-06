@@ -7,8 +7,7 @@
 #include <iostream>
 #include <cstdio>
 #include <pthread.h>
-//#include <stdatomic.h>
-#include <condition_variable>
+
 #include <atomic>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -16,11 +15,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <zmq.h>
-
-//#include "pmi.h"
-//#include "pmix.h"
 #include <cstring>
-#include <vector>
 #include <cerrno>
 #include <string>
 #include <sstream>
@@ -39,10 +34,9 @@
 class FabFabric : public Fabric {
 public:
   FabFabric();
-  ~FabFabric();
+  virtual ~FabFabric();
     
   void register_options(Realm::CommandLineParser &cp);
-  bool add_message_type(MessageType *mt, const std::string tag);
   bool init(bool manually_set_addresses = false);
   void shutdown();
   void synchronize_clocks();
@@ -83,7 +77,6 @@ public:
   int set_address_vector(void* addrs, size_t addrlen, NodeId new_id, uint32_t new_num_nodes);
   size_t get_address(char buf[64]);
 
-    
 protected:
   // parameters
   NodeId	id;
@@ -127,6 +120,7 @@ protected:
   size_t handler_stacksize_in_mb;
     
   std::atomic<bool> stop_flag;
+  bool shutdown_complete;
   std::mutex done_mutex;
     
   int exchange_server_send_port;

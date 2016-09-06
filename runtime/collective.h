@@ -14,7 +14,7 @@
 
 #include "fabric_types.h"
 #include <atomic>
-#include "atomicops.h"
+//#include "atomicops.h"
 #include "readerwriterqueue.h"
 #include <iostream>
 #include <utility>
@@ -133,7 +133,6 @@ void Gatherer<T>::destroy() {
     initialized.store(false);
   }
 }
-
 
 // add gather data for node sender to the buffer
 template <typename T>

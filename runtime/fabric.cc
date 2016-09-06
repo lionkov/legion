@@ -5,6 +5,32 @@
 
 #include "fabric.h"
 
+Fabric::Fabric() : log(NULL), num_msgs_added(0) {
+  for (int i = 0; i < MAX_MESSAGE_TYPES; ++i)
+    mts[i] = NULL;
+}
+
+Fabric::~Fabric() {
+  for (int i = 0; i < MAX_MESSAGE_TYPES; ++i) {
+    if (mts[i])
+      delete mts[i];
+  }
+}
+
+bool Fabric::add_message_type(MessageType *mt, const std::string tag)
+{
+  log_fabric().debug("registered message type: %s", tag.c_str());
+
+  if (mt->id == 0 || mts[mt->id] != NULL || mt->id > MAX_MESSAGE_TYPES) {
+    assert(false && "Attempted to add invalid message type");
+    return false;
+  }
+
+  mts[mt->id] = mt;
+  mdescs[mt->id] = tag;
+  return true;
+}
+
 // Messages for collective communication
 void EventGatherMessageType::send_request(NodeId dest, Realm::Event& event) {
   fabric->send(new EventGatherMessage(dest, event, fabric->get_id()));

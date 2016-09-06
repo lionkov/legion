@@ -90,13 +90,13 @@ int FabTester::run() {
   */
   
   std::cout << std::endl << std::endl << "running: test_message_pingpong" << std::endl;
-  if (test_message_pingpong(4) != 0) {
+  if (test_message_pingpong(1) != 0) {
     errors += 1;
     std::cout << "ERROR -- test_message_pingpong -- FAILED" << std::endl;    
   } else {
     std::cout << "test_message_pingpong -- OK" << std::endl;    
   }
-  
+  /*
   std::cout << std::endl << std::endl << "running: test_gather" << std::endl;
   if (test_gather(100) != 0) {
     errors += 1;
@@ -129,7 +129,7 @@ int FabTester::run() {
   } else {
     std::cout << "test_rdma -- OK" << std::endl;    
   }
-
+  */
   // Wait for all other RTs to complete, then shut down
   std::cout << "Starting shutdown barrier" << std::endl;
   fabric->barrier_notify(FABRIC_TESTS_DONE_BARRIER_ID);
@@ -283,7 +283,8 @@ int FabTester::test_message_pingpong(int runs) {
     ack_table[i] = false;
 
   for(NodeId i = 0; i < num_nodes; ++i) {
-    char* mystr = new char[30];
+    //char* mystr = new char[30];
+    char* mystr = (char*) malloc(30*sizeof(char));
     strcpy(mystr, "PingPongMessage");
     FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_FREE,
 							     (void*) mystr,
@@ -502,9 +503,10 @@ void PingPongMessageType::request(Message* m) {
   size_t datalen = m->payload->size();
   assert(strncmp(data, "PingPongMessage", datalen) == 0);
   
-  char* response_str = new char[30];
+  char* response_str = (char*) malloc(30*sizeof(char));
   sprintf(response_str, "PingPongAck from %d", fabric->get_id());
-  
+
+  free(m->payload->ptr());
   FabContiguousPayload* payload = new FabContiguousPayload(FAB_PAYLOAD_FREE,
 							   (void*) response_str,
 							   30);
@@ -520,5 +522,7 @@ void PingPongAckType::request(Message* m) {
   char cmp_str[30];
   sprintf(cmp_str, "PingPongAck from %d", args->sender);
   assert(strncmp(cmp_str, data, 30) == 0);
+
+  free(m->payload->ptr());
   args->ack_table[args->sender] = true;
 }

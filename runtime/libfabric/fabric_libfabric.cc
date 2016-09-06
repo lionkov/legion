@@ -12,12 +12,11 @@ FabFabric::FabFabric() : id(0),
 			 tx_handler_thread(NULL),
 			 handler_stacksize_in_mb(4),
 			 stop_flag(false),
+			 shutdown_complete(false),
 			 exchange_server_send_port(8080),
 			 exchange_server_recv_port(8081),
 			 exchange_server_host("127.0.0.1") {
   done_mutex.lock();
-  for (int i = 0; i < MAX_MESSAGE_TYPES; ++i)
-    mts[i] = NULL;
 }
 
 void FabFabric::register_options(Realm::CommandLineParser &cp)
@@ -285,19 +284,21 @@ bool FabFabric::init(bool manually_set_addresses) {
   // post tagged message for message types without payloads
   for(int i = 0; i < MAX_MESSAGE_TYPES; ++i) {
     MessageType* mt = mts[i];
-    if (mt && !mt->payload) {
+    if (mt) {
       ret = post_tagged(mt);
       if (ret != 0)
 	return init_fail(hints, fi, fi_error_str(ret, "post_tagged", __FILE__, __LINE__));
     }
   }
-
+  
+  /*
   // post few untagged buffers for message types with payloads
   for(int i = 0; i < pend_num; i++) {
     ret = post_untagged();
     if (ret != 0)
       return init_fail(hints, fi, fi_error_str(ret, "post_untagged", __FILE__, __LINE__));
   }  
+  */
   
   fi_freeinfo(hints);
   free(addrs);
@@ -327,32 +328,15 @@ bool FabFabric::init_fail(fi_info* hints, fi_info* fi, const std::string message
 FabFabric::~FabFabric()
 {
   shutdown();
-  if(fi_addrs)
-    free(fi_addrs);
-  if(regmem_size_in_mb > 0) {
-    delete[] keys;
-    delete[] mr_addrs;
-  }
-}
-
-bool FabFabric::add_message_type(MessageType *mt, const std::string tag)
-{
-  log_fabric().debug("registered message type: %s", tag.c_str());
-
-  if (mt->id == 0 || mts[mt->id] != NULL || mt->id > MAX_MESSAGE_TYPES) {
-    assert(false && "Attempted to add invalid message type");
-    return false;
-  }
-
-  mts[mt->id] = mt;
-  mdescs[mt->id] = tag;
-  return true;
 }
 
 void FabFabric::shutdown()
 {
   // TODO -- make sure we clean things up if
   // init failed
+  if (shutdown_complete == true)
+    return;
+  
   if (initialized) {
     free_progress_threads();
     fi_close(&(ep->fid));
@@ -365,6 +349,13 @@ void FabFabric::shutdown()
     if (regmem_size_in_mb > 0)
       fi_close(&(rdma_mr->fid));
   }
+  if(fi_addrs)
+      free(fi_addrs);
+  if(regmem_size_in_mb > 0) {
+    delete[] keys;
+    delete[] mr_addrs;
+  }
+  shutdown_complete = true;
   done_mutex.unlock();
 }
 
@@ -402,35 +393,30 @@ int FabFabric::send(Message* m)
   } else {
     n = 0;
     m->iov = &m->siov[0];
-    int pidx = m->mtype->argsz==0 ? 1 : 2;
+    
+    // Args are places in iov[0]. Remaining indices hold the payload.
     if (m->payload) {
-      e = NELEM(m->siov) - pidx;
+      e = NELEM(m->siov) - 1; // number of iovs available to send payload
       n = m->payload->get_iovs_required();
       if (n < 0)
 	return n; 
       
       if (n >= 0 && n > e) 
-	m->iov = (struct iovec *) malloc((n + pidx) * sizeof(struct iovec));
+	m->iov = (struct iovec *) malloc((n + 1) * sizeof(struct iovec));
       
-      n = m->payload->iovec(&m->iov[pidx], n);
+      // load payload data in to the iovs
+      n = m->payload->iovec(&m->iov[1], n);
       if (n < 0)
 	return n;
     }
 
-    // TODO: make it network order???
-    m->iov[0].iov_base = &m->mtype->id;
-    m->iov[0].iov_len = sizeof(m->mtype->id);
-    sz += m->iov[0].iov_len;
-    
-    if (m->mtype->argsz != 0) {
-      m->iov[1].iov_base = m->get_arg_ptr(); 
-      m->iov[1].iov_len = m->mtype->argsz;
-      sz += m->iov[1].iov_len;
-    }
-    
-    ret = fi_sendv(ep, m->iov, NULL, n+pidx, fi_addrs[m->rcvid], m);
+    // Load the args into the iov
+    m->iov[0].iov_base = m->get_arg_ptr();
+    m->iov[0].iov_len  = m->mtype->argsz;
+        
+    ret = fi_tsendv(ep, m->iov, NULL, n+1, fi_addrs[m->rcvid], m->mtype->id, m);
     if (ret != 0) {
-      std::cerr << fi_error_str(ret, "fi_sendv", __FILE__, __LINE__) << std::endl;            
+      std::cerr << fi_error_str(ret, "fi_tsendv", __FILE__, __LINE__) << std::endl;            
       return ret;
     }
   }
@@ -493,7 +479,6 @@ void FabFabric::progress(bool wait) {
     if (ret > 0) {
       // Received a message
       m = (Message *) ce.op_context;
-      m->siov[0].iov_len = ce.len;
       incoming(m);
       continue;
     }
@@ -557,47 +542,21 @@ void* FabFabric::bootstrap_handle_tx(void* context) {
 
 bool FabFabric::incoming(Message *m)
 {
-  if (m->mtype != NULL) {
-    // tagged message
-    if (mts[m->mtype->id] == NULL)
-      std::cerr << "WARNING -- unknown message type received -- " << std::endl;
-    
-    post_tagged(m->mtype);
-  } else {
-    MessageType* mtype;
-    MessageId msgid;
-    char* data;
-    size_t len;
+  if (mts[m->mtype->id] == NULL)
+    std::cerr << "WARNING -- unknown message type received -- " << std::endl;
+  post_tagged(m->mtype);
 
-    // untagged message
-    post_untagged();
-
-    data = (char *) m->siov[0].iov_base;
-    len = m->siov[0].iov_len;
-    
-    msgid = *(MessageId *) data;
-    mtype = mts[msgid];
-    m->mtype = mtype;
-    data += sizeof(msgid);
-    len -= sizeof(msgid);
-    
-    if (mtype == NULL) {
-      std::cerr << "WARNING -- unknown message type received" << std::endl;
-      return false;
-    }
-
-    if (mtype->argsz > 0) {
-      m->set_arg_ptr(data);
-      data += mtype->argsz;
-      len -= mtype->argsz;
-    }
-    
+  if (m->mtype->payload) {
+    char* data = (char *) m->siov[1].iov_base;
+    size_t len = m->siov[1].iov_len;   
     m->payload = new FabContiguousPayload(FAB_PAYLOAD_KEEP, data, len);
   }
 
   log_fabric().debug() << "Incoming message of type: " << mdescs[m->mtype->id];
   m->mtype->request(m);
-  // Anything else?
+  // The message request has been processed, so we can delete it now (this
+  // won't delete the payload)  
+  //delete m;
   return true;
 }
 
@@ -613,12 +572,25 @@ void FabFabric::memfree(void *a)
 
 int FabFabric::post_tagged(MessageType* mt)
 {
-  Message *m;
-  void *args;
-
-  args = malloc(mt->argsz);
-  m = new Message(get_id(), mt->id, args, NULL);
-  return fi_trecv(ep, args, mt->argsz, NULL, FI_ADDR_UNSPEC, mt->id, 0, m);
+  Message *m = new Message(get_id(), mt->id, NULL, NULL);
+  m->recvd_message = true;
+  size_t niovs = mt->payload ? 2 : 1;
+  //struct iovec* iov = (struct iovec*) malloc(niovs * sizeof(struct iovec));
+  
+  // Posts two iovecs to receive the arguments, and possibly the
+  // payload. The arguments should come first.
+  m->siov[0].iov_base = malloc(mt->argsz);
+  m->siov[0].iov_len  = mt->argsz;  
+  if (mt->payload) {
+    // If the message has a payload, total size is unknown -- so create a
+    // max size buffer. We will need to deserialize data when it arrives
+    size_t payload_buf_size = max_send - mt->argsz;
+    m->siov[1].iov_base = malloc(payload_buf_size);
+    m->siov[1].iov_len  = payload_buf_size;
+  }
+  
+  m->arg_ptr = m->siov[0].iov_base;
+  return fi_trecvv(ep, m->siov, NULL, niovs, FI_ADDR_UNSPEC, mt->id, 0, m);
 }
 
 int FabFabric::post_untagged()
@@ -628,7 +600,7 @@ int FabFabric::post_untagged()
 
   Message* m = new Message(get_id(), 0, NULL, NULL);
   m->siov[0].iov_base = buf;
-  m->siov[0].iov_len = max_send;
+  m->siov[0].iov_len  = max_send;
   return fi_recv(ep, buf, max_send, NULL, FI_ADDR_UNSPEC, m);
 }
 

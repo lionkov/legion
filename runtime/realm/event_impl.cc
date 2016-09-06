@@ -1990,7 +1990,7 @@ namespace Realm {
       }
 
       // do we have reduction data to apply?  we can do this even if the actual adjustment is
-      //  being held - no need to have lots of reduce values lying around
+      //  being held - no need to have lots of reduc_e values lying around
       if(reduce_value_size > 0) {
 	assert(redop != 0);
 	assert(redop->sizeof_rhs == reduce_value_size);
