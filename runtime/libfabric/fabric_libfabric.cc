@@ -479,7 +479,8 @@ void FabFabric::progress(bool wait) {
     if (ret > 0) {
       // Received a message
       m = (Message *) ce.op_context;
-      incoming(m);
+      size_t len = ce.len;
+      incoming(m, len);
       continue;
     }
 
@@ -539,8 +540,15 @@ void* FabFabric::bootstrap_handle_tx(void* context) {
   return 0;
 }
 
+// Processes an incoming Message m, where a total of total_bytes_received bytes were recieved.
+// The incoming format of m is as follows:
 
-bool FabFabric::incoming(Message *m)
+//  - m->siov[0] contains m's arguments (constant size)
+//  - m->siov[1] contains m's payload data, as a contiguous buffer (variable size)
+
+// Since we are using tagged messages, the type of m is already known; this
+// function arrages data in m appropriately and calls m's handler.
+bool FabFabric::incoming(Message *m, size_t total_bytes_recvd)
 {
   if (mts[m->mtype->id] == NULL)
     std::cerr << "WARNING -- unknown message type received -- " << std::endl;
@@ -548,8 +556,8 @@ bool FabFabric::incoming(Message *m)
 
   if (m->mtype->payload) {
     char* data = (char *) m->siov[1].iov_base;
-    size_t len = m->siov[1].iov_len;   
-    m->payload = new FabContiguousPayload(FAB_PAYLOAD_KEEP, data, len);
+    size_t payload_len = total_bytes_recvd - m->mtype->argsz;
+    m->payload = new FabContiguousPayload(FAB_PAYLOAD_KEEP, data, payload_len);
   }
 
   log_fabric().debug() << "Incoming message of type: " << mdescs[m->mtype->id];
@@ -583,7 +591,7 @@ int FabFabric::post_tagged(MessageType* mt)
   m->siov[0].iov_len  = mt->argsz;  
   if (mt->payload) {
     // If the message has a payload, total size is unknown -- so create a
-    // max size buffer. We will need to deserialize data when it arrives
+    // max size buffer.
     size_t payload_buf_size = max_send - mt->argsz;
     m->siov[1].iov_base = malloc(payload_buf_size);
     m->siov[1].iov_len  = payload_buf_size;

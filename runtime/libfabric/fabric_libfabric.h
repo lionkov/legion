@@ -58,7 +58,7 @@ public:
   void recv_rdma_info(NodeId sender, uint64_t key, uint64_t desc);
   void wait_for_rdmas();
 
-  bool incoming(Message *);
+  bool incoming(Message* m, size_t total_bytes_recvd);
   void *memalloc(size_t size);
   void memfree(void *);
   void print_fi_info(fi_info* fi);
