@@ -1,6 +1,10 @@
 #include "gasnet_fabric.h"
 
-GasnetFabric::GasnetFabric()
+void doNothing(MessageType* mt, const void* buf, size_t len) {
+  return;
+}
+
+GasnetFabric::GasnetFabric(int* argc, char*** argv) 
   : gasnet_mem_size_in_mb(0),
     reg_mem_size_in_mb(0),
     active_msg_worker_threads(1),
@@ -84,7 +88,7 @@ GasnetFabric::GasnetFabric()
 GasnetFabric::~GasnetFabric() {
 }
 
-GasnetFabric::register_options(Realm::CommandLineParser& cp) {
+void GasnetFabric::register_options(Realm::CommandLineParser& cp) {
   cp.add_option_int("-ll:gsize", gasnet_mem_size_in_mb)
     .add_option_int("-ll:rsize", reg_mem_size_in_mb)
     .add_option_int("-ll:amsg", active_msg_worker_threads)
@@ -93,21 +97,22 @@ GasnetFabric::register_options(Realm::CommandLineParser& cp) {
 
 // Gasnet requires two handlers -- one to deal with the actual message request
 // (as usual), and one to deal with unpacking the appropriate message type.
-GasnetFabric::add_message_type(MessageType* mt, const std::string tag) {
+bool GasnetFabric::add_message_type(MessageType* mt, const std::string tag) {
   // Register handler for the message request
   Fabric::add_message_type(mt, tag);
   
   // Register handler for unpacking short/medium message type
   if (mt->payload == true) {
     // If there's a payload, this is a medium message
-    
+    //ActiveMessageMediumNoReply<mt->id, decltype(mt->RequestArgs), doNothing) ActiveMessage;
+    ;
   }
   
 }
 
-GasnetFabric::init(bool manually_set_addresses) {
+bool GasnetFabric::init(bool manually_set_addresses) {
   
   
 
-  
+  return true;
 }
