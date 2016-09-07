@@ -96,7 +96,7 @@ int FabTester::run() {
   } else {
     std::cout << "test_message_pingpong -- OK" << std::endl;    
   }
-  /*
+  
   std::cout << std::endl << std::endl << "running: test_gather" << std::endl;
   if (test_gather(100) != 0) {
     errors += 1;
@@ -129,7 +129,7 @@ int FabTester::run() {
   } else {
     std::cout << "test_rdma -- OK" << std::endl;    
   }
-  */
+  
   // Wait for all other RTs to complete, then shut down
   std::cout << "Starting shutdown barrier" << std::endl;
   fabric->barrier_notify(FABRIC_TESTS_DONE_BARRIER_ID);

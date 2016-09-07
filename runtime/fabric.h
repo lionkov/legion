@@ -25,12 +25,14 @@ class Message;
 
 class Mutex {
  public:
+  virtual ~Mutex() { }
   virtual void lock() = 0;
   virtual void unlock() = 0;
 };
 
 class CondVar {
 public:
+  virtual ~CondVar() { }
   virtual void signal(void) = 0;
   virtual void broadcast(void) = 0;
   virtual void wait(void) = 0;
@@ -39,6 +41,7 @@ public:
 
 class AutoLock {
 public:
+  virtual ~AutoLock() { }
   virtual void release() = 0;
   virtual void reacquire() = 0;
 };
@@ -49,7 +52,7 @@ public:
   FabMutex(void) { pthread_mutex_init(&_lock, NULL); }
   FabMutex(FabMutex& other) { assert(false && "Cannot copy FabMutex"); }
   FabMutex(FabMutex&& rhs) { assert(false && "Cannot move FabMutex"); }
-  ~FabMutex(void) { pthread_mutex_destroy(&_lock); }
+  virtual ~FabMutex(void) { pthread_mutex_destroy(&_lock); }
     
   void lock(void) { pthread_mutex_lock(&_lock); }
   void unlock(void) { pthread_mutex_unlock(&_lock); }
@@ -71,7 +74,7 @@ public:
   { assert(false && "Cannot copy FabCondVar"); }
   FabCondVar(FabCondVar&& other) : mutex(other.mutex)
   { assert(false && "Cannot move FabCondVar"); }
-  ~FabCondVar(void) { pthread_cond_destroy(&cond); }
+  virtual ~FabCondVar(void) { pthread_cond_destroy(&cond); }
   
   void signal(void) { pthread_cond_signal(&cond); }
   void broadcast(void) { pthread_cond_broadcast(&cond); }
@@ -85,13 +88,13 @@ protected:
   pthread_cond_t cond;
 };
 
-class FabAutoLock {
+class FabAutoLock : public AutoLock { 
 public:
   FabAutoLock(FabMutex& _mutex) : mutex(_mutex), held(true) { mutex.lock(); }
   FabAutoLock(FabCondVar& cond) : mutex(cond.mutex), held(true) { mutex.lock(); }
   FabAutoLock(FabAutoLock& other) : mutex(other.mutex) { assert(false && "Cannot copy FabAutoLock"); }
   FabAutoLock(FabAutoLock&& other): mutex(other.mutex) { assert(false && "Cannot move FabAutoLock"); }
-  ~FabAutoLock();
+  virtual ~FabAutoLock();
   void release();
   void reacquire();
 
@@ -107,6 +110,7 @@ protected:
 // with the fabric before use via the add_message_type() method.
 class MessageType {
  public:
+  virtual ~MessageType() { }
   MessageId	id;		// message id
   size_t	argsz;		// argument size
   bool		payload;	// true if the message can have payload
@@ -252,7 +256,7 @@ extern Fabric* fabric;
 // It may contain arguments and an optional payload.
 // The corresponding MessageType handler will be invoked when a
 // Message is recieved.
-class Message {
+class Message {  
  public:
   MessageType*  mtype;		// message type
   NodeId	sndid;		// sender id
