@@ -147,7 +147,6 @@ namespace Realm {
     : Message(dest, METADATA_INVALIDATE_MSGID, &args, NULL),
       args(_args->owner, _args->id) { }
 
-
     MetadataInvalidateMessageType::RequestArgs args;
   };
     

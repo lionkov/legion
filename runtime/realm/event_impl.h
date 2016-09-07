@@ -320,7 +320,7 @@ namespace Realm {
       : RequestArgs(_event),
 	payload(new FabContiguousPayload(payload_mode,
 					 (void*) poisoned_generations,
-					 num_poisoned)) { }
+					 sizeof(EventImpl::gen_t) * num_poisoned)) { }
       
       FabContiguousPayload* payload;
       void apply(NodeId target);
