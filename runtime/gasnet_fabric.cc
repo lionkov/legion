@@ -95,24 +95,45 @@ void GasnetFabric::register_options(Realm::CommandLineParser& cp) {
     .add_option_int("-ll:ahandlers", active_msg_handler_threads);
 }
 
-// Gasnet requires two handlers -- one to deal with the actual message request
-// (as usual), and one to deal with unpacking the appropriate message type.
-bool GasnetFabric::add_message_type(MessageType* mt, const std::string tag) {
-  // Register handler for the message request
-  Fabric::add_message_type(mt, tag);
-  
-  // Register handler for unpacking short/medium message type
-  if (mt->payload == true) {
-    // If there's a payload, this is a medium message
-    //ActiveMessageMediumNoReply<mt->id, decltype(mt->RequestArgs), doNothing) ActiveMessage;
-    ;
-  }
-  
-}
 
-bool GasnetFabric::init(bool manually_set_addresses) {
-  
-  
-
+bool GasnetFabric::init() {
   return true;
 }
+
+
+void GasnetFabric::shutdown() {
+}
+
+void GasnetFabric::wait_for_shutdown() {
+}
+
+void GasnetFabric::synchronize_clocks() {
+}
+
+void GasnetFabric::fatal_shutdown(int code) {
+}
+
+void GasnetFabric::put_bytes(NodeId target, off_t offset, const void* src, size_t len) { }
+
+void GasnetFabric::get_bytes(NodeId target, off_t offset, void* dst, size_t len) { }
+
+void* GasnetFabric::get_regmem_ptr() { return NULL; }
+
+void GasnetFabric::wait_for_rdmas() { }
+
+size_t GasnetFabric::get_regmem_size_in_mb() { return 0; }
+
+
+int GasnetFabric::send(Message* m) { return 0; }
+Realm::Event* GasnetFabric::gather_events(Realm::Event& event, NodeId root) { return NULL; }
+void GasnetFabric::recv_gather_event(Realm::Event& event, NodeId sender) { }
+void GasnetFabric::broadcast_events(Realm::Event& event, NodeId root) { }
+void GasnetFabric::recv_broadcast_event(Realm::Event& event, NodeId sender) { }
+void GasnetFabric::barrier_wait(uint32_t barrier_id) { }
+void GasnetFabric::barrier_notify(uint32_t barrier_id) { }
+void GasnetFabric::recv_barrier_notify(uint32_t barrier_id, NodeId sender) {  }
+NodeId GasnetFabric::get_id() { return 0; }
+uint32_t GasnetFabric::get_num_nodes() { return 1; }
+size_t GasnetFabric::get_iov_limit() { return 0; }
+size_t GasnetFabric::get_iov_limit(MessageId id) { return 0; }
+size_t GasnetFabric::get_max_send() { return 0;}

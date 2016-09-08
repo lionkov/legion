@@ -19,6 +19,7 @@
 
 Fabric* fabric = NULL;
 
+
 void print_strided(void* buf, int linesz, int linecnt, int stride) {
   assert(stride != 0); 
   char* p = (char*) buf;
@@ -46,7 +47,7 @@ int FabTester::init(std::vector<std::string> cmdline, bool manually_set_addresse
   
   add_message_types();
   bool ret;
-  ret = fabric->init(manually_set_addresses);
+  ret = fabric->init();
   
   if (!ret) {
     std::cout << "ERROR -- Fabric init failed." << std::endl;
@@ -59,13 +60,28 @@ int FabTester::init(std::vector<std::string> cmdline, bool manually_set_addresse
 
 
 void FabTester::add_message_types() {
-  fabric->add_message_type(new TestMessageType(), "Test Message");
-  fabric->add_message_type(new TestPayloadMessageType(), "Test Payload Message");
-  fabric->add_message_type(new TestTwoDPayloadMessageType(), "Test 2D Payload Message");
-  fabric->add_message_type(new TestArglessTwoDPayloadMessageType(), "Test Argless 2D Payload Message");
-  fabric->add_message_type(new TestSpanPayloadMessageType(), "Test Span Payload Message");
-  fabric->add_message_type(new PingPongMessageType(), "Ping Pong Message");
-  fabric->add_message_type(new PingPongAckType(), "Ping Pong Ack");
+  FabricMessageAdder<FabFabric> message_adder;
+  message_adder.add_message_type<1, TestMessageType>(fabric,
+						     new TestMessageType(),
+						     "Test Message");
+  message_adder.add_message_type<2, TestPayloadMessageType>(fabric,
+							    new TestPayloadMessageType(),
+							    "Test Payload Message");
+  message_adder.add_message_type<3, TestTwoDPayloadMessageType>(fabric,
+								new TestTwoDPayloadMessageType(),
+								"Test 2D Payload Message");
+  message_adder.add_message_type<4, TestArglessTwoDPayloadMessageType>(fabric,
+								       new TestArglessTwoDPayloadMessageType(),
+								       "Test Argless 2D Payload Message");
+  message_adder.add_message_type<5, TestSpanPayloadMessageType>(fabric,
+								new TestSpanPayloadMessageType(),
+								"Test Span Payload Message");
+  message_adder.add_message_type<6, PingPongMessageType>(fabric,
+							 new PingPongMessageType(),
+							 "Ping Pong Message");
+  message_adder.add_message_type<7, PingPongAckType>(fabric,
+						     new PingPongAckType(),
+						     "Ping Pong Ack");
 }
 
 /*
@@ -90,7 +106,7 @@ int FabTester::run() {
   */
   
   std::cout << std::endl << std::endl << "running: test_message_pingpong" << std::endl;
-  if (test_message_pingpong(1) != 0) {
+  if (test_message_pingpong(4) != 0) {
     errors += 1;
     std::cout << "ERROR -- test_message_pingpong -- FAILED" << std::endl;    
   } else {

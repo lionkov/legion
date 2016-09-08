@@ -210,7 +210,7 @@ endif
 
 ifeq ($(strip $(USE_GASNET)),1)
   # General GASNET variables
-  INC_FLAGS	+= -I$(GASNET)/include
+  INC_FLAGS	+= -isystem $(GASNET)/include
   ifneq ($(shell uname -s),Darwin)
     LEGION_LD_FLAGS	+= -L$(GASNET)/lib -lrt -lm
   else
@@ -341,11 +341,16 @@ endif
 # Libfabric
 CC_FLAGS += -std=c++11
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/fabric.cc
-LOW_RUNTIME_SRC += $(LG_RT_DIR)/payload.cc	
+LOW_RUNTIME_SRC += $(LG_RT_DIR)/payload.cc
+ifeq ($(strip $(USE_FABRIC)),1)
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/libfabric/fabric_libfabric.cc
+endif
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/barrier.cc
-#LOW_RUNTIME_SRC += $(LG_RT_DIR)/address_exchange.cc
+LOW_RUNTIME_SRC += $(LG_RT_DIR)/address_exchange.cc
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/single_node_fabric.cc
+ifeq ($(strip $(USE_GASNET)),1)	
+LOW_RUNTIME_SRC += $(LG_RT_DIR)/gasnet_fabric.cc
+endif
 LEGION_LD_FLAGS += -L /usr/lib/x86_64-linux-gnu/ -lzmq
 
 GPU_RUNTIME_SRC +=

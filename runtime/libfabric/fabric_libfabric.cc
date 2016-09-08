@@ -94,7 +94,7 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
   buffers for all message types. 
 */ 
 
-bool FabFabric::init(bool manually_set_addresses) {
+bool FabFabric::init() {
 
   int ret;
 
@@ -107,10 +107,19 @@ bool FabFabric::init(bool manually_set_addresses) {
     }*/
 
   // Add internal message types
-  add_message_type(new EventGatherMessageType(), "Event Gather Message");
-  add_message_type(new EventBroadcastMessageType(), "Event Broadcast Message");
-  add_message_type(new BarrierNotifyMessageType(), "Barrier Notify Message");
-  add_message_type(new RDMAExchangeMessageType(), "RDMA Exchange Message");
+  FabricMessageAdder<FabFabric> message_adder;
+  message_adder.add_message_type<EVENT_GATHER_MSGID, EventGatherMessageType> (this,
+									      new EventGatherMessageType(),
+									      "Event Gather Message");
+  message_adder.add_message_type<EVENT_BROADCAST_MSGID, EventBroadcastMessageType>(this,
+										   new EventBroadcastMessageType(),
+										   "Event Broadcast Message");
+  message_adder.add_message_type<BARRIER_NOTIFY_MSGID, BarrierNotifyMessageType>(this,
+										 new BarrierNotifyMessageType(),
+										 "Barrier Notify Message");
+  message_adder.add_message_type<RDMA_EXCHANGE_MSGID, RDMAExchangeMessageType>(this,
+									       new RDMAExchangeMessageType(),
+									       "RDMA Exchange Message");
 
   
   std::cout << "Initializing fabric... " << std::endl;

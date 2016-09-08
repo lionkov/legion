@@ -23,6 +23,17 @@
 #include "codedesc.h"
 #include "utils.h"
 
+#include "fabric.h"
+
+#ifdef USE_FABRIC
+#include "libfabric/fabric_libfabric.h"
+#endif // USE_FABRIC
+
+#ifdef USE_GASNET
+#include "gasnet_fabric.h"
+#endif // USE_GASNET
+
+
 // For doing backtraces
 #include <execinfo.h> // symbols
 #include <cxxabi.h>   // demangling
@@ -529,8 +540,21 @@ namespace Realm {
       }
 #endif
 
+#ifdef USE_FABRIC
       // Initialize global fabric manager
       fabric = new FabFabric();
+      // We need to create a message adder that is aware of fabric's concrete type
+      // -- this is ugly, but the cleanest way that I could get activemessage code (which uses
+      // templates) to work with libfabric code (which uses inheritance)
+      FabricMessageAdder<FabFabric> message_adder;
+#endif // USE_FABRIC
+      
+#ifdef USE_GASNET
+      fabric = new GasnetFabric(argc, argv);
+      FabricMessageAdder<GasnetFabric> message_adder;
+#endif // USE_GASNET
+
+
       
 #ifdef DEBUG_REALM_STARTUP
       { // once we're convinced there isn't skew here, reduce this to rank 0
@@ -677,44 +701,156 @@ namespace Realm {
       // Register all message types with fabric before calling fabric->init()
       std::cout << "ADDING MESSAGES" << std::endl;
       
-      fabric->add_message_type(new ClearTimersMessageType(), "Clear Timer Request");
-      fabric->add_message_type(new TimerDataRequestMessageType(), "Roll-up Request");
-      fabric->add_message_type(new TimerDataResponseMessageType(), "Roll-up Response");
-      fabric->add_message_type(new NodeAnnounceMessageType(), "Node Announce");
-      fabric->add_message_type(new SpawnTaskMessageType(), "Spawn Task");
-      fabric->add_message_type(new RegisterTaskMessageType(), "Register Task");
-      fabric->add_message_type(new RegisterTaskCompleteMessageType(), "Register Task Complete");
-      fabric->add_message_type(new MetadataRequestMessageType(), "Metadata Request");
-      fabric->add_message_type(new MetadataResponseMessageType(), "Metadata Response");
-      fabric->add_message_type(new MetadataInvalidateMessageType(), "Metadata Invalidate");
-      fabric->add_message_type(new MetadataInvalidateAckMessageType(), "Metadata Inval Ack");
-      fabric->add_message_type(new EventSubscribeMessageType(), "Event Subscribe");
-      fabric->add_message_type(new EventUpdateMessageType(), "Event Update");
-      fabric->add_message_type(new EventTriggerMessageType(), "Event Trigger");
-      fabric->add_message_type(new BarrierAdjustMessageType(), "Barrier Adjust");
-      fabric->add_message_type(new BarrierTriggerMessageType(), "Barrier Trigger");
-      fabric->add_message_type(new BarrierSubscribeMessageType(), "Barrier Subscribe");
-      fabric->add_message_type(new BarrierMigrationMessageType(), "Barrier Migrate");
-      fabric->add_message_type(new LockRequestMessageType(), "Lock Request");
-      fabric->add_message_type(new LockReleaseMessageType(), "Lock Release");
-      fabric->add_message_type(new LockGrantMessageType(), "Lock Grant");
-      fabric->add_message_type(new DestroyLockMessageType(), "Destroy Lock");
-      fabric->add_message_type(new RemoteMemAllocRequestType(), "Remote Memory Allocation Request");
-      fabric->add_message_type(new RemoteMemAllocResponseType(), "Remote Memory Allocation Response");
-      fabric->add_message_type(new CreateInstanceRequestType(), "Create Instance Request");
-      fabric->add_message_type(new CreateInstanceResponseType(), "Create Instance Response");
-      fabric->add_message_type(new DestroyInstanceMessageType(), "Destroy Instance");
-      fabric->add_message_type(new RemoteWriteMessageType(), "Remote Write");
-      fabric->add_message_type(new RemoteSerdezMessageType(), "Remote Serdez");
-      fabric->add_message_type(new RemoteReduceMessageType(), "Remote Reduce");
-      fabric->add_message_type(new RemoteReduceListMessageType(), "Remote Reduce List");
-      fabric->add_message_type(new RemoteWriteFenceMessageType(), "Remote Write Fence");
-      fabric->add_message_type(new RemoteWriteFenceAckMessageType(), "Remote Write Fence Ack");
-      fabric->add_message_type(new RuntimeShutdownMessageType(), "Machine Shutdown");
-      fabric->add_message_type(new ValidMaskRequestMessageType(), "Valid Mask Request");
-      fabric->add_message_type(new ValidMaskDataMessageType(), "Valid Mask Data Request");
-      fabric->add_message_type(new LegionRuntime::LowLevel::RemoteCopyMessageType(), "Remote Copy");
-      fabric->add_message_type(new LegionRuntime::LowLevel::RemoteFillMessageType(), "Remote Fill");
+      message_adder.add_message_type<CLEAR_TIMER_MSGID,
+				     ClearTimersMessageType>(fabric,
+							     new ClearTimersMessageType(),
+							     "Clear Timer Request");      
+      message_adder.add_message_type<ROLL_UP_TIMER_MSGID,
+				     TimerDataRequestMessageType>(fabric,
+								  new TimerDataRequestMessageType(),
+								  "Roll-up Request");
+      message_adder.add_message_type<ROLL_UP_TIMER_RPLID,
+				     TimerDataResponseMessageType>(fabric,
+								   new TimerDataResponseMessageType(),
+								   "Roll-up Response");
+      message_adder.add_message_type<NODE_ANNOUNCE_MSGID,
+				     NodeAnnounceMessageType>(fabric,
+							      new NodeAnnounceMessageType(),
+							      "Node Announce");
+      message_adder.add_message_type<SPAWN_TASK_MSGID,
+				     SpawnTaskMessageType>(fabric,
+							   new SpawnTaskMessageType(),
+							   "Spawn Task");
+      message_adder.add_message_type<REGISTER_TASK_MSGID,
+				     RegisterTaskMessageType>(fabric,
+							      new RegisterTaskMessageType(),
+							      "Register Task");
+      message_adder.add_message_type<REGISTER_TASK_COMPLETE_MSGID,
+				     RegisterTaskCompleteMessageType>(fabric,
+								      new RegisterTaskCompleteMessageType(),
+								      "Register Task Complete");
+      message_adder.add_message_type<METADATA_REQUEST_MSGID,
+				     MetadataRequestMessageType>(fabric,
+								 new MetadataRequestMessageType(),
+								 "Metadata Request");
+      message_adder.add_message_type<METADATA_RESPONSE_MSGID,
+				     MetadataResponseMessageType>(fabric,
+								  new MetadataResponseMessageType(),
+								  "Metadata Response");
+      message_adder.add_message_type<METADATA_INVALIDATE_MSGID,
+				     MetadataInvalidateMessageType>(fabric,
+								    new MetadataInvalidateMessageType(),
+								    "Metadata Invalidate");
+      message_adder.add_message_type<METADATA_INVALIDATE_ACK_MSGID,
+				     MetadataInvalidateAckMessageType>(fabric,
+								       new MetadataInvalidateAckMessageType(),
+								       "Metadata Inval Ack");
+      message_adder.add_message_type<EVENT_SUBSCRIBE_MSGID,
+				     EventSubscribeMessageType>(fabric,
+								new EventSubscribeMessageType(),
+								"Event Subscribe");
+      message_adder.add_message_type<EVENT_UPDATE_MSGID,
+				     EventUpdateMessageType>(fabric,
+							     new EventUpdateMessageType(),
+							     "Event Update");
+      message_adder.add_message_type<EVENT_TRIGGER_MSGID,
+				     EventTriggerMessageType>(fabric,
+							      new EventTriggerMessageType(),
+							      "Event Trigger");
+      message_adder.add_message_type<BARRIER_ADJUST_MSGID,
+				     BarrierAdjustMessageType>(fabric,
+							       new BarrierAdjustMessageType(),
+							       "Barrier Adjust");
+      message_adder.add_message_type<BARRIER_TRIGGER_MSGID,
+				     BarrierTriggerMessageType>(fabric,
+								new BarrierTriggerMessageType(),
+								"Barrier Trigger");
+      message_adder.add_message_type<BARRIER_SUBSCRIBE_MSGID,
+				     BarrierSubscribeMessageType>(fabric,
+								  new BarrierSubscribeMessageType(),
+								  "Barrier Subscribe");
+      message_adder.add_message_type<BARRIER_MIGRATE_MSGID,
+				     BarrierMigrationMessageType>(fabric,
+								  new BarrierMigrationMessageType(),
+								  "Barrier Migrate");
+      message_adder.add_message_type<LOCK_REQUEST_MSGID,
+				     LockRequestMessageType>(fabric,
+							     new LockRequestMessageType(),
+							     "Lock Request");
+      message_adder.add_message_type<LOCK_RELEASE_MSGID,
+				     LockReleaseMessageType>(fabric,
+							     new LockReleaseMessageType(),
+							     "Lock Release");
+      message_adder.add_message_type<LOCK_GRANT_MSGID,
+				     LockGrantMessageType>(fabric,
+							   new LockGrantMessageType(),
+							   "Lock Grant");
+      message_adder.add_message_type<DESTROY_LOCK_MSGID,
+				     DestroyLockMessageType>(fabric,
+							     new DestroyLockMessageType(),
+							     "Destroy Lock");
+      message_adder.add_message_type<REMOTE_MALLOC_MSGID,
+				     RemoteMemAllocRequestType>(fabric,
+								new RemoteMemAllocRequestType(),
+								"Remote Memory Allocation Request");
+      message_adder.add_message_type<REMOTE_MALLOC_RPLID,
+				     RemoteMemAllocResponseType>(fabric,
+								 new RemoteMemAllocResponseType(),
+								 "Remote Memory Allocation Response");
+      message_adder.add_message_type<CREATE_INST_MSGID,
+				     CreateInstanceRequestType>(fabric,
+								new CreateInstanceRequestType(),
+								"Create Instance Request");
+      message_adder.add_message_type<CREATE_INST_RPLID,
+				     CreateInstanceResponseType>(fabric,
+								 new CreateInstanceResponseType(),
+								 "Create Instance Response");
+      message_adder.add_message_type<DESTROY_INST_MSGID,
+				     DestroyInstanceMessageType>(fabric,
+								 new DestroyInstanceMessageType(),
+								 "Destroy Instance");
+      message_adder.add_message_type<REMOTE_WRITE_MSGID,
+				     RemoteWriteMessageType>(fabric,
+							     new RemoteWriteMessageType(),
+							     "Remote Write");
+      message_adder.add_message_type<REMOTE_SERDEZ_MSGID,
+				     RemoteSerdezMessageType>(fabric,
+							      new RemoteSerdezMessageType(),
+							      "Remote Serdez");
+      message_adder.add_message_type<REMOTE_REDUCE_MSGID,
+				     RemoteReduceMessageType>(fabric,
+							      new RemoteReduceMessageType(),
+							      "Remote Reduce");
+      message_adder.add_message_type<REMOTE_REDUCE_MSGID,
+				     RemoteReduceListMessageType>(fabric,
+								  new RemoteReduceListMessageType(),
+								  "Remote Reduce List");
+      message_adder.add_message_type<REMOTE_WRITE_FENCE_MSGID,
+				     RemoteWriteFenceMessageType>(fabric,
+								  new RemoteWriteFenceMessageType(),
+								  "Remote Write Fence");
+      message_adder.add_message_type<REMOTE_WRITE_FENCE_ACK_MSGID,
+				     RemoteWriteFenceAckMessageType>(fabric,
+								     new RemoteWriteFenceAckMessageType(),
+								     "Remote Write Fence Ack");
+      message_adder.add_message_type<MACHINE_SHUTDOWN_MSGID,
+				     RuntimeShutdownMessageType>(fabric,
+								 new RuntimeShutdownMessageType(),
+								 "Machine Shutdown");
+      message_adder.add_message_type<VALID_MASK_REQ_MSGID,
+				     ValidMaskRequestMessageType>(fabric,
+								  new ValidMaskRequestMessageType(),
+								  "Valid Mask Request");
+      message_adder.add_message_type<VALID_MASK_DATA_MSGID,
+				     ValidMaskDataMessageType>(fabric,
+							       new ValidMaskDataMessageType(),
+							       "Valid Mask Data Request");
+      message_adder.add_message_type<LegionRuntime::LowLevel::REMOTE_COPY_MSGID,
+				     LegionRuntime::LowLevel::RemoteCopyMessageType>
+	(fabric, new LegionRuntime::LowLevel::RemoteCopyMessageType(), "Remote Copy");
+      message_adder.add_message_type<LegionRuntime::LowLevel::REMOTE_FILL_MSGID,
+				     LegionRuntime::LowLevel::RemoteFillMessageType>
+	(fabric, new LegionRuntime::LowLevel::RemoteFillMessageType(), "Remote Copy");
       
 #ifdef USE_FABRIC
       fabric->init();

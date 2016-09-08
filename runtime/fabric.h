@@ -2,7 +2,7 @@
 #define RUNTIME_FABRIC_H
 
 // TEMPORARY -- remove this in case people want to compile without fabric
-#define USE_FABRIC
+//#define USE_FABRIC
   
 // For now, fabric will depend on ActiveMessagIDs and
 // Payload definitions from activemsg.h. When GASNET has
@@ -108,6 +108,8 @@ protected:
 // that do not change, i.e. message parameters, the handler function (request()), and
 // optionally a struct for containing message arguments. Each MessageType must be registered
 // with the fabric before use via the add_message_type() method.
+// MessageTypes are templated on their RequestArgs. This is generally a struct containing
+// the arguments given to a given message.
 class MessageType {
  public:
   virtual ~MessageType() { }
@@ -115,7 +117,7 @@ class MessageType {
   size_t	argsz;		// argument size
   bool		payload;	// true if the message can have payload
   bool		inorder;	// true if the message has to be delivered in order
-
+ 
  MessageType(MessageId msgid, size_t asz, bool hasPayload, bool inOrder)
    : id(msgid), argsz(asz), payload(hasPayload), inorder(inOrder) { }
 
@@ -134,9 +136,25 @@ class Fabric {
   std::string mdescs[MAX_MESSAGE_TYPES];
   
   // INITIALIZATION AND SHUTDOWN
-  // Each message type must be added before initialization
-  virtual bool add_message_type(MessageType *mt, const std::string tag);
-  
+  // Each message type must be added before initialization, using below fabric_add_message_type() function
+
+  // Generic add_message_type method -- subclasses can call this from their
+  // templated add_message_type function. In general, you should use the subclass
+  // templated function, not this
+  bool add_message_type(MessageType* mt, const std::string tag) {
+    log_fabric().debug("registered message type: %s", tag.c_str());
+    
+    if (mt->id == 0 || mts[mt->id] != NULL) {
+      assert(false && "Attempted to add invalid message type");
+      return false;
+    }
+
+    mts[mt->id] = (MessageType*) mt;
+    mdescs[mt->id] = tag;
+    return true;
+  }
+
+
   // register_options must be called before init() for command
   // line parameters to take effect
   virtual void register_options(Realm::CommandLineParser& cp) = 0;
@@ -144,7 +162,7 @@ class Fabric {
   // Initialize the fabric. This must be called after adding all message types
   // and registering command line options. It must be called before any futher use of
   // the fabric.
-  virtual bool init(bool manually_set_addresses = false) = 0;
+  virtual bool init() = 0;
 
   // Request that the fabric clean up and shut down
   virtual void shutdown() = 0;
@@ -247,6 +265,7 @@ class Fabric {
   
   // Keeps track of number of messages added
   uint32_t num_msgs_added;
+
 };
 
 // Global fabric singleton
@@ -371,6 +390,27 @@ class BarrierNotifyMessage : public Message {
   BarrierNotifyMessageType::RequestArgs args;
 };
 
+// Adds a message type to the given fabric. Because we can't template out virtual
+// functions, but the message type is needed by Gasnet code, we must do RTTI
+// on the fabric type and call the appropriate add_fabric_message_type function.
+// As such, you must create this object, templated to the correct class, to actually
+// add message types.
+
+template <typename FABTYPE>
+class FabricMessageAdder {
+public:
+  template <MessageId MSGID, typename MSGTYPE>
+  static bool add_message_type(Fabric* fab, MSGTYPE* mt, std::string tag) {
+    assert((MSGID == mt->id) && "Error -- template message ID does not match class ID");
+    FABTYPE* derived;
+    if((derived = dynamic_cast<FABTYPE*>(fab)) != NULL)
+      return derived->template add_message_type<MSGID, MSGTYPE>(mt, tag);
+
+    // Otherwise, something terrible has occured -- shouldnt happen
+    assert(false && "Could not infer derived type of fabric");
+    return false;
+  }
+};
 
 // extern FabricMemory *fabric_memory;
 

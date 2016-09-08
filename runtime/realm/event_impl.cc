@@ -1224,7 +1224,6 @@ namespace Realm {
     targets.map(*this);
   }
   
-  
 
   /*static*/ void EventUpdateMessageType::broadcast_request(const NodeSet& targets, Event event,
 							    int num_poisoned,

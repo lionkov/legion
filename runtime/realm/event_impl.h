@@ -364,7 +364,7 @@ namespace Realm {
 			     NodeId sender, bool forwarded,
 			     const void *data, size_t datalen);
   };
-
+  
   class BarrierAdjustMessage : public Message {
   public:
   BarrierAdjustMessage(NodeId dest,

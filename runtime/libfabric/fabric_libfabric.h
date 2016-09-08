@@ -37,7 +37,7 @@ public:
   virtual ~FabFabric();
     
   void register_options(Realm::CommandLineParser &cp);
-  bool init(bool manually_set_addresses = false);
+  bool init();
   void shutdown();
   void synchronize_clocks();
   void fatal_shutdown(int code);
@@ -76,6 +76,12 @@ public:
   // testing
   int set_address_vector(void* addrs, size_t addrlen, NodeId new_id, uint32_t new_num_nodes);
   size_t get_address(char buf[64]);
+  
+  template <MessageId MSGID, typename MSGTYPE>
+    bool add_message_type(MSGTYPE* mt, std::string tag) {
+    return Fabric::add_message_type((MessageType*) mt, tag);
+  }
+
 
 protected:
   // parameters
@@ -127,14 +133,11 @@ protected:
   int exchange_server_recv_port;
   std::string exchange_server_host;
 
-  static int check_cq(fid_cq* cq, fi_cq_tagged_entry* ce, int timeout);
-    
+  static int check_cq(fid_cq* cq, fi_cq_tagged_entry* ce, int timeout);  
   int post_tagged(MessageType* mt);
-  int post_untagged();
-    
+  int post_untagged();  
   bool init_fail(fi_info* hints, fi_info* qfi, const std::string message) const;
   int setup_pmi();
-
   void start_progress_threads(const int count, const size_t stack_size);
   void free_progress_threads();
   void progress(bool wait);
