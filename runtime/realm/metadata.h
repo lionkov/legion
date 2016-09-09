@@ -68,8 +68,9 @@ namespace Realm {
     : MessageType(METADATA_REQUEST_MSGID, sizeof(RequestArgs), false, true) { }
       
     struct RequestArgs {
-    RequestArgs(int _node, ID::IDType _id)
-    : node(_node), id(_id) { }
+      RequestArgs() { }
+      RequestArgs(int _node, ID::IDType _id)
+	: node(_node), id(_id) { }
       int node;
       ID::IDType id;
     };
@@ -93,8 +94,9 @@ namespace Realm {
     : MessageType(METADATA_RESPONSE_MSGID, sizeof(RequestArgs), true, true) { }
       
     struct RequestArgs  {
-    RequestArgs(ID::IDType _id)
-      : id(_id) { }
+      RequestArgs() { }
+      RequestArgs(ID::IDType _id)
+	: id(_id) { }
       ID::IDType id;
     };
 
@@ -118,8 +120,9 @@ namespace Realm {
     : MessageType(METADATA_INVALIDATE_MSGID, sizeof(RequestArgs), false, true) { }
       
     struct RequestArgs {
-    RequestArgs(int _owner, ID::IDType _id)
-    : owner(_owner), id(_id) { }
+      RequestArgs() { }
+      RequestArgs(int _owner, ID::IDType _id)
+	: owner(_owner), id(_id) { }
       int owner;
       ID::IDType id;
     };
@@ -156,6 +159,7 @@ namespace Realm {
     : MessageType(METADATA_INVALIDATE_ACK_MSGID, sizeof(RequestArgs), false, true) { }
       
     struct RequestArgs {
+      RequestArgs() { }
       RequestArgs(NodeId _node, ID::IDType _id)
 	: node(_node), id(_id) { }
       NodeId node;

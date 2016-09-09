@@ -261,10 +261,11 @@ namespace Realm {
     : MessageType(SPAWN_TASK_MSGID, sizeof(RequestArgs), true, true) { }
 
     struct RequestArgs {
-    RequestArgs(Processor _proc, Event _start_event, Event _finish_event,
-		size_t _user_arglen, int _priority, Processor::TaskFuncID _func_id)
-      : proc(_proc), start_event(_start_event), finish_event(_finish_event),
-	user_arglen(_user_arglen), priority(_priority), func_id(_func_id) { }
+      RequestArgs() { }
+      RequestArgs(Processor _proc, Event _start_event, Event _finish_event,
+		  size_t _user_arglen, int _priority, Processor::TaskFuncID _func_id)
+	: proc(_proc), start_event(_start_event), finish_event(_finish_event),
+	  user_arglen(_user_arglen), priority(_priority), func_id(_func_id) { }
       
       Processor proc;
       Event start_event;
@@ -310,9 +311,10 @@ namespace Realm {
     : MessageType(REGISTER_TASK_MSGID, sizeof(RequestArgs), true, true) { }
 
     struct RequestArgs {
-    RequestArgs(NodeId _sender,
-		Processor::TaskFuncID _func_id, Processor::Kind _kind, RemoteTaskRegistration* _reg_op)
-    : sender(_sender), func_id(_func_id), kind(_kind), reg_op(_reg_op) { }
+      RequestArgs() { }
+      RequestArgs(NodeId _sender,
+		  Processor::TaskFuncID _func_id, Processor::Kind _kind, RemoteTaskRegistration* _reg_op)
+	: sender(_sender), func_id(_func_id), kind(_kind), reg_op(_reg_op) { }
       NodeId sender;
       Processor::TaskFuncID func_id;
       Processor::Kind kind;
@@ -347,8 +349,9 @@ namespace Realm {
     : MessageType(REGISTER_TASK_COMPLETE_MSGID, sizeof(RequestArgs), false, true) { }
       
     struct RequestArgs {
-    RequestArgs(NodeId _sender, RemoteTaskRegistration* _reg_op, bool _successful)
-    : sender(_sender), reg_op(_reg_op), successful(_successful) { }
+      RequestArgs() { }
+      RequestArgs(NodeId _sender, RemoteTaskRegistration* _reg_op, bool _successful)
+	: sender(_sender), reg_op(_reg_op), successful(_successful) { }
       NodeId sender;
       RemoteTaskRegistration *reg_op;
       bool successful;

@@ -429,8 +429,9 @@ namespace Realm {
     : MessageType(REMOTE_MALLOC_MSGID, sizeof(RequestArgs), false, true) { }
       
     struct RequestArgs {
-    RequestArgs(int _sender, void* _resp_ptr, Memory _memory, size_t _size)
-    : sender(_sender), resp_ptr(_resp_ptr), memory(_memory), size(_size) { }
+      RequestArgs() { }
+      RequestArgs(int _sender, void* _resp_ptr, Memory _memory, size_t _size)
+	: sender(_sender), resp_ptr(_resp_ptr), memory(_memory), size(_size) { }
       int sender;
       void *resp_ptr;
       Memory memory;
@@ -457,8 +458,9 @@ namespace Realm {
     : MessageType(REMOTE_MALLOC_RPLID, sizeof(RequestArgs), false, true) { }
       
     struct RequestArgs {
-    RequestArgs(void* _resp_ptr, off_t _offset)
-    : resp_ptr(_resp_ptr), offset(_offset) { }
+      RequestArgs() { }
+      RequestArgs(void* _resp_ptr, off_t _offset)
+	: resp_ptr(_resp_ptr), offset(_offset) { }
       void* resp_ptr;
       off_t offset;
     };
@@ -481,8 +483,9 @@ namespace Realm {
     : MessageType(CREATE_INST_MSGID, sizeof(RequestArgs), true, true) { }
 
     struct RequestArgs {
-    RequestArgs(Memory _m, IndexSpace _r, RegionInstance _parent_inst, int _sender, void* _resp_ptr)
-      : m(_m), r(_r), parent_inst(_parent_inst), sender(_sender), resp_ptr(_resp_ptr) { }
+      RequestArgs() { }
+      RequestArgs(Memory _m, IndexSpace _r, RegionInstance _parent_inst, int _sender, void* _resp_ptr)
+	: m(_m), r(_r), parent_inst(_parent_inst), sender(_sender), resp_ptr(_resp_ptr) { }
       Memory m;
       IndexSpace r;
       RegionInstance parent_inst;
@@ -539,8 +542,9 @@ namespace Realm {
     : MessageType(CREATE_INST_RPLID, sizeof(RequestArgs), false, true) { }
       
     struct RequestArgs {
-    RequestArgs(void* _resp_ptr, RegionInstance _i, off_t _inst_offset, off_t _count_offset)
-    : resp_ptr(_resp_ptr), i(_i), inst_offset(_inst_offset), count_offset(_count_offset) { }
+      RequestArgs() { }
+      RequestArgs(void* _resp_ptr, RegionInstance _i, off_t _inst_offset, off_t _count_offset)
+	: resp_ptr(_resp_ptr), i(_i), inst_offset(_inst_offset), count_offset(_count_offset) { }
       void *resp_ptr;
       RegionInstance i;
       off_t inst_offset;
@@ -566,8 +570,9 @@ namespace Realm {
     : MessageType(DESTROY_INST_MSGID, sizeof(RequestArgs), false, true) { }
 
     struct RequestArgs {
-    RequestArgs(Memory _m, RegionInstance _i)
-    : m(_m), i(_i) { }
+      RequestArgs() { }
+      RequestArgs(Memory _m, RegionInstance _i)
+	: m(_m), i(_i) { }
       Memory m;
       RegionInstance i;
     };
@@ -593,8 +598,9 @@ namespace Realm {
     : MessageType(REMOTE_WRITE_MSGID, sizeof(RequestArgs), true, true) { }
 
     struct RequestArgs  {
-    RequestArgs(Memory _mem, off_t _offset, unsigned _sender, unsigned _sequence_id)
-      : mem(_mem), offset(_offset), sender(_sender), sequence_id(_sequence_id) { }
+      RequestArgs() { }
+      RequestArgs(Memory _mem, off_t _offset, unsigned _sender, unsigned _sequence_id)
+	: mem(_mem), offset(_offset), sender(_sender), sequence_id(_sequence_id) { }
       Memory mem;
       off_t offset;
       unsigned sender;
@@ -621,6 +627,7 @@ namespace Realm {
     : MessageType(REMOTE_SERDEZ_MSGID, sizeof(RequestArgs), true, true) { }
 
     struct RequestArgs  {
+      RequestArgs() { }
     RequestArgs(Memory _mem, off_t _offset, size_t _count, CustomSerdezID _serdez_id,
 		unsigned _sender, unsigned _sequence_id)
       : mem(_mem), offset(_offset), count(_count), serdez_id(_serdez_id),
@@ -654,9 +661,10 @@ namespace Realm {
     : MessageType(REMOTE_REDUCE_MSGID, sizeof(RequestArgs), true, true) { }
 
     struct RequestArgs {
-    RequestArgs(Memory _mem, off_t _offset, int _stride, ReductionOpID _redop_id,
-		unsigned _sender, unsigned _sequence_id)
-      : mem(_mem), offset(_offset), stride(_stride), redop_id(_redop_id), sender(_sender), sequence_id(_sequence_id) { }
+      RequestArgs() { }
+      RequestArgs(Memory _mem, off_t _offset, int _stride, ReductionOpID _redop_id,
+		  unsigned _sender, unsigned _sequence_id)
+	: mem(_mem), offset(_offset), stride(_stride), redop_id(_redop_id), sender(_sender), sequence_id(_sequence_id) { }
       Memory mem;
       off_t offset;
       int stride;
@@ -687,8 +695,9 @@ namespace Realm {
     : MessageType(REMOTE_REDLIST_MSGID, sizeof(RequestArgs), true, true) { }
       
     struct RequestArgs  {
-    RequestArgs(Memory _mem, off_t _offset, ReductionOpID _redopid)
-      : mem(_mem), offset(_offset), redopid(_redopid) { }
+      RequestArgs() { }
+      RequestArgs(Memory _mem, off_t _offset, ReductionOpID _redopid)
+	: mem(_mem), offset(_offset), redopid(_redopid) { }
       Memory mem;
       off_t offset;
       ReductionOpID redopid;
@@ -727,9 +736,10 @@ namespace Realm {
     : MessageType(REMOTE_WRITE_FENCE_MSGID, sizeof(RequestArgs), false, true) { }
 
     struct RequestArgs {
-    RequestArgs(Memory _mem, unsigned _sender, unsigned _sequence_id, unsigned _num_writes,
-		RemoteWriteFence* _fence)
-    : mem(_mem), sender(_sender), sequence_id(_sequence_id), num_writes(_num_writes), fence(_fence) { }
+      RequestArgs() { }
+      RequestArgs(Memory _mem, unsigned _sender, unsigned _sequence_id, unsigned _num_writes,
+		  RemoteWriteFence* _fence)
+	: mem(_mem), sender(_sender), sequence_id(_sequence_id), num_writes(_num_writes), fence(_fence) { }
       Memory mem;
       unsigned sender;
       unsigned sequence_id;
@@ -762,8 +772,9 @@ namespace Realm {
     : MessageType(REMOTE_WRITE_FENCE_ACK_MSGID, sizeof(RequestArgs), false, true) { }
       
     struct RequestArgs {
-    RequestArgs(RemoteWriteFence* _fence)
-    : fence(_fence) { }
+            RequestArgs() { }
+      RequestArgs(RemoteWriteFence* _fence)
+	: fence(_fence) { }
       RemoteWriteFence *fence;
       // TODO: success/failure
     };

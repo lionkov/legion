@@ -196,8 +196,9 @@ namespace Realm {
     : MessageType(LOCK_REQUEST_MSGID, sizeof(RequestArgs), false, true) { }
 
     struct RequestArgs {
-    RequestArgs(NodeId _node, Reservation _lock, unsigned _mode)
-    : node(_node), lock(_lock), mode(_mode) { }
+      RequestArgs() { }
+      RequestArgs(NodeId _node, Reservation _lock, unsigned _mode)
+	: node(_node), lock(_lock), mode(_mode) { }
       NodeId node;
       Reservation lock;
       unsigned mode;
@@ -223,8 +224,9 @@ namespace Realm {
     : MessageType(LOCK_RELEASE_MSGID, sizeof(RequestArgs), false, true) { }
     
     struct RequestArgs {
-    RequestArgs(NodeId _node, Reservation _lock)
-    : node(_node), lock(_lock) { }
+      RequestArgs() { }
+      RequestArgs(NodeId _node, Reservation _lock)
+	: node(_node), lock(_lock) { }
       NodeId node;
       Reservation lock;
     };
@@ -247,8 +249,9 @@ namespace Realm {
     : MessageType(LOCK_GRANT_MSGID, sizeof(RequestArgs), true, true) { }
     
     struct RequestArgs {
-    RequestArgs(Reservation _lock, unsigned _mode)
-      : lock(_lock), mode(_mode) { }
+      RequestArgs() { }
+      RequestArgs(Reservation _lock, unsigned _mode)
+	: lock(_lock), mode(_mode) { }
       Reservation lock;
       unsigned mode;
     };
@@ -274,8 +277,9 @@ namespace Realm {
     : MessageType(DESTROY_LOCK_MSGID, sizeof(RequestArgs), false, true) { }
 
     struct RequestArgs {
+      RequestArgs() { }
     RequestArgs(Reservation _actual, Reservation _dummy)
-    : actual(_actual), dummy(_dummy) { }
+      : actual(_actual), dummy(_dummy) { }
       Reservation actual;
       Reservation dummy;
     };

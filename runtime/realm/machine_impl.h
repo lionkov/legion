@@ -279,6 +279,7 @@ namespace Realm {
     struct RequestArgs {
     RequestArgs(NodeId _node_id, unsigned _num_procs, unsigned _num_memories)
       : node_id(_node_id), num_procs(_num_procs), num_memories(_num_memories) { }
+      RequestArgs() { }
       NodeId node_id;
       unsigned num_procs;
       unsigned num_memories;

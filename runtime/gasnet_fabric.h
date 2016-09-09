@@ -5,17 +5,55 @@
 
 #include "fabric_types.h"
 #include "fabric.h"
+#include "payload.h"
 #include "activemsg.h"
 #include <stdint.h>
 
-template <typename T>
-void doNothingShort(T RequestArgs) {
-  return;
-}
-template <typename T>
-void doNothingLong(T RequestArgs, const void* buf, unsigned long size) {
-  return;
-}
+// Adapts Gasnet / AM style message classes to be used with Fabric-
+// style interfaces. GasnetMessageAdapterBase is non-templated and for
+// use in collections.
+
+// Adapters are templated on the message type and generate functions for
+// packing / unpacking arguments into format expected by GASNet, as well
+// creating the required ActiveMessage object.
+
+class GasnetMessageAdapterBase { };
+
+template <MessageId MSGID, typename MSGTYPE> 
+class GasnetMessageAdapterShort : public GasnetMessageAdapterBase {
+public:
+  
+  static void handle_request(typename MSGTYPE::RequestArgs args) {
+    // Pack the received data back into a Message and call its handler
+    Message m(fabric->get_id(), MSGID, &args, NULL);
+    //MSGTYPE::request(m);
+  }
+  
+  typedef ActiveMessageShortNoReply<MSGID,
+				    typename MSGTYPE::RequestArgs,
+				    handle_request> ActiveMessage;
+};
+
+template <MessageId MSGID, typename MSGTYPE> 
+class GasnetMessageAdapterMedium : public GasnetMessageAdapterBase {
+public:
+  
+  // For medium messages, the RequestArgs must inherit from BaseMedium and have a default constructor
+  struct RequestArgsBaseMedium : public MSGTYPE::RequestArgs, public BaseMedium {
+    RequestArgsBaseMedium() { }
+  }; 
+
+  static void handle_request(RequestArgsBaseMedium args, const void* data, size_t datalen) {
+    // Pack the received data back into a Message and call its handler
+    Message m(fabric->get_id(), MSGID, &args,
+	      new FabContiguousPayload(FAB_PAYLOAD_KEEP, (void*) data, datalen));
+    //MSGTYPE::request(m);
+  }
+  
+  typedef ActiveMessageMediumNoReply<MSGID,
+				     RequestArgsBaseMedium,
+				     handle_request> ActiveMessage;
+};
 
 // Allows lookup of RequestArgs type for messages
 template <typename T>
@@ -36,18 +74,11 @@ public:
   
     // Register handler for unpacking short/medium message type
     if (mt->payload == true) {
-      // If there's a payload, this is a medium message
-      //ActiveMessageMediumNoReply<MSGID,
-      //			 typename MSGTYPE::RequestArgs,
-      //&doNothingLong<MSGTYPE>> ActiveMessage;
-      ;
+      GasnetMessageAdapterMedium<MSGID, MSGTYPE>
+	::ActiveMessage::add_handler_entries(&gasnet_handlers[MSGID], tag.c_str());
     } else {
-      // No payload, so use a short AM
-      
-      //ActiveMessageShortNoReply<MSGID,
-      //			typename MSGTYPE::RequestArgs,
-      //			doNothingShort<MSGTYPE>> ActiveMessage;
-      ;
+      GasnetMessageAdapterShort<MSGID, MSGTYPE>
+	::ActiveMessage::add_handler_entries(&gasnet_handlers[MSGID], tag.c_str());
     }
     return true;
   }
@@ -81,7 +112,7 @@ public:
   virtual size_t get_max_send();
 
 
-private:
+protected:
   size_t gasnet_mem_size_in_mb;
   size_t reg_mem_size_in_mb;
   size_t active_msg_worker_threads;
@@ -90,5 +121,9 @@ private:
   gasnet_handlerentry_t gasnet_handlers[MAX_MESSAGE_TYPES];
   size_t gasnet_hcount; // gasnet handler entry count
 };
+
+
+
+
 
 #endif // GASNET_FABRIC_H

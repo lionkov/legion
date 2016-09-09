@@ -701,14 +701,15 @@ namespace Realm {
       // Register all message types with fabric before calling fabric->init()
       std::cout << "ADDING MESSAGES" << std::endl;
       
-      message_adder.add_message_type<CLEAR_TIMER_MSGID,
-				     ClearTimersMessageType>(fabric,
-							     new ClearTimersMessageType(),
-							     "Clear Timer Request");      
+      //message_adder.add_message_type<CLEAR_TIMER_MSGID,
+      //ClearTimersMessageType>(fabric,
+      //new ClearTimersMessageType(),
+      //"Clear Timer Request");      
       message_adder.add_message_type<ROLL_UP_TIMER_MSGID,
 				     TimerDataRequestMessageType>(fabric,
 								  new TimerDataRequestMessageType(),
 								  "Roll-up Request");
+      
       message_adder.add_message_type<ROLL_UP_TIMER_RPLID,
 				     TimerDataResponseMessageType>(fabric,
 								   new TimerDataResponseMessageType(),

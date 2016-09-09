@@ -296,12 +296,13 @@ namespace Realm {
 	: MessageType(MACHINE_SHUTDOWN_MSGID, sizeof(RequestArgs), false, true) { }
       
       struct RequestArgs {
+	RequestArgs() { }
 	RequestArgs(int _initiating_node, int _dummy)
 	  : initiating_node(_initiating_node), dummy(_dummy) { }
 	int initiating_node;
 	int dummy; // needed to get sizeof() >= 8
       };
-
+      
       void request(Message* m);
       static void send_request(NodeId target);
     };

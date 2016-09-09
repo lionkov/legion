@@ -253,8 +253,9 @@ namespace Realm {
     : MessageType(EVENT_SUBSCRIBE_MSGID, sizeof(RequestArgs), false, true) { }
     
     struct RequestArgs {
+      RequestArgs() { }
       RequestArgs(NodeId _node, Event _event, EventImpl::gen_t _previous_subscribe_gen)
-    : node(_node), event(_event), previous_subscribe_gen(_previous_subscribe_gen) { }
+	: node(_node), event(_event), previous_subscribe_gen(_previous_subscribe_gen) { }
       NodeId node;
       Event event;
       EventImpl::gen_t previous_subscribe_gen;
@@ -283,8 +284,9 @@ namespace Realm {
     : MessageType(EVENT_TRIGGER_MSGID, sizeof(RequestArgs), false, true) { }
     
     struct RequestArgs {
-    RequestArgs(NodeId _node, Event _event, bool _poisoned)
-    : node(_node), event(_event), poisoned(_poisoned) { }
+      RequestArgs() { }
+      RequestArgs(NodeId _node, Event _event, bool _poisoned)
+	: node(_node), event(_event), poisoned(_poisoned) { }
       NodeId node;
       Event event;
       bool poisoned;
@@ -306,10 +308,11 @@ namespace Realm {
   public:
   EventUpdateMessageType()
     : MessageType(EVENT_UPDATE_MSGID, sizeof(RequestArgs), true, true) { }
-
+    
     struct RequestArgs {
-    RequestArgs(Event _event)
-      : event(_event) { }
+      RequestArgs() { }
+      RequestArgs(Event _event)
+	: event(_event) { }
       Event event;
     };
 
@@ -350,8 +353,9 @@ namespace Realm {
     : MessageType(BARRIER_ADJUST_MSGID, sizeof(RequestArgs), true, true) { }
       
     struct RequestArgs {
-    RequestArgs(int _sender, int _delta, Barrier _barrier, Event _wait_on)
-    : sender(_sender), delta(_delta), barrier(_barrier), wait_on(_wait_on) { }
+      RequestArgs() { }
+      RequestArgs(int _sender, int _delta, Barrier _barrier, Event _wait_on)
+	: sender(_sender), delta(_delta), barrier(_barrier), wait_on(_wait_on) { }
       int sender;
       int delta;
       Barrier barrier;
@@ -385,8 +389,9 @@ namespace Realm {
     : MessageType(BARRIER_SUBSCRIBE_MSGID, sizeof(RequestArgs), false, true) { }
     
     struct RequestArgs {
-    RequestArgs(NodeId _subscriber, ID::IDType _barrier_id, EventImpl::gen_t _subscribe_gen, bool _forwarded)
-    : subscriber(_subscriber), barrier_id(_barrier_id), subscribe_gen(_subscribe_gen), forwarded(_forwarded) { }
+      RequestArgs() { }
+      RequestArgs(NodeId _subscriber, ID::IDType _barrier_id, EventImpl::gen_t _subscribe_gen, bool _forwarded)
+	: subscriber(_subscriber), barrier_id(_barrier_id), subscribe_gen(_subscribe_gen), forwarded(_forwarded) { }
       NodeId subscriber;
       ID::IDType barrier_id;
       EventImpl::gen_t subscribe_gen;
@@ -415,13 +420,14 @@ namespace Realm {
     : MessageType(BARRIER_TRIGGER_MSGID, sizeof(RequestArgs), true, true) { }
     
     struct RequestArgs {
-    RequestArgs(NodeId _node, ID::IDType _barrier_id, EventImpl::gen_t _trigger_gen,
-		EventImpl::gen_t _previous_gen, EventImpl::gen_t _first_generation,
+      RequestArgs() { }
+      RequestArgs(NodeId _node, ID::IDType _barrier_id, EventImpl::gen_t _trigger_gen,
+		  EventImpl::gen_t _previous_gen, EventImpl::gen_t _first_generation,
 		ReductionOpID _redop_id, NodeId _migration_target, unsigned _base_arrival_count)
-      : node(_node), barrier_id(_barrier_id), trigger_gen(_trigger_gen),
-	previous_gen(_previous_gen), first_generation(_first_generation),
-	redop_id(_redop_id), migration_target(_migration_target),
-	base_arrival_count(_base_arrival_count) { }
+	: node(_node), barrier_id(_barrier_id), trigger_gen(_trigger_gen),
+	  previous_gen(_previous_gen), first_generation(_first_generation),
+	  redop_id(_redop_id), migration_target(_migration_target),
+	  base_arrival_count(_base_arrival_count) { }
       
       NodeId node;
       ID::IDType barrier_id;
@@ -461,8 +467,9 @@ namespace Realm {
     : MessageType(BARRIER_MIGRATE_MSGID, sizeof(RequestArgs), false, true) { }
       
     struct RequestArgs {
-    RequestArgs(Barrier _barrier, NodeId _current_owner)
-    : barrier(_barrier), current_owner(_current_owner) { }
+      RequestArgs() { }
+      RequestArgs(Barrier _barrier, NodeId _current_owner)
+	: barrier(_barrier), current_owner(_current_owner) { }
       Barrier barrier;
       NodeId current_owner;
     };

@@ -25,24 +25,7 @@ namespace Realm {
 
 namespace LegionRuntime {
   namespace LowLevel {
-    struct RemoteCopyArgs {
-      ReductionOpID redop_id;
-      bool red_fold;
-      Event before_copy, after_copy;
-      int priority;
-    };
-
-    struct RemoteFillArgs {
-      RegionInstance inst;
-      unsigned offset, size;
-      Event before_fill, after_fill;
-      //int priority;
-    };
-
-    extern void handle_remote_copy(RemoteCopyArgs args, const void *data, size_t msglen);
-
-    extern void handle_remote_fill(RemoteFillArgs args, const void *data, size_t msglen);
-
+    
     enum DMAActiveMessageIDs {
       REMOTE_COPY_MSGID = 200,
       REMOTE_FILL_MSGID = 201,
@@ -52,8 +35,15 @@ namespace LegionRuntime {
     class RemoteCopyMessageType : public MessageType {
     public:
       RemoteCopyMessageType()
-	: MessageType(REMOTE_COPY_MSGID, sizeof(RemoteCopyArgs), true, true) { }
-      
+	: MessageType(REMOTE_COPY_MSGID, sizeof(RequestArgs), true, true) { }
+
+      struct RequestArgs {
+	RequestArgs() { } 
+	ReductionOpID redop_id;
+	bool red_fold;
+	Event before_copy, after_copy;
+	int priority;
+      };
       void request(Message* m);
     };
 
@@ -66,8 +56,16 @@ namespace LegionRuntime {
     class RemoteFillMessageType : public MessageType {
     public:
       RemoteFillMessageType()
-	: MessageType(REMOTE_FILL_MSGID, sizeof(RemoteFillArgs), true, true) { }
-      
+	: MessageType(REMOTE_FILL_MSGID, sizeof(RequestArgs), true, true) { }
+
+      struct RequestArgs {
+	RequestArgs() { }
+	RegionInstance inst;
+	unsigned offset, size;
+	Event before_fill, after_fill;
+	//int priority;
+      };
+
       void request(Message* m);
     };
 
@@ -76,12 +74,16 @@ namespace LegionRuntime {
       RemoteFillMessage(NodeId dest, void* args, FabPayload* payload)
 	: Message(dest, REMOTE_FILL_MSGID, args, payload) { }
     };
-   
-    extern void init_dma_handler(void);
 
+    extern void handle_remote_copy(RemoteCopyMessageType::RequestArgs args,
+				   const void *data, size_t msglen);
+
+    extern void handle_remote_fill(RemoteFillMessageType::RequestArgs args,
+				   const void *data, size_t msglen);
+    
+    extern void init_dma_handler(void);
     extern void start_dma_worker_threads(int count, Realm::CoreReservationSet& crs);
     extern void stop_dma_worker_threads(void);
-
     extern void create_builtin_dma_channels(Realm::RuntimeImpl *r);
 
     /*
