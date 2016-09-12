@@ -38,7 +38,7 @@ namespace Realm {
 
 // Unique IDs for each type of message used by the RT
 enum MessageIds {
-  BASE_OFFSET = 1,
+  BASE_OFFSET = 140,
   NODE_ANNOUNCE_MSGID, 
   SPAWN_TASK_MSGID, 
   LOCK_REQUEST_MSGID,  
