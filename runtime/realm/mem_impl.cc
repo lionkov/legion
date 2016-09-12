@@ -96,7 +96,7 @@ namespace Realm {
 
     off_t MemoryImpl::alloc_bytes_local(size_t size)
     {
-      FabAutoLock al(mutex);
+      AUTOLOCK_T al(mutex);
 
       // for zero-length allocations, return a special "offset"
       if(size == 0) {
@@ -156,7 +156,7 @@ namespace Realm {
     void MemoryImpl::free_bytes_local(off_t offset, size_t size)
     {
       log_malloc.info() << "free block: mem=" << me << " size=" << size << " ofs=" << offset;
-      FabAutoLock al(mutex);
+      AUTOLOCK_T al(mutex);
 
       // frees of zero bytes should have the special offset
       if(size == 0) {
@@ -295,7 +295,7 @@ namespace Realm {
 
       // find/make an available index to store this in
       {
-	FabAutoLock al(mutex);
+	AUTOLOCK_T al(mutex);
 
 	size_t size = instances.size();
 	ID::IDType index = 0;
@@ -361,7 +361,7 @@ namespace Realm {
         unsigned index = ID(resp.i).instance.inst_idx;
         // resize array if needed
         if(index >= instances.size()) {
-          FabAutoLock a(mutex);
+          AUTOLOCK_T a(mutex);
           if(index >= instances.size()) {
             log_inst.debug("resizing instance array: mem=" IDFMT " old=%zd new=%d",
                      me.id, instances.size(), index+1);
@@ -381,7 +381,7 @@ namespace Realm {
       // have we heard of this one before?  if not, add it
       unsigned index = id.instance.inst_idx;
       if(index >= instances.size()) { // lock not held - just for early out
-	FabAutoLock a(mutex);
+	AUTOLOCK_T a(mutex);
 	if(index >= instances.size()) // real check
 	  instances.resize(index + 1);
       }
@@ -1042,7 +1042,7 @@ namespace Realm {
 
   typedef std::map<PartialWriteKey, PartialWriteEntry> PartialWriteMap;
   static PartialWriteMap partial_remote_writes;
-  static FabMutex partial_remote_writes_lock;
+  static MUTEX_T partial_remote_writes_lock;
   
   void RemoteWriteMessageType::request(Message* m) {
     RequestArgs* args = (RequestArgs*) m->get_arg_ptr();

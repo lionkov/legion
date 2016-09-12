@@ -78,7 +78,7 @@ namespace Realm {
 
       virtual ~ThreadedTaskScheduler(void);
 
-      typedef PriorityQueue<Task *, FabMutex> TaskQueue;
+      typedef PriorityQueue<Task *, MUTEX_T> TaskQueue;
 
       virtual void add_task_queue(TaskQueue *queue);
 
@@ -105,7 +105,7 @@ namespace Realm {
       virtual void worker_wake(Thread *to_wake) = 0;
       virtual void worker_terminate(Thread *switch_to) = 0;
 
-      FabMutex lock;
+      MUTEX_T lock;
       std::vector<TaskQueue *> task_queues;
       std::vector<Thread *> idle_workers;
       std::set<Thread *> blocked_workers;
@@ -150,8 +150,8 @@ namespace Realm {
 	// 64-bit counters are used to avoid dealing with wrap-around cases
 	volatile long long counter;
 	volatile long long wait_value;
-	FabMutex mutex;
-	FabCondVar condvar;
+	MUTEX_T mutex;
+	CONDVAR_T	 condvar;
       };
 	
       WorkCounter work_counter;
@@ -217,8 +217,8 @@ namespace Realm {
       std::set<Thread *> all_workers;
       std::set<Thread *> active_workers;
       std::set<Thread *> terminating_workers;
-      std::map<Thread *, FabCondVar *> sleeping_threads;
-      FabCondVar shutdown_condvar;
+      std::map<Thread *, CONDVAR_T	 *> sleeping_threads;
+      CONDVAR_T	 shutdown_condvar;
     };
 
 #ifdef REALM_USE_USER_THREADS
@@ -263,7 +263,7 @@ namespace Realm {
       std::set<Thread *> all_workers;
 
       int host_startups_remaining;
-      FabCondVar host_startup_condvar;
+      CONDVAR_T	 host_startup_condvar;
 
     public:
       int cfg_num_host_threads;

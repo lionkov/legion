@@ -81,7 +81,7 @@ namespace Realm {
     };
 
     CoherentData locked_data;
-    FabMutex valid_mask_mutex;
+    MUTEX_T valid_mask_mutex;
     ElementMask *valid_mask;
     int valid_mask_count;
     bool valid_mask_complete;

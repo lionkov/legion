@@ -72,7 +72,7 @@ namespace Realm {
       static const size_t INNER_BITS = _INNER_BITS;
       static const size_t LEAF_BITS = _LEAF_BITS;
 
-      typedef FabMutex LT;
+      typedef MUTEX_T LT;
       typedef int IT;
       typedef DynamicTableNode<DynamicTableNodeBase<LT, IT> *, 1 << INNER_BITS, LT, IT> INNER_TYPE;
       typedef DynamicTableNode<ET, 1 << LEAF_BITS, LT, IT> LEAF_TYPE;
@@ -243,8 +243,8 @@ namespace Realm {
       unsigned thread_counts[MAX_NUM_THREADS];
 #endif
       volatile bool shutdown_requested;
-      FabMutex shutdown_mutex;
-      FabCondVar shutdown_condvar;
+      MUTEX_T shutdown_mutex;
+      CONDVAR_T	 shutdown_condvar;
 
       CoreMap *core_map;
       CoreReservationSet *core_reservations;

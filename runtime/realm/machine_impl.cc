@@ -140,7 +140,7 @@ namespace Realm {
 					       const void *args, size_t arglen,
 					       bool remote)
     {
-      FabAutoLock al(mutex);
+      AUTOLOCK_T al(mutex);
 
       const size_t *cur = (const size_t *)args;
 #ifndef NDEBUG
@@ -220,7 +220,7 @@ namespace Realm {
     void MachineImpl::get_all_memories(std::set<Memory>& mset) const
     {
       // TODO: consider using a reader/writer lock here instead
-      FabAutoLock al(mutex);
+      AUTOLOCK_T al(mutex);
       for(std::vector<Machine::ProcessorMemoryAffinity>::const_iterator it = proc_mem_affinities.begin();
 	  it != proc_mem_affinities.end();
 	  it++) {
@@ -231,7 +231,7 @@ namespace Realm {
     void MachineImpl::get_all_processors(std::set<Processor>& pset) const
     {
       // TODO: consider using a reader/writer lock here instead
-      FabAutoLock al(mutex);
+      AUTOLOCK_T al(mutex);
       for(std::vector<Machine::ProcessorMemoryAffinity>::const_iterator it = proc_mem_affinities.begin();
 	  it != proc_mem_affinities.end();
 	  it++) {
@@ -266,7 +266,7 @@ namespace Realm {
     void MachineImpl::get_visible_memories(Processor p, std::set<Memory>& mset) const
     {
       // TODO: consider using a reader/writer lock here instead
-      FabAutoLock al(mutex);
+      AUTOLOCK_T al(mutex);
       for(std::vector<Machine::ProcessorMemoryAffinity>::const_iterator it = proc_mem_affinities.begin();
 	  it != proc_mem_affinities.end();
 	  it++) {
@@ -279,7 +279,7 @@ namespace Realm {
     void MachineImpl::get_visible_memories(Memory m, std::set<Memory>& mset) const
     {
       // TODO: consider using a reader/writer lock here instead
-      FabAutoLock al(mutex);
+      AUTOLOCK_T al(mutex);
       for(std::vector<Machine::MemoryMemoryAffinity>::const_iterator it = mem_mem_affinities.begin();
 	  it != mem_mem_affinities.end();
 	  it++) {
@@ -295,7 +295,7 @@ namespace Realm {
     void MachineImpl::get_shared_processors(Memory m, std::set<Processor>& pset) const
     {
       // TODO: consider using a reader/writer lock here instead
-      FabAutoLock al(mutex);
+      AUTOLOCK_T al(mutex);
       for(std::vector<Machine::ProcessorMemoryAffinity>::const_iterator it = proc_mem_affinities.begin();
 	  it != proc_mem_affinities.end();
 	  it++) {
@@ -307,7 +307,7 @@ namespace Realm {
     bool MachineImpl::has_affinity(Processor p, Memory m, Machine::AffinityDetails *details /*= 0*/) const
     {
       // TODO: consider using a reader/writer lock here instead
-      FabAutoLock al(mutex);
+      AUTOLOCK_T al(mutex);
       for(std::vector<Machine::ProcessorMemoryAffinity>::const_iterator it = proc_mem_affinities.begin();
 	  it != proc_mem_affinities.end();
 	  it++) {
@@ -325,7 +325,7 @@ namespace Realm {
     bool MachineImpl::has_affinity(Memory m1, Memory m2, Machine::AffinityDetails *details /*= 0*/) const
     {
       // TODO: consider using a reader/writer lock here instead
-      FabAutoLock al(mutex);
+      AUTOLOCK_T al(mutex);
       for(std::vector<Machine::MemoryMemoryAffinity>::const_iterator it = mem_mem_affinities.begin();
 	  it != mem_mem_affinities.end();
 	  it++) {
@@ -348,7 +348,7 @@ namespace Realm {
 
       {
 	// TODO: consider using a reader/writer lock here instead
-	FabAutoLock al(mutex);
+	AUTOLOCK_T al(mutex);
 	for(std::vector<Machine::ProcessorMemoryAffinity>::const_iterator it = proc_mem_affinities.begin();
 	    it != proc_mem_affinities.end();
 	    it++) {
@@ -382,7 +382,7 @@ namespace Realm {
 
       {
 	// TODO: consider using a reader/writer lock here instead
-	FabAutoLock al(mutex);
+	AUTOLOCK_T al(mutex);
 	for(std::vector<Machine::MemoryMemoryAffinity>::const_iterator it = mem_mem_affinities.begin();
 	    it != mem_mem_affinities.end();
 	    it++) {
@@ -400,25 +400,25 @@ namespace Realm {
 
     void MachineImpl::add_proc_mem_affinity(const Machine::ProcessorMemoryAffinity& pma)
     {
-      FabAutoLock al(mutex);
+      AUTOLOCK_T al(mutex);
       proc_mem_affinities.push_back(pma);
     }
 
     void MachineImpl::add_mem_mem_affinity(const Machine::MemoryMemoryAffinity& mma)
     {
-      FabAutoLock al(mutex);
+      AUTOLOCK_T al(mutex);
       mem_mem_affinities.push_back(mma);
     }
 
     void MachineImpl::add_subscription(Machine::MachineUpdateSubscriber *subscriber)
     {
-      FabAutoLock al(mutex);
+      AUTOLOCK_T al(mutex);
       subscribers.insert(subscriber);
     }
 
     void MachineImpl::remove_subscription(Machine::MachineUpdateSubscriber *subscriber)
     {
-      FabAutoLock al(mutex);
+      AUTOLOCK_T al(mutex);
       subscribers.erase(subscriber);
     }
 
@@ -804,7 +804,7 @@ namespace Realm {
     Processor lowest = Processor::NO_PROC;
     {
       // problem with nested locks here...
-      //FabAutoLock al(machine->mutex);
+      //AUTOLOCK_T al(machine->mutex);
       for(std::vector<Machine::ProcessorMemoryAffinity>::const_iterator it = machine->proc_mem_affinities.begin();
 	  it != machine->proc_mem_affinities.end();
 	  it++) {
@@ -830,7 +830,7 @@ namespace Realm {
     Processor lowest = Processor::NO_PROC;
     {
       // problem with nested locks here...
-      //FabAutoLock al(machine->mutex);
+      //AUTOLOCK_T al(machine->mutex);
       for(std::vector<Machine::ProcessorMemoryAffinity>::const_iterator it = machine->proc_mem_affinities.begin();
 	  it != machine->proc_mem_affinities.end();
 	  it++) {
@@ -856,7 +856,7 @@ namespace Realm {
     std::set<Processor> pset;
     {
       // problem with nested locks here...
-      //FabAutoLock al(machine->mutex);
+      //AUTOLOCK_T al(machine->mutex);
       for(std::vector<Machine::ProcessorMemoryAffinity>::const_iterator it = machine->proc_mem_affinities.begin();
 	  it != machine->proc_mem_affinities.end();
 	  it++) {
@@ -1137,7 +1137,7 @@ namespace Realm {
     Memory lowest = Memory::NO_MEMORY;
     {
       // problem with nested locks here...
-      //FabAutoLock al(machine->mutex);
+      //AUTOLOCK_T al(machine->mutex);
       for(std::vector<Machine::ProcessorMemoryAffinity>::const_iterator it = machine->proc_mem_affinities.begin();
 	  it != machine->proc_mem_affinities.end();
 	  it++) {
@@ -1163,7 +1163,7 @@ namespace Realm {
     Memory lowest = Memory::NO_MEMORY;
     {
       // problem with nested locks here...
-      //FabAutoLock al(machine->mutex);
+      //AUTOLOCK_T al(machine->mutex);
       for(std::vector<Machine::ProcessorMemoryAffinity>::const_iterator it = machine->proc_mem_affinities.begin();
 	  it != machine->proc_mem_affinities.end();
 	  it++) {
@@ -1189,7 +1189,7 @@ namespace Realm {
     std::set<Memory> pset;
     {
       // problem with nested locks here...
-      //FabAutoLock al(machine->mutex);
+      //AUTOLOCK_T al(machine->mutex);
       for(std::vector<Machine::ProcessorMemoryAffinity>::const_iterator it = machine->proc_mem_affinities.begin();
 	  it != machine->proc_mem_affinities.end();
 	  it++) {
@@ -1215,7 +1215,7 @@ namespace Realm {
     int count = 0;
     {
       // problem with nested locks here...
-      //FabAutoLock al(machine->mutex);
+      //AUTOLOCK_T al(machine->mutex);
       for(std::vector<Machine::ProcessorMemoryAffinity>::const_iterator it = machine->proc_mem_affinities.begin();
 	  it != machine->proc_mem_affinities.end();
 	  it++) {

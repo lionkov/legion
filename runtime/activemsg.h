@@ -19,8 +19,8 @@
 #ifndef ACTIVEMSG_H
 #define ACTIVEMSG_H
 
-#include "fabric_types.h"
-#include "fabric.h"
+//#include "fabric_types.h"
+//#include "fabric.h"
 #include <assert.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -92,7 +92,7 @@ static const void *ignore_gasnet_warning2 __attribute__((unused)) = (void *)_gas
 } while(0)
 
 // gasnet_hsl_t in object form for templating goodness
-class GASNetHSL : public Mutex {
+class GASNetHSL {
 public:
   GASNetHSL(void) { gasnet_hsl_init(&mutex); }
   ~GASNetHSL(void) { gasnet_hsl_destroy(&mutex); }
@@ -111,7 +111,7 @@ protected:
   gasnet_hsl_t mutex;
 };
 
-class GASNetCondVar : public CondVar {
+class GASNetCondVar {
 public:
   GASNetCondVar(GASNetHSL &_mutex) 
     : mutex(_mutex)
@@ -146,13 +146,18 @@ protected:
   gasnett_cond_t cond;
 };
 
-class AutoHSLLock : public AutoLock {
+class AutoHSLLock {
 public:
   AutoHSLLock(GASNetHSL &mutex) : mutex(mutex), held(true)
   { 
     mutex.lock();
   }
 
+  AutoHSLLock(GASNetCondVar &cond) : mutex(cond.mutex), held(true)
+  {
+    mutex.lock();
+  }
+  
   ~AutoHSLLock(void) 
   {
     if(held)

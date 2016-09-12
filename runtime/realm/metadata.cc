@@ -47,7 +47,7 @@ namespace Realm {
     void MetadataBase::handle_request(int requestor)
     {
       // just add the requestor to the list of remote nodes with copies
-      FabAutoLock a(mutex);
+      AUTOLOCK_T a(mutex);
 
       assert(is_valid());
       assert(!remote_copies.contains(requestor));
@@ -60,7 +60,7 @@ namespace Realm {
       // if there was an event, we'll trigger it
       Event to_trigger = Event::NO_EVENT;
       {
-	FabAutoLock a(mutex);
+	AUTOLOCK_T a(mutex);
 
 	switch(state) {
 	case STATE_REQUESTED:
@@ -92,7 +92,7 @@ namespace Realm {
       Event e = Event::NO_EVENT;
       bool issue_request = false;
       {
-	FabAutoLock a(mutex);
+	AUTOLOCK_T a(mutex);
 
 	switch(state) {
 	case STATE_VALID:
@@ -143,7 +143,7 @@ namespace Realm {
       //  information to do that now)
       Event e = Event::NO_EVENT;
       {
-	FabAutoLock a(mutex);
+	AUTOLOCK_T a(mutex);
 
 	assert(state != STATE_INVALID);
 	e = valid_event;
@@ -157,7 +157,7 @@ namespace Realm {
     {
       NodeSet invals_to_send;
       {
-	FabAutoLock a(mutex);
+	AUTOLOCK_T a(mutex);
 
 	assert(state == STATE_VALID);
 
@@ -181,7 +181,7 @@ namespace Realm {
 
     void MetadataBase::handle_invalidate(void)
     {
-      FabAutoLock a(mutex);
+      AUTOLOCK_T a(mutex);
 
       switch(state) {
       case STATE_VALID: 
@@ -207,7 +207,7 @@ namespace Realm {
     {
       bool last_copy;
       {
-	FabAutoLock a(mutex);
+	AUTOLOCK_T a(mutex);
 
 	assert(remote_copies.contains(sender));
 	remote_copies.remove(sender);

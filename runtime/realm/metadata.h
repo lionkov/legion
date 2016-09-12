@@ -55,7 +55,7 @@ namespace Realm {
     bool handle_inval_ack(int sender);
 
   protected:
-    FabMutex mutex;
+    MUTEX_T mutex;
     State state;  // current state
     Event valid_event;
     NodeSet remote_copies;

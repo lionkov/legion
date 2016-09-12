@@ -155,7 +155,7 @@ namespace Realm {
     // try to avoid a serial bottleneck by splitting events over 4 different tables
     static const int NUM_TABLES = 4;
     
-    FabMutex mutexes[NUM_TABLES];
+    MUTEX_T mutexes[NUM_TABLES];
     Table tables[NUM_TABLES];
     TableCleaner cleaner;
   };

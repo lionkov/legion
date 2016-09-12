@@ -9,12 +9,32 @@
 #define FABRIC_TYPES_H
 
 #include <stdint.h>
+#ifdef USE_GASNET
+#include "activemsg.h"
+#endif // USE_GASNET
 
 namespace Realm {
   class CoreReservationSet;
 };
 
 #define NELEM(x) (sizeof(x) / sizeof(x[0]))
+
+
+// Define which concrete mutex types to use
+#ifdef USE_GASNET
+
+#define MUTEX_T GASNetHSL
+#define CONDVAR_T GASNetCondVar
+#define AUTOLOCK_T AutoHSLLock
+
+#else
+
+#define MUTEX_T FabMutex
+#define CONDVAR_T FabCondVar
+#define AUTOLOCK_T FabAutoLock
+
+#endif // USE_GASNET
+
 
 // Unique IDs for each type of message used by the RT
 enum MessageIds {

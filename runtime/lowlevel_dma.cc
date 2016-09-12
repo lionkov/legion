@@ -87,8 +87,8 @@ namespace LegionRuntime {
       void worker_thread_loop(void);
 
     protected:
-      FabMutex queue_mutex;
-      FabCondVar queue_condvar;
+      MUTEX_T queue_mutex;
+      CONDVAR_T queue_condvar;
       std::map<int, std::list<DmaRequest *> *> queues;
       int queue_sleepers;
       bool shutdown_flag;
@@ -1903,7 +1903,7 @@ namespace LegionRuntime {
 
       int max_depth;
       std::deque<AIOOperation *> launched_operations, pending_operations;
-      FabMutex mutex;
+      MUTEX_T mutex;
 #ifdef REALM_USE_KERNEL_AIO
       aio_context_t aio_ctx;
 #endif
@@ -2182,7 +2182,7 @@ namespace LegionRuntime {
       PosixAIOWrite *op = new PosixAIOWrite(fd, offset, bytes, buffer);
 #endif
       {
-	FabAutoLock al(mutex);
+	AUTOLOCK_T al(mutex);
 	if(launched_operations.size() < (size_t)max_depth) {
 	  op->launch();
 	  launched_operations.push_back(op);
@@ -2202,7 +2202,7 @@ namespace LegionRuntime {
       PosixAIORead *op = new PosixAIORead(fd, offset, bytes, buffer);
 #endif
       {
-	FabAutoLock al(mutex);
+	AUTOLOCK_T al(mutex);
 	if(launched_operations.size() < (size_t)max_depth) {
 	  op->launch();
 	  launched_operations.push_back(op);
@@ -2216,7 +2216,7 @@ namespace LegionRuntime {
     {
       AIOFenceOp *op = new AIOFenceOp(req);
       {
-	FabAutoLock al(mutex);
+	AUTOLOCK_T al(mutex);
 	if(launched_operations.size() < (size_t)max_depth) {
 	  op->launch();
 	  launched_operations.push_back(op);
@@ -2228,13 +2228,13 @@ namespace LegionRuntime {
 
     bool AsyncFileIOContext::empty(void)
     {
-      FabAutoLock al(mutex);
+      AUTOLOCK_T al(mutex);
       return launched_operations.empty();
     }
 
     void AsyncFileIOContext::make_progress(void)
     {
-      FabAutoLock al(mutex);
+      AUTOLOCK_T al(mutex);
 
       // first, reap as many events as we can - oldest first
 #ifdef REALM_USE_KERNEL_AIO

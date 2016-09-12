@@ -133,7 +133,7 @@ namespace Realm {
       GenEventImpl *next_free;
 
       // everything below here protected by this mutex
-      FabMutex mutex;
+      MUTEX_T mutex;
 
       // local waiters are tracked by generation - an easily-accessed list is used
       //  for the "current" generation, whereas a map-by-generation-id is used for
@@ -208,7 +208,7 @@ namespace Realm {
       gen_t first_generation;
       BarrierImpl *next_free;
 
-      FabMutex mutex; // controls which local thread has access to internal data (not runtime-visible event)
+      MUTEX_T mutex; // controls which local thread has access to internal data (not runtime-visible event)
 
       // class to track per-generation status
       class Generation {

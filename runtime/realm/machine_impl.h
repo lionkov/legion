@@ -72,7 +72,7 @@ namespace Realm {
     void add_subscription(Machine::MachineUpdateSubscriber *subscriber);
     void remove_subscription(Machine::MachineUpdateSubscriber *subscriber);
 
-    mutable FabMutex mutex;
+    mutable MUTEX_T mutex;
     std::vector<Machine::ProcessorMemoryAffinity> proc_mem_affinities;
     std::vector<Machine::MemoryMemoryAffinity> mem_mem_affinities;
     std::set<Machine::MachineUpdateSubscriber *> subscribers;

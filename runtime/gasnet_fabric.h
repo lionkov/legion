@@ -63,7 +63,7 @@ public:
 template <typename T>
 typename T::RequestArgs get_requestargs_type() { return T::RequestArgs(); }
 	  
-// Gasnet Mutex types are defined in activemsg.h
+// Gasnet MUTEX_T types are defined in activemsg.h
 class GasnetFabric : public Fabric {
 public: 
   GasnetFabric(int* argc, char*** argv);
@@ -96,7 +96,6 @@ public:
   virtual void fatal_shutdown(int code);
   
   // RDMA operations cannot be used with a single-node fabric!
-  virtual void put_bytes(NodeId target, off_t offset, const void* src, size_t len);
   virtual void get_bytes(NodeId target, off_t offset, void* dst, size_t len);
   virtual void* get_regmem_ptr();
   virtual void wait_for_rdmas();

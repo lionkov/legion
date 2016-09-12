@@ -185,7 +185,7 @@ namespace Realm {
     Operation *current_op;
     int exception_handler_count;
     int signal_count;
-    FabMutex signal_mutex;
+    MUTEX_T signal_mutex;
     std::deque<Signal> signal_queue;
   };
 

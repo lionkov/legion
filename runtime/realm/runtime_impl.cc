@@ -1542,7 +1542,7 @@ namespace Realm {
 
       // otherwise, sleep until shutdown has been requested by somebody
       {
-	FabAutoLock al(shutdown_mutex);
+	AUTOLOCK_T al(shutdown_mutex);
 	while(!shutdown_requested)
 	  shutdown_condvar.wait();
 	log_runtime.info("shutdown request received - terminating\n");
@@ -1583,7 +1583,7 @@ namespace Realm {
       }
 
       {
-	FabAutoLock al(shutdown_mutex);
+	AUTOLOCK_T al(shutdown_mutex);
 	shutdown_requested = true;
 	shutdown_condvar.broadcast();
       }
@@ -1607,7 +1607,7 @@ namespace Realm {
 
       // sleep until shutdown has been requested by somebody
       {
-	FabAutoLock al(shutdown_mutex);
+	AUTOLOCK_T al(shutdown_mutex);
 	while(!shutdown_requested)
 	  shutdown_condvar.wait();
 	log_runtime.info("shutdown request received - terminating");
@@ -1849,7 +1849,7 @@ namespace Realm {
       assert(id.is_instance());
       MemoryImpl *mem = get_memory_impl(id);
       
-      FabAutoLock al(mem->mutex);
+      AUTOLOCK_T al(mem->mutex);
 
       // TODO: factor creator_node into lookup!
       if(id.instance.inst_idx >= mem->instances.size()) {

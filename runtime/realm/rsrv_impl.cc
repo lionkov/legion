@@ -228,7 +228,7 @@ namespace Realm {
       assert(impl);
       assert(ID(impl->me).is_reservation());
       if(impl) {
-	FabAutoLock al(impl->mutex);
+	AUTOLOCK_T al(impl->mutex);
 
 	assert(impl->owner == fabric->get_id());
 	assert(impl->count == ReservationImpl::ZERO_COUNT);
@@ -247,7 +247,7 @@ namespace Realm {
 #if 0
       // TODO: figure out if it's safe to iterate over a vector that is
       //  being resized?
-      FabAutoLock a(get_runtime()->nodes[fabric->get_id()].mutex);
+      AUTOLOCK_T a(get_runtime()->nodes[fabric->get_id()].mutex);
 
       std::vector<ReservationImpl>& locks = 
         get_runtime()->nodes[fabric->get_id()].locks;
@@ -261,7 +261,7 @@ namespace Realm {
 	if((*it).in_use || ((*it).owner != fabric->get_id())) continue;
 
 	// now take the lock and make sure it really isn't in use
-	FabAutoLock a((*it).mutex);
+	AUTOLOCK_T a((*it).mutex);
 	if(!(*it).in_use && ((*it).owner == fabric->get_id())) {
 	  // now we really have the lock
 	  (*it).in_use = true;
@@ -363,7 +363,7 @@ namespace Realm {
     NodeSet copy_waiters;
 
     do {
-      FabAutoLock a(impl->mutex);
+      AUTOLOCK_T a(impl->mutex);
 
       // case 1: we don't even own the lock any more - pass the request on
       //  to whoever we think the owner is
@@ -483,7 +483,7 @@ namespace Realm {
 
     ReservationImpl *impl = get_runtime()->get_lock_impl(args->lock);
     {
-      FabAutoLock a(impl->mutex);
+      AUTOLOCK_T a(impl->mutex);
 
       // make sure we were really waiting for this lock
       assert(impl->owner != fabric->get_id());
@@ -540,7 +540,7 @@ namespace Realm {
       WaiterList bonus_grants;
 
       {
-	FabAutoLock a(mutex); // hold mutex on lock while we check things
+	AUTOLOCK_T a(mutex); // hold mutex on lock while we check things
 
 	// it'd be bad if somebody tried to take a lock that had been 
 	//   deleted...  (info is only valid on a lock's home node)
@@ -798,7 +798,7 @@ namespace Realm {
 	log_reservation.debug(            "release: reservation=" IDFMT " count=%d mode=%d owner=%d", // share=%lx wait=%lx",
 			me.id, count, mode, owner); //, remote_sharer_mask, remote_waiter_mask);
 #endif
-	FabAutoLock a(mutex); // hold mutex on lock for entire function
+	AUTOLOCK_T a(mutex); // hold mutex on lock for entire function
 
 	assert(count > ZERO_COUNT);
 
@@ -923,7 +923,7 @@ namespace Realm {
       // a careful check of the lock mode and count does require the mutex
       bool held;
       {
-	FabAutoLock a(mutex);
+	AUTOLOCK_T a(mutex);
 
 	held = ((count > ZERO_COUNT) &&
 		((mode == check_mode) || ((mode == 0) && excl_ok)));
@@ -936,7 +936,7 @@ namespace Realm {
     {
       // take the lock's mutex to sanity check it and clear the in_use field
       {
-	FabAutoLock al(mutex);
+	AUTOLOCK_T al(mutex);
 
 	// should only get here if the current node holds an exclusive lock
 	assert(owner == fabric->get_id());

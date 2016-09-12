@@ -139,9 +139,6 @@ void GasnetFabric::fatal_shutdown(int code) {
   gasnet_exit(code);
 }
 
-void GasnetFabric::put_bytes(NodeId target, off_t offset, const void* src, size_t) {
-}
-
 void GasnetFabric::get_bytes(NodeId target, off_t offset, void* dst, size_t len) {
   void* srcptr = ((char*) regmem_base) + offset;
   gasnet_get(dst, target, srcptr, len);

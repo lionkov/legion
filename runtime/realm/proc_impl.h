@@ -100,7 +100,7 @@ namespace Realm {
       void set_scheduler(ThreadedTaskScheduler *_sched);
 
     ThreadedTaskScheduler *sched;
-    PriorityQueue<Task *, FabMutex> task_queue;
+    PriorityQueue<Task *, MUTEX_T> task_queue;
     ProfilingGauges::AbsoluteRangeGauge<int> ready_task_count;
 
       struct TaskTableEntry {
@@ -199,7 +199,7 @@ namespace Realm {
 
       void request_group_members(void);
 
-    PriorityQueue<Task *, FabMutex> task_queue;
+    PriorityQueue<Task *, MUTEX_T> task_queue;
     ProfilingGauges::AbsoluteRangeGauge<int> *ready_task_count;
   };
     

@@ -132,7 +132,7 @@ namespace Realm {
     MemoryKind kind;
     size_t alignment;
     Memory::Kind lowlevel_kind;
-    FabMutex mutex; // protection for resizing vectors
+    MUTEX_T mutex; // protection for resizing vectors
     std::vector<RegionInstanceImpl *> instances;
     std::map<off_t, off_t> free_blocks;
     ProfilingGauges::AbsoluteGauge<size_t> usage, peak_usage, peak_footprint;
@@ -833,9 +833,9 @@ namespace Realm {
 
 
   template <class T> struct HandlerReplyFuture {
-    FabMutex mutex;
-    FabMutex condmutex;
-    FabCondVar cond;
+    MUTEX_T mutex;
+    MUTEX_T condmutex;
+    CONDVAR_T	 cond;
     bool valid;
     T value;
 

@@ -1698,7 +1698,7 @@ namespace Realm {
       
       Event e;
       {
-	FabAutoLock a(valid_mask_mutex);
+	AUTOLOCK_T a(valid_mask_mutex);
 	
 	if(valid_mask != 0) {
 	  // if the mask exists, we've already requested it, so just provide
@@ -1829,7 +1829,7 @@ namespace Realm {
 
     Event to_trigger = Event::NO_EVENT;
     {
-      FabAutoLock a(r_impl->valid_mask_mutex);
+      AUTOLOCK_T a(r_impl->valid_mask_mutex);
       log_meta.info() << "received valid mask data for " << args->is << ", " << datalen << " bytes (" << r_impl->valid_mask_count << " blocks expected)";
 
       ElementMask *mask = r_impl->valid_mask;
