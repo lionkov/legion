@@ -16,6 +16,9 @@ nnodes = 4
 loglevel = 3
 ncpus = 3
 handlers = 1
+USE_GASNET = 1
+USE_FABRIC = 0
+GASNET ='/home/hcooney/gasnet-install'
 
 
 def remove_repos():
@@ -34,7 +37,10 @@ def pull():
 
 @parallel
 def build():
-    with cd(work_dir), shell_env(LG_RT_DIR=str(legion_root + '/runtime')):
+    with cd(work_dir), shell_env(LG_RT_DIR=str(legion_root + '/runtime'),
+                                 GASNET=GASNET,
+                                 USE_GASNET=str(USE_GASNET),
+                                 USE_FABRIC=str(USE_FABRIC)):
         run('make')
 
 @parallel

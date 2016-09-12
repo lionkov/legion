@@ -350,7 +350,7 @@ ifeq ($(strip $(USE_FABRIC)),1)
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/libfabric/fabric_libfabric.cc
 endif
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/barrier.cc
-LOW_RUNTIME_SRC += $(LG_RT_DIR)/address_exchange.cc
+#LOW_RUNTIME_SRC += $(LG_RT_DIR)/address_exchange.cc
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/single_node_fabric.cc
 ifeq ($(strip $(USE_GASNET)),1)	
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/gasnet_fabric.cc
