@@ -618,251 +618,251 @@ namespace Realm {
       return ID(me).memory.owner_node;
     }
 
-
+  #ifdef USE_GASNET 
   ////////////////////////////////////////////////////////////////////////
   //
   // class GASNetMemory
   //
-  
-//   GASNetMemory::GASNetMemory(Memory _me, size_t size_per_node)
-//     : MemoryImpl(_me, 0 /* we'll calculate it below */, MKIND_GLOBAL,
-// 		 MEMORY_STRIDE, Memory::GLOBAL_MEM)
-//   {
-//     num_nodes = fabric->get_num_nodes();
-//     seginfos = new gasnet_seginfo_t[num_nodes];
-//     CHECK_GASNET( gasnet_getSegmentInfo(seginfos, num_nodes) );
+  GASNetMemory::GASNetMemory(Memory _me, size_t size_per_node)
+    : MemoryImpl(_me, 0 /* we'll calculate it below */, MKIND_GLOBAL,
+		 MEMORY_STRIDE, Memory::GLOBAL_MEM)
+  {
+    num_nodes = fabric->get_num_nodes();
+    seginfos = new gasnet_seginfo_t[num_nodes];
+    CHECK_GASNET( gasnet_getSegmentInfo(seginfos, num_nodes) );
       
-//     for(int i = 0; i < num_nodes; i++) {
-//       assert(seginfos[i].size >= size_per_node);
-//     }
+    for(int i = 0; i < num_nodes; i++) {
+      assert(seginfos[i].size >= size_per_node);
+    }
 
-//     size = size_per_node * num_nodes;
-//     memory_stride = MEMORY_STRIDE;
+    size = size_per_node * num_nodes;
+    memory_stride = MEMORY_STRIDE;
       
-//     free_blocks[0] = size;
-//   }
+    free_blocks[0] = size;
+  }
 
-//   GASNetMemory::~GASNetMemory(void)
-//   {
-//   }
+  GASNetMemory::~GASNetMemory(void)
+  {
+  }
 
-//   RegionInstance GASNetMemory::create_instance(IndexSpace r,
-// 					       const int *linearization_bits,
-// 					       size_t bytes_needed,
-// 					       size_t block_size,
-// 					       size_t element_size,
-// 					       const std::vector<size_t>& field_sizes,
-// 					       ReductionOpID redopid,
-// 					       off_t list_size,
-// 					       const ProfilingRequestSet &reqs,
-// 					       RegionInstance parent_inst)
-//   {
-//     if(fabric->get_id() == 0) {
-//       return create_instance_local(r, linearization_bits, bytes_needed,
-// 				   block_size, element_size, field_sizes, redopid,
-// 				   list_size, reqs, parent_inst);
-//     } else {
-//       return create_instance_remote(r, linearization_bits, bytes_needed,
-// 				    block_size, element_size, field_sizes, redopid,
-// 				    list_size, reqs, parent_inst);
-//     }
-//   }
+  RegionInstance GASNetMemory::create_instance(IndexSpace r,
+					       const int *linearization_bits,
+					       size_t bytes_needed,
+					       size_t block_size,
+					       size_t element_size,
+					       const std::vector<size_t>& field_sizes,
+					       ReductionOpID redopid,
+					       off_t list_size,
+					       const ProfilingRequestSet &reqs,
+					       RegionInstance parent_inst)
+  {
+    if(fabric->get_id() == 0) {
+      return create_instance_local(r, linearization_bits, bytes_needed,
+				   block_size, element_size, field_sizes, redopid,
+				   list_size, reqs, parent_inst);
+    } else {
+      return create_instance_remote(r, linearization_bits, bytes_needed,
+				    block_size, element_size, field_sizes, redopid,
+				    list_size, reqs, parent_inst);
+    }
+  }
 
-//   void GASNetMemory::destroy_instance(RegionInstance i, 
-// 				      bool local_destroy)
-//   {
-//     if(fabric->get_id() == 0) {
-//       destroy_instance_local(i, local_destroy);
-//     } else {
-//       destroy_instance_remote(i, local_destroy);
-//     }
-//   }
+  void GASNetMemory::destroy_instance(RegionInstance i, 
+				      bool local_destroy)
+  {
+    if(fabric->get_id() == 0) {
+      destroy_instance_local(i, local_destroy);
+    } else {
+      destroy_instance_remote(i, local_destroy);
+    }
+  }
 
-//   off_t GASNetMemory::alloc_bytes(size_t size)
-//   {
-//     if(fabric->get_id() == 0) {
-//       return alloc_bytes_local(size);
-//     } else {
-//       return alloc_bytes_remote(size);
-//     }
-//   }
+  off_t GASNetMemory::alloc_bytes(size_t size)
+  {
+    if(fabric->get_id() == 0) {
+      return alloc_bytes_local(size);
+    } else {
+      return alloc_bytes_remote(size);
+    }
+  }
 
-//   void GASNetMemory::free_bytes(off_t offset, size_t size)
-//   {
-//     if(fabric->get_id() == 0) {
-//       free_bytes_local(offset, size);
-//     } else {
-//       free_bytes_remote(offset, size);
-//     }
-//   }
+  void GASNetMemory::free_bytes(off_t offset, size_t size)
+  {
+    if(fabric->get_id() == 0) {
+      free_bytes_local(offset, size);
+    } else {
+      free_bytes_remote(offset, size);
+    }
+  }
 
-//   void GASNetMemory::get_bytes(off_t offset, void *dst, size_t size)
-//   {
-//     char *dst_c = (char *)dst;
-//     while(size > 0) {
-//       off_t blkid = (offset / memory_stride / num_nodes);
-//       off_t node = (offset / memory_stride) % num_nodes;
-//       off_t blkoffset = offset % memory_stride;
-//       size_t chunk_size = memory_stride - blkoffset;
-//       if(chunk_size > size) chunk_size = size;
-//       gasnet_get(dst_c, node, ((char *)seginfos[node].addr)+(blkid * memory_stride)+blkoffset, chunk_size);
-//       offset += chunk_size;
-//       dst_c += chunk_size;
-//       size -= chunk_size;
-//     }
-//   }
+  void GASNetMemory::get_bytes(off_t offset, void *dst, size_t size)
+  {
+    char *dst_c = (char *)dst;
+    while(size > 0) {
+      off_t blkid = (offset / memory_stride / num_nodes);
+      off_t node = (offset / memory_stride) % num_nodes;
+      off_t blkoffset = offset % memory_stride;
+      size_t chunk_size = memory_stride - blkoffset;
+      if(chunk_size > size) chunk_size = size;
+      gasnet_get(dst_c, node, ((char *)seginfos[node].addr)+(blkid * memory_stride)+blkoffset, chunk_size);
+      offset += chunk_size;
+      dst_c += chunk_size;
+      size -= chunk_size;
+    }
+  }
 
-//   void GASNetMemory::put_bytes(off_t offset, const void *src, size_t size)
-//   {
-//     char *src_c = (char *)src; // dropping const on purpose...
-//     while(size > 0) {
-//       off_t blkid = (offset / memory_stride / num_nodes);
-//       off_t node = (offset / memory_stride) % num_nodes;
-//       off_t blkoffset = offset % memory_stride;
-//       size_t chunk_size = memory_stride - blkoffset;
-//       if(chunk_size > size) chunk_size = size;
-//       gasnet_put(node, ((char *)seginfos[node].addr)+(blkid * memory_stride)+blkoffset, src_c, chunk_size);
-//       offset += chunk_size;
-//       src_c += chunk_size;
-//       size -= chunk_size;
-//     }
-//   }
+  void GASNetMemory::put_bytes(off_t offset, const void *src, size_t size)
+  {
+    char *src_c = (char *)src; // dropping const on purpose...
+    while(size > 0) {
+      off_t blkid = (offset / memory_stride / num_nodes);
+      off_t node = (offset / memory_stride) % num_nodes;
+      off_t blkoffset = offset % memory_stride;
+      size_t chunk_size = memory_stride - blkoffset;
+      if(chunk_size > size) chunk_size = size;
+      gasnet_put(node, ((char *)seginfos[node].addr)+(blkid * memory_stride)+blkoffset, src_c, chunk_size);
+      offset += chunk_size;
+      src_c += chunk_size;
+      size -= chunk_size;
+    }
+  }
 
-//   void GASNetMemory::apply_reduction_list(off_t offset, const ReductionOpUntyped *redop,
-// 					  size_t count, const void *entry_buffer)
-//   {
-//     const char *entry = (const char *)entry_buffer;
-//     unsigned ptr;
+  void GASNetMemory::apply_reduction_list(off_t offset, const ReductionOpUntyped *redop,
+					  size_t count, const void *entry_buffer)
+  {
+    const char *entry = (const char *)entry_buffer;
+    unsigned ptr;
 
-//     for(size_t i = 0; i < count; i++)
-//       {
-// 	redop->get_list_pointers(&ptr, entry, 1);
-// 	//printf("ptr[%d] = %d\n", i, ptr);
-// 	off_t elem_offset = offset + ptr * redop->sizeof_lhs;
-// 	off_t blkid = (elem_offset / memory_stride / num_nodes);
-// 	off_t node = (elem_offset / memory_stride) % num_nodes;
-// 	off_t blkoffset = elem_offset % memory_stride;
-// 	assert(node == fabric->get_id());
-// 	char *tgt_ptr = ((char *)seginfos[node].addr)+(blkid * memory_stride)+blkoffset;
-// 	redop->apply_list_entry(tgt_ptr, entry, 1, ptr);
-// 	entry += redop->sizeof_list_entry;
-//       }
-//   }
+    for(size_t i = 0; i < count; i++)
+      {
+	redop->get_list_pointers(&ptr, entry, 1);
+	//printf("ptr[%d] = %d\n", i, ptr);
+	off_t elem_offset = offset + ptr * redop->sizeof_lhs;
+	off_t blkid = (elem_offset / memory_stride / num_nodes);
+	off_t node = (elem_offset / memory_stride) % num_nodes;
+	off_t blkoffset = elem_offset % memory_stride;
+	assert(node == fabric->get_id());
+	char *tgt_ptr = ((char *)seginfos[node].addr)+(blkid * memory_stride)+blkoffset;
+	redop->apply_list_entry(tgt_ptr, entry, 1, ptr);
+	entry += redop->sizeof_list_entry;
+      }
+  }
 
-//   void *GASNetMemory::get_direct_ptr(off_t offset, size_t size)
-//   {
-//     return 0;  // can't give a pointer to the caller - have to use RDMA
-//   }
+  void *GASNetMemory::get_direct_ptr(off_t offset, size_t size)
+  {
+    return 0;  // can't give a pointer to the caller - have to use RDMA
+  }
 
-//   int GASNetMemory::get_home_node(off_t offset, size_t size)
-//   {
-//     off_t start_blk = offset / memory_stride;
-//     off_t end_blk = (offset + size - 1) / memory_stride;
-//     if(start_blk != end_blk) return -1;
+  int GASNetMemory::get_home_node(off_t offset, size_t size)
+  {
+    off_t start_blk = offset / memory_stride;
+    off_t end_blk = (offset + size - 1) / memory_stride;
+    if(start_blk != end_blk) return -1;
 
-//     return start_blk % num_nodes;
-//   }
+    return start_blk % num_nodes;
+  }
 
-//   void GASNetMemory::get_batch(size_t batch_size,
-// 			       const off_t *offsets, void * const *dsts, 
-// 			       const size_t *sizes)
-//   {
-// #define NO_USE_NBI_ACCESSREGION
-// #ifdef USE_NBI_ACCESSREGION
-//     gasnet_begin_nbi_accessregion();
-// #endif
-//     DetailedTimer::push_timer(10);
-//     for(size_t i = 0; i < batch_size; i++) {
-//       off_t offset = offsets[i];
-//       char *dst_c = (char *)(dsts[i]);
-//       size_t size = sizes[i];
+  void GASNetMemory::get_batch(size_t batch_size,
+			       const off_t *offsets, void * const *dsts, 
+			       const size_t *sizes)
+  {
+#define NO_USE_NBI_ACCESSREGION
+#ifdef USE_NBI_ACCESSREGION
+    gasnet_begin_nbi_accessregion();
+#endif
+    DetailedTimer::push_timer(10);
+    for(size_t i = 0; i < batch_size; i++) {
+      off_t offset = offsets[i];
+      char *dst_c = (char *)(dsts[i]);
+      size_t size = sizes[i];
 
-//       off_t blkid = (offset / memory_stride / num_nodes);
-//       off_t node = (offset / memory_stride) % num_nodes;
-//       off_t blkoffset = offset % memory_stride;
+      off_t blkid = (offset / memory_stride / num_nodes);
+      off_t node = (offset / memory_stride) % num_nodes;
+      off_t blkoffset = offset % memory_stride;
 
-//       while(size > 0) {
-// 	size_t chunk_size = memory_stride - blkoffset;
-// 	if(chunk_size > size) chunk_size = size;
+      while(size > 0) {
+	size_t chunk_size = memory_stride - blkoffset;
+	if(chunk_size > size) chunk_size = size;
 
-// 	char *src_c = (((char *)seginfos[node].addr) +
-// 		       (blkid * memory_stride) + blkoffset);
-// 	if(node == fabric->get_id()) {
-// 	  memcpy(dst_c, src_c, chunk_size);
-// 	} else {
-// 	  gasnet_get_nbi(dst_c, node, src_c, chunk_size);
-// 	}
+	char *src_c = (((char *)seginfos[node].addr) +
+		       (blkid * memory_stride) + blkoffset);
+	if(node == fabric->get_id()) {
+	  memcpy(dst_c, src_c, chunk_size);
+	} else {
+	  gasnet_get_nbi(dst_c, node, src_c, chunk_size);
+	}
 
-// 	dst_c += chunk_size;
-// 	size -= chunk_size;
-// 	blkoffset = 0;
-// 	node = (node + 1) % num_nodes;
-// 	if(node == 0) blkid++;
-//       }
-//     }
-//     DetailedTimer::pop_timer();
+	dst_c += chunk_size;
+	size -= chunk_size;
+	blkoffset = 0;
+	node = (node + 1) % num_nodes;
+	if(node == 0) blkid++;
+      }
+    }
+    DetailedTimer::pop_timer();
 
-// #ifdef USE_NBI_ACCESSREGION
-//     DetailedTimer::push_timer(11);
-//     gasnet_handle_t handle = gasnet_end_nbi_accessregion();
-//     DetailedTimer::pop_timer();
+#ifdef USE_NBI_ACCESSREGION
+    DetailedTimer::push_timer(11);
+    gasnet_handle_t handle = gasnet_end_nbi_accessregion();
+    DetailedTimer::pop_timer();
 
-//     DetailedTimer::push_timer(12);
-//     gasnet_wait_syncnb(handle);
-//     DetailedTimer::pop_timer();
-// #else
-//     DetailedTimer::push_timer(13);
-//     gasnet_wait_syncnbi_gets();
-//     DetailedTimer::pop_timer();
-// #endif
-//   }
+    DetailedTimer::push_timer(12);
+    gasnet_wait_syncnb(handle);
+    DetailedTimer::pop_timer();
+#else
+    DetailedTimer::push_timer(13);
+    gasnet_wait_syncnbi_gets();
+    DetailedTimer::pop_timer();
+#endif
+  }
 
-//   void GASNetMemory::put_batch(size_t batch_size,
-// 			       const off_t *offsets,
-// 			       const void * const *srcs, 
-// 			       const size_t *sizes)
-//   {
-//     gasnet_begin_nbi_accessregion();
+  void GASNetMemory::put_batch(size_t batch_size,
+			       const off_t *offsets,
+			       const void * const *srcs, 
+			       const size_t *sizes)
+  {
+    gasnet_begin_nbi_accessregion();
 
-//     DetailedTimer::push_timer(14);
-//     for(size_t i = 0; i < batch_size; i++) {
-//       off_t offset = offsets[i];
-//       const char *src_c = (char *)(srcs[i]);
-//       size_t size = sizes[i];
+    DetailedTimer::push_timer(14);
+    for(size_t i = 0; i < batch_size; i++) {
+      off_t offset = offsets[i];
+      const char *src_c = (char *)(srcs[i]);
+      size_t size = sizes[i];
 
-//       off_t blkid = (offset / memory_stride / num_nodes);
-//       off_t node = (offset / memory_stride) % num_nodes;
-//       off_t blkoffset = offset % memory_stride;
+      off_t blkid = (offset / memory_stride / num_nodes);
+      off_t node = (offset / memory_stride) % num_nodes;
+      off_t blkoffset = offset % memory_stride;
 
-//       while(size > 0) {
-// 	size_t chunk_size = memory_stride - blkoffset;
-// 	if(chunk_size > size) chunk_size = size;
+      while(size > 0) {
+	size_t chunk_size = memory_stride - blkoffset;
+	if(chunk_size > size) chunk_size = size;
 
-// 	char *dst_c = (((char *)seginfos[node].addr) +
-// 		       (blkid * memory_stride) + blkoffset);
-// 	if(node == fabric->get_id()) {
-// 	  memcpy(dst_c, src_c, chunk_size);
-// 	} else {
-// 	  gasnet_put_nbi(node, dst_c, (void *)src_c, chunk_size);
-// 	}
+	char *dst_c = (((char *)seginfos[node].addr) +
+		       (blkid * memory_stride) + blkoffset);
+	if(node == fabric->get_id()) {
+	  memcpy(dst_c, src_c, chunk_size);
+	} else {
+	  gasnet_put_nbi(node, dst_c, (void *)src_c, chunk_size);
+	}
 
-// 	src_c += chunk_size;
-// 	size -= chunk_size;
-// 	blkoffset = 0;
-// 	node = (node + 1) % num_nodes;
-// 	if(node == 0) blkid++;
-//       }
-//     }
-//     DetailedTimer::pop_timer();
+	src_c += chunk_size;
+	size -= chunk_size;
+	blkoffset = 0;
+	node = (node + 1) % num_nodes;
+	if(node == 0) blkid++;
+      }
+    }
+    DetailedTimer::pop_timer();
 
-//     DetailedTimer::push_timer(15);
-//     gasnet_handle_t handle = gasnet_end_nbi_accessregion();
-//     DetailedTimer::pop_timer();
+    DetailedTimer::push_timer(15);
+    gasnet_handle_t handle = gasnet_end_nbi_accessregion();
+    DetailedTimer::pop_timer();
 
-//     DetailedTimer::push_timer(16);
-//     gasnet_wait_syncnb(handle);
-//     DetailedTimer::pop_timer();
-//   }
+    DetailedTimer::push_timer(16);
+    gasnet_wait_syncnb(handle);
+    DetailedTimer::pop_timer();
+  }
+#endif // USE_GASNET
 
 
   void RemoteMemAllocRequestType::request(Message* m) {
