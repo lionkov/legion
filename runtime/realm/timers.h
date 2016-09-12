@@ -143,6 +143,9 @@ namespace Realm {
     
     struct RequestArgs {
       RequestArgs() { }
+      RequestArgs(void* _placeholder)
+	: placeholder(_placeholder) { }
+      void* placeholder;
     };
     
     virtual void request(Message *m);
@@ -151,7 +154,7 @@ namespace Realm {
   class ClearTimersMessage : public Message {
   public: 
   ClearTimersMessage(NodeId dest)
-    : Message(dest, CLEAR_TIMER_MSGID, NULL, NULL) { }
+    : Message(dest, CLEAR_TIMER_MSGID, &args, NULL) { }
 
     ClearTimersMessageType::RequestArgs args;
   };

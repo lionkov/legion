@@ -47,7 +47,9 @@ int FabTester::init(std::vector<std::string> cmdline, bool manually_set_addresse
   
   add_message_types();
   bool ret;
-  ret = fabric->init();
+
+  Realm::CoreReservationSet bogus_cores;
+  ret = fabric->init(0, NULL, bogus_cores);
   
   if (!ret) {
     std::cout << "ERROR -- Fabric init failed." << std::endl;

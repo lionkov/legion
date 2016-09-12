@@ -545,7 +545,7 @@ namespace Realm {
       fabric = new FabFabric();
       // We need to create a message adder that is aware of fabric's concrete type
       // -- this is ugly, but the cleanest way that I could get activemessage code (which uses
-      // templates) to work with libfabric code (which uses inheritance)
+      // templates) to work with libfabric code (which uses inheritance).
       FabricMessageAdder<FabFabric> message_adder;
 #endif // USE_FABRIC
       
@@ -701,10 +701,11 @@ namespace Realm {
       // Register all message types with fabric before calling fabric->init()
       std::cout << "ADDING MESSAGES" << std::endl;
       
-      //message_adder.add_message_type<CLEAR_TIMER_MSGID,
-      //ClearTimersMessageType>(fabric,
-      //new ClearTimersMessageType(),
-      //"Clear Timer Request");      
+      message_adder.add_message_type<CLEAR_TIMER_MSGID,
+				     ClearTimersMessageType>(fabric,
+							     new ClearTimersMessageType(),
+							     "Clear Timer Request");
+      
       message_adder.add_message_type<ROLL_UP_TIMER_MSGID,
 				     TimerDataRequestMessageType>(fabric,
 								  new TimerDataRequestMessageType(),
@@ -822,7 +823,7 @@ namespace Realm {
 				     RemoteReduceMessageType>(fabric,
 							      new RemoteReduceMessageType(),
 							      "Remote Reduce");
-      message_adder.add_message_type<REMOTE_REDUCE_MSGID,
+      message_adder.add_message_type<REMOTE_REDLIST_MSGID,
 				     RemoteReduceListMessageType>(fabric,
 								  new RemoteReduceListMessageType(),
 								  "Remote Reduce List");
@@ -852,8 +853,9 @@ namespace Realm {
       message_adder.add_message_type<LegionRuntime::LowLevel::REMOTE_FILL_MSGID,
 				     LegionRuntime::LowLevel::RemoteFillMessageType>
 	(fabric, new LegionRuntime::LowLevel::RemoteFillMessageType(), "Remote Copy");
-      
-#ifdef USE_FABRIC
+      /*      
+#ifdef USE_FABRIC // TODO -- we shouldn't need to do this, just create a LocalNodeFabric if you want to 
+// run single node
       fabric->init();
       fabric->synchronize_clocks();
 #else // USE_FABRIC
@@ -862,7 +864,9 @@ namespace Realm {
       std::cout << "WARNING -- RUNNING IN SINGLE NODE MODE" << std::endl;
       Realm::Clock::set_zero_time();
 #endif // USE_FABRIC
-
+      */
+      fabric->init(*argc, (const char**) *argv, *core_reservations);
+      fabric->synchronize_clocks();
       size_t regmem_size_in_mb = fabric->get_regmem_size_in_mb();
       
       nodes = new Node[fabric->get_num_nodes()];

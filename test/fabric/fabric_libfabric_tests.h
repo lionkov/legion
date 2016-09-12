@@ -22,6 +22,12 @@
 #include "libfabric/fabric_libfabric.h"
 #include "cmdline.h"
 
+// Bogus CoreReservationSet so I don't have to compile in main Legion files
+namespace Realm {
+  class CoreReservationSet {
+  };
+};
+
 
 void print_strided(void* buf, int linesz, int linecnt, int stride);
 size_t fill_spans(SpanList& sl);

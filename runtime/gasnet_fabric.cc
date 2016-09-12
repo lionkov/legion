@@ -1,9 +1,5 @@
 #include "gasnet_fabric.h"
 
-void doNothing(MessageType* mt, const void* buf, size_t len) {
-  return;
-}
-
 GasnetFabric::GasnetFabric(int* argc, char*** argv) 
   : gasnet_mem_size_in_mb(0),
     reg_mem_size_in_mb(0),
@@ -92,48 +88,120 @@ void GasnetFabric::register_options(Realm::CommandLineParser& cp) {
   cp.add_option_int("-ll:gsize", gasnet_mem_size_in_mb)
     .add_option_int("-ll:rsize", reg_mem_size_in_mb)
     .add_option_int("-ll:amsg", active_msg_worker_threads)
-    .add_option_int("-ll:ahandlers", active_msg_handler_threads);
+    .add_option_int("-ll:ahandlers", active_msg_handler_threads)
+    .add_option_int("-ll:stacksize", stack_size_in_mb);
 }
 
 
-bool GasnetFabric::init() {
+bool GasnetFabric::init(int argc, const char** argv, Realm::CoreReservationSet& core_reservations) {
+  init_endpoints(gasnet_handlers, gasnet_hcount,
+		 gasnet_mem_size_in_mb, reg_mem_size_in_mb,
+		 core_reservations,
+		 argc, argv);
+  gasnet_coll_init(0,0,0,0,0);
+  gasnet_set_waitmode(GASNET_WAIT_BLOCK);
+  start_polling_threads(active_msg_worker_threads);
+  start_handler_threads(active_msg_handler_threads,
+			core_reservations,
+			stack_size_in_mb << 20);
+  // Set up registered memory
+  if (reg_mem_size_in_mb > 0) {
+    gasnet_seginfo_t *seginfos = new gasnet_seginfo_t[gasnet_nodes()];
+    CHECK_GASNET( gasnet_getSegmentInfo(seginfos, gasnet_nodes()) );
+    regmem_base = ((char *)(seginfos[gasnet_mynode()].addr)) + (gasnet_mem_size_in_mb << 20);
+    delete[] seginfos;
+  }
+  
   return true;
 }
 
 
 void GasnetFabric::shutdown() {
+  stop_activemsg_threads();
+  shutdown_complete = true;
+  shutdown_mutex.unlock();
+  shutdown_cond.notify_all();
 }
 
 void GasnetFabric::wait_for_shutdown() {
+  std::unique_lock<std::mutex> lk(shutdown_mutex);
+  shutdown_cond.wait(lk, [this] { return this->shutdown_complete; });
 }
 
 void GasnetFabric::synchronize_clocks() {
+  // GasnetFabric does this in init_endpoints
+  return;
 }
 
 void GasnetFabric::fatal_shutdown(int code) {
+  shutdown();
+  wait_for_shutdown();
+  gasnet_exit(code);
 }
 
-void GasnetFabric::put_bytes(NodeId target, off_t offset, const void* src, size_t len) { }
+void GasnetFabric::put_bytes(NodeId target, off_t offset, const void* src, size_t) {
+}
 
-void GasnetFabric::get_bytes(NodeId target, off_t offset, void* dst, size_t len) { }
+void GasnetFabric::get_bytes(NodeId target, off_t offset, void* dst, size_t len) {
+  void* srcptr = ((char*) regmem_base) + offset;
+  gasnet_get(dst, target, srcptr, len);
+}
 
-void* GasnetFabric::get_regmem_ptr() { return NULL; }
+void* GasnetFabric::get_regmem_ptr() {
+  assert((reg_mem_size_in_mb > 0) && "Error -- can't get regmem ptr, no registered memory was created.");
+  return regmem_base;
+}
 
-void GasnetFabric::wait_for_rdmas() { }
+void GasnetFabric::wait_for_rdmas() {
+  // This functionality isn't part of the GASNet fabric (could be implemented?)
+  assert (false && "GASNet wait_for_rdmas not implemented");
+}
 
-size_t GasnetFabric::get_regmem_size_in_mb() { return 0; }
-
+size_t GasnetFabric::get_regmem_size_in_mb() { return reg_mem_size_in_mb; }
 
 int GasnetFabric::send(Message* m) { return 0; }
-Realm::Event* GasnetFabric::gather_events(Realm::Event& event, NodeId root) { return NULL; }
-void GasnetFabric::recv_gather_event(Realm::Event& event, NodeId sender) { }
-void GasnetFabric::broadcast_events(Realm::Event& event, NodeId root) { }
-void GasnetFabric::recv_broadcast_event(Realm::Event& event, NodeId sender) { }
-void GasnetFabric::barrier_wait(uint32_t barrier_id) { }
-void GasnetFabric::barrier_notify(uint32_t barrier_id) { }
-void GasnetFabric::recv_barrier_notify(uint32_t barrier_id, NodeId sender) {  }
-NodeId GasnetFabric::get_id() { return 0; }
-uint32_t GasnetFabric::get_num_nodes() { return 1; }
+
+Realm::Event* GasnetFabric::gather_events(Realm::Event& event, NodeId root) {
+  Realm::Event* all_events = NULL;
+  if (root == gasnet_mynode()) {
+    all_events = new Realm::Event[gasnet_nodes()];
+    gasnet_coll_gather(GASNET_TEAM_ALL, root, all_events, &event, sizeof(Realm::Event), GASNET_COLL_FLAGS);
+  } else {
+    gasnet_coll_gather(GASNET_TEAM_ALL, root, 0, &event, sizeof(Realm::Event), GASNET_COLL_FLAGS);
+  }
+  return all_events;
+}
+
+void GasnetFabric::recv_gather_event(Realm::Event& event, NodeId sender) {
+  return; // GasNet uses build-in collectives -- this is not needed
+}
+void GasnetFabric::broadcast_events(Realm::Event& event, NodeId root) {
+  if (root == gasnet_mynode()) 
+    gasnet_coll_broadcast(GASNET_TEAM_ALL, &event, root, &event, sizeof(Realm::Event), GASNET_COLL_FLAGS);
+  else
+    gasnet_coll_broadcast(GASNET_TEAM_ALL, &event, root, 0, sizeof(Realm::Event), GASNET_COLL_FLAGS);
+}
+void GasnetFabric::recv_broadcast_event(Realm::Event& event, NodeId sender) {
+  return; // GasNet uses build-in collectives -- this is not needed
+}
+void GasnetFabric::barrier_wait(uint32_t barrier_id) {
+  gasnet_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS);
+}
+void GasnetFabric::barrier_notify(uint32_t barrier_id) {
+  gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);
+}
+void GasnetFabric::recv_barrier_notify(uint32_t barrier_id, NodeId sender) {
+    return; // GasNet uses build-in collectives -- this is not needed
+}
+
+NodeId GasnetFabric::get_id() {
+  return gasnet_mynode();
+}
+
+uint32_t GasnetFabric::get_num_nodes() {
+  return gasnet_nodes();
+}
+
 size_t GasnetFabric::get_iov_limit() { return 0; }
 size_t GasnetFabric::get_iov_limit(MessageId id) { return 0; }
 size_t GasnetFabric::get_max_send() { return 0;}

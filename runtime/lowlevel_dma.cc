@@ -98,7 +98,7 @@ namespace LegionRuntime {
 
     
     void RemoteCopyMessageType::request(Message* m) {
-      RemoteCopyArgs* args = (RemoteCopyArgs*) m->get_arg_ptr();
+      RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
       void* data = m->payload->ptr();
       size_t datalen = m->payload->size();
       
@@ -107,7 +107,7 @@ namespace LegionRuntime {
     
     
     void RemoteFillMessageType::request(Message* m) {
-      RemoteFillArgs* args = (RemoteFillArgs*) m->get_arg_ptr();
+      RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
       void* data = m->payload->ptr();
       size_t datalen = m->payload->size();
       
@@ -4379,7 +4379,7 @@ namespace Realm {
 	  get_runtime()->optable.add_local_operation(ev, r);
           r->check_readiness(false, dma_queue);
         } else {
-	  RemoteFillArgs* args = new RemoteFillArgs();       
+	  RemoteFillMessageType::RequestArgs* args = new RemoteFillMessageType::RequestArgs();       
           args->inst = it->inst;
           args->offset = it->offset;
           args->size = it->size;
@@ -4453,7 +4453,7 @@ namespace LegionRuntime {
       }
     }
 
-    void handle_remote_copy(RemoteCopyArgs args, const void *data, size_t msglen)
+    void handle_remote_copy(RemoteCopyMessageType::RequestArgs args, const void *data, size_t msglen)
     {
       DetailedTimer::ScopedPush sp(TIME_LOW_LEVEL);
 
@@ -4481,7 +4481,7 @@ namespace LegionRuntime {
       }
     }
 
-    void handle_remote_fill(RemoteFillArgs args, const void *data, size_t msglen)
+    void handle_remote_fill(RemoteFillMessageType::RequestArgs args, const void *data, size_t msglen)
     {
       FillRequest *r = new FillRequest(data, msglen,
                                        args.inst,
@@ -4564,7 +4564,7 @@ namespace Realm {
               r->check_readiness(false, dma_queue);
               finish_events.insert(ev);
             } else {
-              RemoteCopyArgs* args = new RemoteCopyArgs;
+	      RemoteCopyMessageType::RequestArgs* args = new RemoteCopyMessageType::RequestArgs;
               args->redop_id = 0;
               args->red_fold = false;
               args->before_copy = wait_on;
@@ -4657,8 +4657,8 @@ namespace Realm {
 
 	    finish_events.insert(ev);
 	  } else {
-	    LegionRuntime::LowLevel::RemoteCopyArgs* args =
-	      new LegionRuntime::LowLevel::RemoteCopyArgs();
+	    LegionRuntime::LowLevel::RemoteCopyMessageType::RequestArgs* args =
+	      new LegionRuntime::LowLevel::RemoteCopyMessageType::RequestArgs();
  	    args->redop_id = 0;
 	    args->red_fold = false;
 	    args->before_copy = wait_on;
@@ -4731,8 +4731,8 @@ namespace Realm {
 	  
 	  r->check_readiness(false, dma_queue);
 	} else {
-	  LegionRuntime::LowLevel::RemoteCopyArgs* args =
-	    new LegionRuntime::LowLevel::RemoteCopyArgs();
+	  LegionRuntime::LowLevel::RemoteCopyMessageType::RequestArgs* args =
+	    new LegionRuntime::LowLevel::RemoteCopyMessageType::RequestArgs();
 
 	  args->redop_id = redop_id;
 	  args->red_fold = red_fold;

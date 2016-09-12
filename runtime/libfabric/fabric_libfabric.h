@@ -9,6 +9,7 @@
 #include <pthread.h>
 
 #include <atomic>
+#include <condition_variable>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -37,7 +38,7 @@ public:
   virtual ~FabFabric();
     
   void register_options(Realm::CommandLineParser &cp);
-  bool init();
+  bool init(int argc, const char** argv, Realm::CoreReservationSet& core_reservations);
   void shutdown();
   void synchronize_clocks();
   void fatal_shutdown(int code);
@@ -127,7 +128,8 @@ protected:
     
   std::atomic<bool> stop_flag;
   bool shutdown_complete;
-  std::mutex done_mutex;
+  std::condition_variable shutdown_cond;
+  std::mutex shutdown_mutex;
     
   int exchange_server_send_port;
   int exchange_server_recv_port;

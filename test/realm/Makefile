@@ -22,7 +22,7 @@ endif
 DEBUG=1                   # Include debugging symbols
 OUTPUT_LEVEL=LEVEL_DEBUG  # Compile time print level
 SHARED_LOWLEVEL=0	  # Use the shared low level
-USE_FABRIC=1
+
 #ALT_MAPPERS=1		  # Compile the alternative mappers
 
 # Put the binary file name here

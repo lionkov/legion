@@ -15,9 +15,7 @@ FabFabric::FabFabric() : id(0),
 			 shutdown_complete(false),
 			 exchange_server_send_port(8080),
 			 exchange_server_recv_port(8081),
-			 exchange_server_host("127.0.0.1") {
-  done_mutex.lock();
-}
+			 exchange_server_host("127.0.0.1") { }
 
 void FabFabric::register_options(Realm::CommandLineParser &cp)
 {
@@ -94,7 +92,7 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
   buffers for all message types. 
 */ 
 
-bool FabFabric::init() {
+bool FabFabric::init(int argc, const char** argv, Realm::CoreReservationSet& core_reservations) {
 
   int ret;
 
@@ -365,7 +363,8 @@ void FabFabric::shutdown()
     delete[] mr_addrs;
   }
   shutdown_complete = true;
-  done_mutex.unlock();
+  shutdown_mutex.unlock();
+  shutdown_cond.notify_all();
 }
 
 NodeId FabFabric::get_id()
@@ -693,7 +692,8 @@ void FabFabric::free_progress_threads() {
 void FabFabric::wait_for_shutdown() {
 
   std::cout << "Waiting to shut down..." << std::endl;
-  done_mutex.lock();
+  std::unique_lock<std::mutex> lk(shutdown_mutex);
+  shutdown_cond.wait(lk, [this]{ return this->shutdown_complete; });
   std::cout << "OK, shutting down!" << std::endl;
 }
 

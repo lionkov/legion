@@ -339,6 +339,10 @@ LOW_RUNTIME_SRC += $(LG_RT_DIR)/activemsg.cc
 endif
 
 # Libfabric
+ifeq ($(strip $(USE_FABRIC)),1)
+CC_FLAGS += -DUSE_FABRIC
+endif
+
 CC_FLAGS += -std=c++11
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/fabric.cc
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/payload.cc

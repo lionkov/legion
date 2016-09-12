@@ -162,7 +162,7 @@ class Fabric {
   // Initialize the fabric. This must be called after adding all message types
   // and registering command line options. It must be called before any futher use of
   // the fabric.
-  virtual bool init() = 0;
+  virtual bool init(int argc, const char** argv, Realm::CoreReservationSet& core_reservations) = 0;
 
   // Request that the fabric clean up and shut down
   virtual void shutdown() = 0;
@@ -185,7 +185,7 @@ class Fabric {
   // will export it to other nodes as a RemoteMemory
   
   // Put bytes into the registered block at given offset
-  virtual void put_bytes(NodeId target, off_t offset, const void* src, size_t len) = 0;
+  //virtual void put_bytes(NodeId target, off_t offset, const void* src, size_t len) = 0;
   
   // Read bytes from the registered block at given offset
   virtual void get_bytes(NodeId target, off_t offset, void* dst, size_t len) = 0;

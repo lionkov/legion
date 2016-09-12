@@ -8,6 +8,8 @@
 #include "payload.h"
 #include "activemsg.h"
 #include <stdint.h>
+#include <mutex>
+#include <condition_variable>
 
 // Adapts Gasnet / AM style message classes to be used with Fabric-
 // style interfaces. GasnetMessageAdapterBase is non-templated and for
@@ -18,6 +20,8 @@
 // creating the required ActiveMessage object.
 
 class GasnetMessageAdapterBase { };
+
+static const int GASNET_COLL_FLAGS = GASNET_COLL_IN_MYSYNC | GASNET_COLL_OUT_MYSYNC | GASNET_COLL_LOCAL;
 
 template <MessageId MSGID, typename MSGTYPE> 
 class GasnetMessageAdapterShort : public GasnetMessageAdapterBase {
@@ -80,11 +84,12 @@ public:
       GasnetMessageAdapterShort<MSGID, MSGTYPE>
 	::ActiveMessage::add_handler_entries(&gasnet_handlers[MSGID], tag.c_str());
     }
+    ++gasnet_hcount;
     return true;
   }
   
   virtual void register_options(Realm::CommandLineParser& cp);
-  virtual bool init();
+  virtual bool init(int argc, const char** argv, Realm::CoreReservationSet& core_reservations);
   virtual void shutdown();
   virtual void wait_for_shutdown();  
   virtual void synchronize_clocks();
@@ -117,9 +122,16 @@ protected:
   size_t reg_mem_size_in_mb;
   size_t active_msg_worker_threads;
   size_t active_msg_handler_threads;
+  size_t stack_size_in_mb;
 
   gasnet_handlerentry_t gasnet_handlers[MAX_MESSAGE_TYPES];
   size_t gasnet_hcount; // gasnet handler entry count
+
+  bool shutdown_complete = false;
+  std::mutex shutdown_mutex;
+  std::condition_variable shutdown_cond;
+  char* regmem_base = 0;
+  
 };
 
 

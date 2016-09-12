@@ -10,6 +10,10 @@
 
 #include <stdint.h>
 
+namespace Realm {
+  class CoreReservationSet;
+};
+
 #define NELEM(x) (sizeof(x) / sizeof(x[0]))
 
 // Unique IDs for each type of message used by the RT
