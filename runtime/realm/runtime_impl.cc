@@ -701,6 +701,17 @@ namespace Realm {
       // Register all message types with fabric before calling fabric->init()
       std::cout << "ADDING MESSAGES" << std::endl;
       
+      message_adder.add_message_type<NODE_ANNOUNCE_MSGID,
+				     NodeAnnounceMessageType>(fabric,
+							      new NodeAnnounceMessageType(),
+							      "Node Announce");
+
+      
+      message_adder.add_message_type<SPAWN_TASK_MSGID,
+				     SpawnTaskMessageType>(fabric,
+							   new SpawnTaskMessageType(),
+							   "Spawn Task");
+     
       message_adder.add_message_type<CLEAR_TIMER_MSGID,
 				     ClearTimersMessageType>(fabric,
 							     new ClearTimersMessageType(),
@@ -715,14 +726,6 @@ namespace Realm {
 				     TimerDataResponseMessageType>(fabric,
 								   new TimerDataResponseMessageType(),
 								   "Roll-up Response");
-      message_adder.add_message_type<NODE_ANNOUNCE_MSGID,
-				     NodeAnnounceMessageType>(fabric,
-							      new NodeAnnounceMessageType(),
-							      "Node Announce");
-      message_adder.add_message_type<SPAWN_TASK_MSGID,
-				     SpawnTaskMessageType>(fabric,
-							   new SpawnTaskMessageType(),
-							   "Spawn Task");
       message_adder.add_message_type<REGISTER_TASK_MSGID,
 				     RegisterTaskMessageType>(fabric,
 							      new RegisterTaskMessageType(),
@@ -853,6 +856,7 @@ namespace Realm {
       message_adder.add_message_type<LegionRuntime::LowLevel::REMOTE_FILL_MSGID,
 				     LegionRuntime::LowLevel::RemoteFillMessageType>
 	(fabric, new LegionRuntime::LowLevel::RemoteFillMessageType(), "Remote Copy");
+      
       /*      
 #ifdef USE_FABRIC // TODO -- we shouldn't need to do this, just create a LocalNodeFabric if you want to 
 // run single node
@@ -902,7 +906,7 @@ namespace Realm {
         signal(SIGFPE,  realm_freeze);
         signal(SIGILL,  realm_freeze);
         signal(SIGBUS,  realm_freeze);
-      } else if ((getenv("REALM_BACKTRACE") != NULL) ||
+      } else if (true || (getenv("REALM_BACKTRACE") != NULL) ||
                  (getenv("LEGION_BACKTRACE") != NULL)) {
 	std::cout << "BACKTRACE ENABLED" << std::endl;
 	std::cout << "BACKTRACE ENABLED" << std::endl;
@@ -945,8 +949,12 @@ namespace Realm {
       if(gasnet_mem_size_in_mb > 0) { 
 	// use an 'owner_node' of all 1's for this
         // SJT: actually, go back to an owner node of 0 and memory_idx of all 1's for now
-	assert(false && "Global memory not implemented yet");	
-	//global_memory = new GASNetMemory(ID::make_memory(0, -1U).convert<Memory>(), gasnet_mem_size_in_mb << 20);
+#ifndef USE_GASNET
+	assert(false && "GASNet global memory not supported by this Fabric (try compiling with USE_GASNET=1)");	
+	global_memory = new GASNetMemory(ID::make_memory(0, -1U).convert<Memory>(),
+					 gasnet_mem_size_in_mb << 20);
+#endif // USE_GASNET
+	
 	}
       else
 	global_memory = 0;

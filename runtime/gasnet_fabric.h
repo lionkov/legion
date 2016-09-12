@@ -79,10 +79,10 @@ public:
     // Register handler for unpacking short/medium message type
     if (mt->payload == true) {
       GasnetMessageAdapterMedium<MSGID, MSGTYPE>
-	::ActiveMessage::add_handler_entries(&gasnet_handlers[MSGID], tag.c_str());
+	::ActiveMessage::add_handler_entries(&gasnet_handlers[gasnet_hcount], tag.c_str());
     } else {
       GasnetMessageAdapterShort<MSGID, MSGTYPE>
-	::ActiveMessage::add_handler_entries(&gasnet_handlers[MSGID], tag.c_str());
+	::ActiveMessage::add_handler_entries(&gasnet_handlers[gasnet_hcount], tag.c_str());
     }
     ++gasnet_hcount;
     return true;
