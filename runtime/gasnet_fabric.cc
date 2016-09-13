@@ -123,7 +123,6 @@ bool GasnetFabric::init(int argc, const char** argv, Realm::CoreReservationSet& 
   return true;
 }
 
-
 void GasnetFabric::shutdown() {
   stop_activemsg_threads();
   shutdown_complete = true;
@@ -165,10 +164,12 @@ void GasnetFabric::wait_for_rdmas() {
 size_t GasnetFabric::get_regmem_size_in_mb() { return reg_mem_size_in_mb; }
 
 int GasnetFabric::send(Message* m) {
+  std::cout << "Sending: " << mdescs[m->id] << std::endl;
   gasnet_adapters[m->id]->request(m->rcvid, m->get_arg_ptr(), m->payload,
 				  m->payload->size(), m->payload->get_mode());
   return 0;
 }
+
 
 Realm::Event* GasnetFabric::gather_events(Realm::Event& event, NodeId root) {
   Realm::Event* all_events = NULL;

@@ -25,19 +25,9 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <vector>
+#include "payload.h"
 
 #include <sys/types.h>
-
-
-enum { PAYLOAD_NONE, // no payload in packet
-       PAYLOAD_KEEP, // use payload pointer, guaranteed to be stable
-       PAYLOAD_FREE, // take ownership of payload, free when done
-       PAYLOAD_COPY, // make a copy of the payload
-       PAYLOAD_SRCPTR, // payload has been copied to the src data pool
-       PAYLOAD_PENDING, // payload needs to be copied, but hasn't yet
-       PAYLOAD_KEEPREG, // use payload pointer, AND it's registered!
-       PAYLOAD_EMPTY, // message can have payload, but this one is 0 bytes
-};
 
 typedef std::pair<const void *, size_t> SpanListEntry;
 typedef std::vector<SpanListEntry> SpanList;
@@ -565,7 +555,7 @@ class ActiveMessageShortNoReply {
   static void request(gasnet_node_t dest, MSGTYPE args)
   {
     enqueue_message(dest, MSGID, &args, sizeof(MSGTYPE),
-		    0, 0, PAYLOAD_NONE);
+		    0, 0, FAB_PAYLOAD_NONE);
 #ifdef OLD_AM_STUFF
 #ifdef CHECK_REENTRANT_MESSAGES
     if(gasnett_threadkey_get(in_handler)) {

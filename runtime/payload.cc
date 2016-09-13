@@ -68,8 +68,22 @@ ssize_t FabContiguousPayload::copy(void *dptr, size_t dsz) {
     ret = sz;
 
   memcpy(dptr, data, ret);
+
+  if (ret != sz)  { 
+    log_payload().warning() << "Incomplete FabContiguousPayload copy -- copied "
+			 << ret << " bytes of payload size " << sz;
+  }
+  
   return ret;
 }
+
+ssize_t FabContiguousPayload::copy(void *dptr) {
+  if (mode == FAB_PAYLOAD_ERROR)
+    return -1;
+  memcpy(dptr, data, sz);
+  return sz;
+}
+
 
 // Assign iovecs at iov to point to this payload's data.
 // Since this paylad is contiguous, all data will be assigned
@@ -218,9 +232,46 @@ ssize_t FabTwoDPayload::copy(void *dest, size_t destsz) {
     p += linesz*stride;
     dest_p += linesz;
   }
+
+  if (ret != linesz*linecnt)  { 
+    log_payload().warning() << "Incomplete FabTwoDPayload copy -- copied "
+			 << ret << " bytes of payload size " << linesz*linecnt;
+  }
+  
   return ret;
 }
 
+ssize_t FabTwoDPayload::copy(void *dest) {
+  int ret = 0;
+  size_t remaining = linesz*linecnt;
+  char* p = (char*) data;
+  char* dest_p = (char*) dest;
+  
+  if (mode == FAB_PAYLOAD_ERROR)
+    return -1;
+
+  for (int i=0; i<linecnt; ++i) {
+    
+    if(remaining < linesz) {  // out of space to copy into
+      memcpy(dest_p, p, remaining);
+      ret += remaining;
+      return ret;
+    }
+    
+    memcpy(dest_p, p, linesz);
+    ret += linesz;
+    remaining -= linesz;
+    p += linesz*stride;
+    dest_p += linesz;
+  }
+
+  if (ret != linesz*linecnt)  { 
+    log_payload().warning() << "Incomplete FabTwoDPayload copy -- copied "
+			 << ret << " bytes of payload size " << linesz*linecnt;
+  }
+
+  return ret;
+}
 
 
 
@@ -251,6 +302,13 @@ ssize_t FabTwoDPayload::iovec(struct iovec *iov, size_t iovnum) {
 FabSpanPayload::FabSpanPayload(int m, SpanList &sl)
   : FabPayload(m), sz(0), data(&sl) {
   checkmode(); 
+}
+
+FabSpanPayload::FabSpanPayload(int m, SpanList &sl, size_t payload_size)
+  : FabPayload(m), sz(0), data(&sl) {
+  checkmode();
+  // Sanity check -- did we end up with the right payload size?
+  assert(sz == payload_size);  
 }
 
 FabSpanPayload::~FabSpanPayload(void) {
@@ -333,7 +391,7 @@ ssize_t FabSpanPayload::copy_spans(SpanList* sl) {
       return -1;
     }
     memmove(buf, i->first, i->second);
- 
+    sz += i->second;
     FabSpanListEntry entry(buf, i->second);
     internal_spans->push_back(entry);
     ++ret;
@@ -373,8 +431,39 @@ ssize_t FabSpanPayload::copy(void *dest, size_t destsz) {
     destsz -= n;
   }
 
+  if (ret != sz)  { 
+    log_payload().warning() << "Incomplete FabSpan copy -- copied "
+			 << ret << " bytes of payload size " << sz;
+  }
+  
   return ret;
 }
+
+ssize_t FabSpanPayload::copy(void *dest) {
+  size_t destsz = sz;
+  ssize_t ret = 0;
+  size_t n;
+  char* dest_p = (char*) dest;
+
+  if (mode == FAB_PAYLOAD_ERROR)
+    return -1;
+ 
+  for(SpanList::const_iterator it = data->begin(); (destsz > 0) && (it != data->end()); it++) {
+    n = (destsz > it->second) ? it->second : destsz;
+    memmove(dest_p, it->first, n);
+    ret += n;
+    dest_p += n;
+    destsz -= n;
+  }
+
+  if (ret != sz)  { 
+    log_payload().warning() << "Incomplete FabSpan copy -- copied "
+			 << ret << " bytes of payload size " << sz;
+  }
+
+  return ret;
+}
+
 
 // Fills an array of iovecs at iov to poin to this payload object's
 // data. Returns the number of iovecs assigned, or -1 if on error.

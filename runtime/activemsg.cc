@@ -122,36 +122,40 @@ void deferred_free(void *ptr)
     free(oldptr);
   }
 }
+/*
+
+Using clases in payload.cc now -- they're basically equivalent with some
+added functionality
 
 class PayloadSource {
 public:
-  PayloadSource(void) { }
-  virtual ~PayloadSource(void) { }
+  FabPayload(void) { }
+  virtual ~FabPayload(void) { }
 public:
-  virtual void copy_data(void *dest) = 0;
+  virtual void copy(void *dest) = 0;
   virtual void *get_contig_pointer(void) { assert(false); return 0; }
-  virtual int get_payload_mode(void) { assert(false); return PAYLOAD_NONE; }
+  virtual int get_mode(void) { assert(false); return FAB_PAYLOAD_NONE; }
 };
 
 class ContiguousPayload : public PayloadSource {
 public:
   ContiguousPayload(void *_srcptr, size_t _size, int _mode);
   virtual ~ContiguousPayload(void) { }
-  virtual void copy_data(void *dest);
+  virtual void copy(void *dest);
   virtual void *get_contig_pointer(void) { return srcptr; }
-  virtual int get_payload_mode(void) { return mode; }
+  virtual int get_mode(void) { return mode; }
 protected:
   void *srcptr;
   size_t size;
   int mode;
 };
 
-class TwoDPayload : public PayloadSource {
+class FabTwoDPayload : public FabPayload {
 public:
-  TwoDPayload(const void *_srcptr, size_t _line_size, size_t _line_count,
+  FabTwoDPayload(const void *_srcptr, size_t _line_size, size_t _line_count,
 	      ptrdiff_t _line_stride, int _mode);
-  virtual ~TwoDPayload(void) { }
-  virtual void copy_data(void *dest);
+  virtual ~FabTwoDPayload(void) { }
+  virtual void copy(void *dest);
 protected:
   const void *srcptr;
   size_t line_size, line_count;
@@ -159,24 +163,24 @@ protected:
   int mode;
 };
 
-class SpanPayload : public PayloadSource {
+class FabSpanPayload : public FabPayload {
 public:
-  SpanPayload(const SpanList& _spans, size_t _size, int _mode);
-  virtual ~SpanPayload(void) { }
-  virtual void copy_data(void *dest);
+  FabSpanPayload(const SpanList& _spans, size_t _size, int _mode);
+  virtual ~FabSpanPayload(void) { }
+  virtual void copy(void *dest);
 protected:
   SpanList spans;
   size_t size;
   int mode;
 };
-
+*/
 struct OutgoingMessage {
   OutgoingMessage(unsigned _msgid, unsigned _num_args, const void *_args);
   ~OutgoingMessage(void);
 
-  void set_payload(PayloadSource *_payload, size_t _payload_size,
+  void set_payload(FabPayload *_payload, size_t _payload_size,
 		   int _payload_mode, void *_dstptr = 0);
-  inline void set_payload_empty(void) { payload_mode = PAYLOAD_EMPTY; }
+  inline void set_payload_empty(void) { payload_mode = FAB_PAYLOAD_EMPTY; }
   void reserve_srcdata(void);
 #if 0
   void set_payload(void *_payload, size_t _payload_size,
@@ -196,7 +200,7 @@ struct OutgoingMessage {
   size_t payload_size;
   int payload_mode;
   void *dstptr;
-  PayloadSource *payload_src;
+  FabPayload *payload_src;
   int args[16];
 #ifdef DEBUG_MEM_REUSE
   int payload_num;
@@ -533,7 +537,7 @@ void record_spill_free(int msgid, size_t bytes)
 OutgoingMessage::OutgoingMessage(unsigned _msgid, unsigned _num_args,
 				 const void *_args)
   : msgid(_msgid), num_args(_num_args),
-    payload(0), payload_size(0), payload_mode(PAYLOAD_NONE), dstptr(0),
+    payload(0), payload_size(0), payload_mode(FAB_PAYLOAD_NONE), dstptr(0),
     payload_src(0)
 {
   for(unsigned i = 0; i < _num_args; i++)
@@ -542,7 +546,7 @@ OutgoingMessage::OutgoingMessage(unsigned _msgid, unsigned _num_args,
     
 OutgoingMessage::~OutgoingMessage(void)
 {
-  if((payload_mode == PAYLOAD_COPY) || (payload_mode == PAYLOAD_FREE)) {
+  if((payload_mode == FAB_PAYLOAD_COPY) || (payload_mode == FAB_PAYLOAD_FREE)) {
     if(payload_size > 0) {
 #ifdef DEBUG_MEM_REUSE
       for(size_t i = 0; i < payload_size >> 2; i++)
@@ -558,7 +562,7 @@ OutgoingMessage::~OutgoingMessage(void)
     }
   }
   if (payload_src != 0) {
-    assert(payload_mode == PAYLOAD_KEEPREG);
+    assert(payload_mode == FAB_PAYLOAD_KEEPREG);
     delete payload_src;
     payload_src = 0;
   }
@@ -994,7 +998,7 @@ public:
 	}
 
 	// is the message still waiting on space in the srcdatapool?
-	if(hdr->payload_mode == PAYLOAD_PENDING) {
+	if(hdr->payload_mode == FAB_PAYLOAD_PENDING) {
 #ifdef DETAILED_MESSAGE_TIMING
 	  // log this if we haven't already
 	  int timing_idx = -1;
@@ -1319,7 +1323,7 @@ protected:
 #ifdef DEBUG_AMREQUESTS
     printf("%d->%d: %s %d %d %p %zd / %x %x %x %x / %x %x %x %x / %x %x %x %x / %x %x %x %x\n",
 	   gasnet_mynode(), peer, 
-	   ((hdr->payload_mode == PAYLOAD_NONE) ? "SHORT" : "MEDIUM"),
+	   ((hdr->payload_mode == FAB_PAYLOAD_NONE) ? "SHORT" : "MEDIUM"),
 	   hdr->num_args, hdr->msgid,
 	   hdr->payload, hdr->payload_size,
 	   hdr->args[0], hdr->args[1], hdr->args[2],
@@ -1335,12 +1339,12 @@ protected:
 #ifdef ACTIVE_MESSAGE_TRACE
     log_amsg_trace.info("Active Message Request: %d %d %d %ld",
 			hdr->msgid, peer, hdr->num_args, 
-			(hdr->payload_mode == PAYLOAD_NONE) ? 
+			(hdr->payload_mode == FAB_PAYLOAD_NONE) ? 
 			  0 : hdr->payload_size);
 #endif
     switch(hdr->num_args) {
     case 1:
-      if(hdr->payload_mode != PAYLOAD_NONE) {
+      if(hdr->payload_mode != FAB_PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium1(peer, hdr->msgid, hdr->payload, 
                                               hdr->payload_size, hdr->args[0]) );
       } else {
@@ -1349,7 +1353,7 @@ protected:
       break;
 
     case 2:
-      if(hdr->payload_mode != PAYLOAD_NONE) {
+      if(hdr->payload_mode != FAB_PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium2(peer, hdr->msgid, hdr->payload, hdr->payload_size,
                                               hdr->args[0], hdr->args[1]) );
       } else {
@@ -1358,7 +1362,7 @@ protected:
       break;
 
     case 3:
-      if(hdr->payload_mode != PAYLOAD_NONE) {
+      if(hdr->payload_mode != FAB_PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium3(peer, hdr->msgid, hdr->payload, hdr->payload_size,
 				hdr->args[0], hdr->args[1], hdr->args[2]) );
       } else {
@@ -1368,7 +1372,7 @@ protected:
       break;
 
     case 4:
-      if(hdr->payload_mode != PAYLOAD_NONE) {
+      if(hdr->payload_mode != FAB_PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium4(peer, hdr->msgid, hdr->payload, hdr->payload_size,
 				hdr->args[0], hdr->args[1], hdr->args[2],
 				hdr->args[3]) );
@@ -1380,7 +1384,7 @@ protected:
       break;
 
     case 5:
-      if(hdr->payload_mode != PAYLOAD_NONE) {
+      if(hdr->payload_mode != FAB_PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium5(peer, hdr->msgid, hdr->payload, hdr->payload_size,
 				hdr->args[0], hdr->args[1], hdr->args[2],
 				hdr->args[3], hdr->args[4]) );
@@ -1392,7 +1396,7 @@ protected:
       break;
 
     case 6:
-      if(hdr->payload_mode != PAYLOAD_NONE) {
+      if(hdr->payload_mode != FAB_PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium6(peer, hdr->msgid, hdr->payload, hdr->payload_size,
 				hdr->args[0], hdr->args[1], hdr->args[2],
 				hdr->args[3], hdr->args[4], hdr->args[5]) );
@@ -1404,7 +1408,7 @@ protected:
       break;
 
     case 8:
-      if(hdr->payload_mode != PAYLOAD_NONE) {
+      if(hdr->payload_mode != FAB_PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium8(peer, hdr->msgid, hdr->payload, hdr->payload_size,
 				hdr->args[0], hdr->args[1], hdr->args[2],
 				hdr->args[3], hdr->args[4], hdr->args[5],
@@ -1418,7 +1422,7 @@ protected:
       break;
 
     case 10:
-      if(hdr->payload_mode != PAYLOAD_NONE) {
+      if(hdr->payload_mode != FAB_PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium10(peer, hdr->msgid, hdr->payload, hdr->payload_size,
 				 hdr->args[0], hdr->args[1], hdr->args[2],
 				 hdr->args[3], hdr->args[4], hdr->args[5],
@@ -1434,7 +1438,7 @@ protected:
       break;
 
     case 12:
-      if(hdr->payload_mode != PAYLOAD_NONE) {
+      if(hdr->payload_mode != FAB_PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium12(peer, hdr->msgid, hdr->payload, hdr->payload_size,
 				 hdr->args[0], hdr->args[1], hdr->args[2],
 				 hdr->args[3], hdr->args[4], hdr->args[5],
@@ -1450,7 +1454,7 @@ protected:
       break;
 
     case 14:
-      if(hdr->payload_mode != PAYLOAD_NONE) {
+      if(hdr->payload_mode != FAB_PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium14(peer, hdr->msgid, hdr->payload, hdr->payload_size,
 				 hdr->args[0], hdr->args[1], hdr->args[2],
 				 hdr->args[3], hdr->args[4], hdr->args[5],
@@ -1468,7 +1472,7 @@ protected:
       break;
 
     case 16:
-      if(hdr->payload_mode != PAYLOAD_NONE) {
+      if(hdr->payload_mode != FAB_PAYLOAD_NONE) {
 	CHECK_GASNET( gasnet_AMRequestMedium16(peer, hdr->msgid, hdr->payload, hdr->payload_size,
 				 hdr->args[0], hdr->args[1], hdr->args[2],
 				 hdr->args[3], hdr->args[4], hdr->args[5],
@@ -1505,6 +1509,13 @@ protected:
     // two fields hdr->args[0] and hdr->args[1] can be used for
     // storing the message ID and the number of chunks
     int message_id_start;
+    if (gasnet_mynode() == 0) { 
+      std::cout << std::hex
+		<< hdr->args[0] << std::endl
+		<< hdr->args[1] << std::endl
+		<< hdr->args[2] << std::endl
+		<< hdr->args[3] << std::endl;
+    }
     if(hdr->args[0] == BaseMedium::MESSAGE_ID_MAGIC) {
       assert(hdr->args[1] == BaseMedium::MESSAGE_CHUNKS_MAGIC);
       message_id_start = 0;
@@ -1518,7 +1529,7 @@ protected:
     hdr->args[message_id_start] = next_outgoing_message_id++;
     int chunks = (hdr->payload_size + max_long_req - 1) / max_long_req;
     hdr->args[message_id_start + 1] = chunks;
-    if(hdr->payload_mode == PAYLOAD_SRCPTR) {
+    if(hdr->payload_mode == FAB_PAYLOAD_SRCPTR) {
       //srcdatapool->record_srcptr(hdr->payload);
       gasnet_handlerarg_t srcptr_lo = ((uint64_t)(hdr->payload)) & 0x0FFFFFFFFULL;
       gasnet_handlerarg_t srcptr_hi = ((uint64_t)(hdr->payload)) >> 32;
@@ -1728,14 +1739,14 @@ public:
 #endif
 };
 
-void OutgoingMessage::set_payload(PayloadSource *_payload_src,
+void OutgoingMessage::set_payload(FabPayload *_payload_src,
 				  size_t _payload_size, int _payload_mode,
 				  void *_dstptr)
 {
   // die if a payload has already been attached
-  assert(payload_mode == PAYLOAD_NONE);
+  assert(payload_mode == FAB_PAYLOAD_NONE);
   // We should never be called if either of these are true
-  assert(_payload_mode != PAYLOAD_NONE);
+  assert(_payload_mode != FAB_PAYLOAD_NONE);
   assert(_payload_size > 0);
 
   // payload must be non-empty, and fit in the LMB unless we have a dstptr for it
@@ -1757,13 +1768,13 @@ void OutgoingMessage::set_payload(PayloadSource *_payload_src,
 void OutgoingMessage::reserve_srcdata(void)
 {
   // no or empty payload cases are easy
-  if((payload_mode == PAYLOAD_NONE) ||
-     (payload_mode == PAYLOAD_EMPTY)) return;
+  if((payload_mode == FAB_PAYLOAD_NONE) ||
+     (payload_mode == FAB_PAYLOAD_EMPTY)) return;
 
   // if the payload is stable and in registered memory AND contiguous, we can
   //  just use it
-  if((payload_mode == PAYLOAD_KEEPREG) && payload_src->get_contig_pointer()) {
-    payload = payload_src->get_contig_pointer();
+  if((payload_mode == FAB_PAYLOAD_KEEPREG) && payload_src->ptr()) {
+    payload = payload_src->ptr();
     return;
   }
 
@@ -1786,76 +1797,75 @@ void OutgoingMessage::reserve_srcdata(void)
       if(srcptr != 0) {
 	// allocation succeeded - update state, but do copy below, after
 	//  we've released the lock
-	payload_mode = PAYLOAD_SRCPTR;
+	payload_mode = FAB_PAYLOAD_SRCPTR;
 	payload = srcptr;
       } else {
 	// if the allocation fails, we have to queue ourselves up
 
 #ifdef TRACK_ACTIVEMSG_SPILL_ALLOCS
-	if((payload_mode == PAYLOAD_COPY) || (payload_mode == PAYLOAD_FREE)) {
+	if((payload_mode == FAB_PAYLOAD_COPY) || (payload_mode == FAB_PAYLOAD_FREE)) {
  	  // some dynamic memory is being tied up for this, so count it
 	  record_spill_alloc(msgid, payload_size);
         }
 #endif
 
 	// if we've been instructed to copy the data, that has to happen now
-	if(payload_mode == PAYLOAD_COPY) {
+	if(payload_mode == FAB_PAYLOAD_COPY) {
 	  void *copy_ptr = malloc(payload_size);
 	  assert(copy_ptr != 0);
-	  payload_src->copy_data(copy_ptr);
+	  payload_src->copy(copy_ptr);
 	  delete payload_src;
-	  payload_src = new ContiguousPayload(copy_ptr, payload_size,
-					      PAYLOAD_FREE);
+	  payload_src = new FabContiguousPayload(FAB_PAYLOAD_FREE, copy_ptr, payload_size);
 	}
 
-	payload_mode = PAYLOAD_PENDING;
+	payload_mode = FAB_PAYLOAD_PENDING;
 	srcdatapool->add_pending(this, held_lock);
       }
     }
 
     // do the copy now if the allocation succeeded
     if(srcptr != 0) {
-      payload_src->copy_data(srcptr);
+      payload_src->copy(srcptr);
       delete payload_src;
       payload_src = 0;
     }
   } else {
 #ifdef TRACK_ACTIVEMSG_SPILL_ALLOCS
-    if((payload_mode == PAYLOAD_COPY) || (payload_mode == PAYLOAD_FREE)) {
+    if((payload_mode == FAB_PAYLOAD_COPY) || (payload_mode == FAB_PAYLOAD_FREE)) {
       // some dynamic memory is being tied up for this, so count it
       record_spill_alloc(msgid, payload_size);
     }
 #endif
 
     // no srcdatapool needed, but might still have to copy
-    if(payload_src->get_contig_pointer() &&
-       (payload_mode != PAYLOAD_COPY)) {
-      payload = payload_src->get_contig_pointer();
-      payload_mode = payload_src->get_payload_mode();
+    if(payload_src->ptr() &&
+       (payload_mode != FAB_PAYLOAD_COPY)) {
+      payload = payload_src->ptr();
+      payload_mode = payload_src->get_mode();
       delete payload_src;
       payload_src = 0;
     } else {
       // make a copy
       payload = malloc(payload_size);
       assert(payload != 0);
-      payload_src->copy_data(payload);
+      payload_src->copy(payload);
       delete payload_src;
       payload_src = 0;
-      payload_mode = PAYLOAD_FREE;
+      payload_mode = FAB_PAYLOAD_FREE;
     }
   }
 }
 
 void OutgoingMessage::assign_srcdata_pointer(void *ptr)
 {
-  assert(payload_mode == PAYLOAD_PENDING);
+  assert(payload_mode == FAB_PAYLOAD_PENDING);
   assert(payload_src != 0);
-  payload_src->copy_data(ptr);
+  payload_src->copy(ptr);
   delete payload_src;
   payload_src = 0;
 
   payload = ptr;
-  payload_mode = PAYLOAD_SRCPTR;
+  payload_mode = FAB_PAYLOAD_SRCPTR;
 }
 
 class EndpointManager {
@@ -2333,14 +2343,14 @@ void enqueue_message(gasnet_node_t target, int msgid,
 
   // if we have a contiguous payload that is in the KEEP mode, and in
   //  registered memory, we may be able to avoid a copy
-  if((payload_mode == PAYLOAD_KEEP) && is_registered((void *)payload))
-    payload_mode = PAYLOAD_KEEPREG;
+  if((payload_mode == FAB_PAYLOAD_KEEP) && is_registered((void *)payload))
+    payload_mode = FAB_PAYLOAD_KEEPREG;
 
-  if (payload_mode != PAYLOAD_NONE)
+  if (payload_mode != FAB_PAYLOAD_NONE)
   {
     if (payload_size > 0) {
-      PayloadSource *payload_src = 
-        new ContiguousPayload((void *)payload, payload_size, payload_mode);
+      FabPayload *payload_src = 
+        new FabContiguousPayload(payload_mode, (void *)payload, payload_size);
       hdr->set_payload(payload_src, payload_size, payload_mode, dstptr);
     } else {
       hdr->set_payload_empty();
@@ -2362,12 +2372,12 @@ void enqueue_message(gasnet_node_t target, int msgid,
 					     (arg_size + sizeof(int) - 1) / sizeof(int),
 					     args);
 
-  if (payload_mode != PAYLOAD_NONE)
+  if (payload_mode != FAB_PAYLOAD_NONE)
   {
     size_t payload_size = line_size * line_count;
     if (payload_size > 0) {
-      PayloadSource *payload_src = new TwoDPayload(payload, line_size, 
-                                       line_count, line_stride, payload_mode);
+      FabPayload *payload_src = new FabTwoDPayload(payload_mode, (void*) payload, line_size, 
+						   line_count, line_stride);
       hdr->set_payload(payload_src, payload_size, payload_mode, dstptr);
     } else {
       hdr->set_payload_empty();
@@ -2387,10 +2397,12 @@ void enqueue_message(gasnet_node_t target, int msgid,
   					     (arg_size + sizeof(int) - 1) / sizeof(int),
   					     args);
 
-  if (payload_mode != PAYLOAD_NONE)
+  if (payload_mode != FAB_PAYLOAD_NONE)
   {
     if (payload_size > 0) {
-      PayloadSource *payload_src = new SpanPayload(spans, payload_size, payload_mode);
+      FabPayload *payload_src = new FabSpanPayload(payload_mode,
+						   *const_cast<SpanList*>(&spans),
+						   payload_size);
       hdr->set_payload(payload_src, payload_size, payload_mode, dstptr);
     } else {
       hdr->set_payload_empty();
@@ -2421,55 +2433,6 @@ void handle_long_msgptr(gasnet_node_t source, const void *ptr)
   CHECK_GASNET( gasnet_AMGetMsgSource(token, &src) );
   endpoint_manager->record_message(src, false/*sent reply*/);
 #endif
-}
-
-ContiguousPayload::ContiguousPayload(void *_srcptr, size_t _size, int _mode)
-  : srcptr(_srcptr), size(_size), mode(_mode)
-{}
-
-void ContiguousPayload::copy_data(void *dest)
-{
-  log_sdp.info("contig copy %p <- %p (%zd bytes)", dest, srcptr, size);
-  memcpy(dest, srcptr, size);
-  if(mode == PAYLOAD_FREE)
-    free(srcptr);
-}
-
-TwoDPayload::TwoDPayload(const void *_srcptr, size_t _line_size,
-			 size_t _line_count,
-			 ptrdiff_t _line_stride, int _mode)
-  : srcptr(_srcptr), line_size(_line_size), line_count(_line_count),
-    line_stride(_line_stride), mode(_mode)
-{}
-
-void TwoDPayload::copy_data(void *dest)
-{
-  char *dst_c = (char *)dest;
-  const char *src_c = (const char *)srcptr;
-
-  for(size_t i = 0; i < line_count; i++) {
-    memcpy(dst_c, src_c, line_size);
-    dst_c += line_size;
-    src_c += line_stride;
-  }
-}
-
-SpanPayload::SpanPayload(const SpanList&_spans, size_t _size, int _mode)
-  : spans(_spans), size(_size), mode(_mode)
-{}
-
-void SpanPayload::copy_data(void *dest)
-{
-  char *dst_c = (char *)dest;
-  off_t bytes_left = size;
-  for(SpanList::const_iterator it = spans.begin(); it != spans.end(); it++) {
-    assert(it->second <= (size_t)bytes_left);
-    memcpy(dst_c, it->first, it->second);
-    dst_c += it->second;
-    bytes_left -= it->second;
-    assert(bytes_left >= 0);
-  }
-  assert(bytes_left == 0);
 }
 
 extern bool adjust_long_msgsize(gasnet_node_t source, void *&ptr, size_t &buffer_size,

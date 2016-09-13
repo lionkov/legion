@@ -20,7 +20,8 @@
 // creating the required ActiveMessage object.
 
 class GasnetMessageAdapterBase {
-public: 
+public:
+  virtual ~GasnetMessageAdapterBase() { }
   virtual void request(NodeId dest, void* args, const void* payload, size_t payload_len,
 			      int payload_mode) = 0;
 };
@@ -39,6 +40,7 @@ public:
 
   void request(NodeId dest, void* args, const void* payload, size_t payload_len,
 		      int payload_mode) {
+    std::cout << "Sending a short message... " << std::endl;
     typename MSGTYPE::RequestArgs* r_args = (typename MSGTYPE::RequestArgs*) args;
     ActiveMessage::request(dest, *r_args);
   }
@@ -67,11 +69,12 @@ public:
 
   void request(NodeId dest, void* args, const void* payload, size_t payload_len,
 	       int payload_mode) {
+    std::cout << "Sending a medium message... " << std::endl;
     typename MSGTYPE::RequestArgs* r_args = (typename MSGTYPE::RequestArgs*) args;
-    RequestArgsBaseMedium basemedium(*r_args);
-    ActiveMessage::request(dest, basemedium, payload, payload_len, payload_mode);
+    RequestArgsBaseMedium* basemedium = new RequestArgsBaseMedium(*r_args);
+    std::cout << std::hex << basemedium->MESSAGE_ID_MAGIC << std::endl;
+    ActiveMessage::request(dest, *basemedium, payload, payload_len, payload_mode);
   }
-
   
   typedef ActiveMessageMediumNoReply<MSGID,
 				     RequestArgsBaseMedium,

@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <stdint.h>
 #include <vector>
+#include "logging.h"
 
 enum {
   FAB_PAYLOAD_NONE, // no payload in packet
@@ -40,6 +41,11 @@ const PayloadDescription payload_descs[] = {
 
 typedef std::pair<const void *, size_t> SpanListEntry;
 typedef std::vector<SpanListEntry> SpanList;
+
+inline Realm::Logger& log_payload() {
+  static Realm::Logger log("payload");
+  return log;
+}
 
 // Payloads hold data which may be in one of several formats.
 
@@ -74,6 +80,7 @@ class FabPayload {
 
   // Copy data into dest
   virtual ssize_t copy(void *dest, size_t destsz) = 0;
+  virtual ssize_t copy(void* dest) = 0;
 
   // Return the number of iovs required to transfer data out
   virtual ssize_t get_iovs_required() = 0;
@@ -101,6 +108,7 @@ class FabContiguousPayload : public FabPayload {
   virtual size_t size(void) { return sz; };
   virtual void* ptr(void) { return (mode == FAB_PAYLOAD_ERROR) ? NULL : data; } 
   virtual ssize_t copy(void *dest, size_t destsz);
+  virtual ssize_t copy(void* dest);
   virtual ssize_t get_iovs_required();
   virtual ssize_t iovec(struct iovec *iov, size_t iovnum);
 };
@@ -134,6 +142,7 @@ class FabTwoDPayload : public FabPayload {
   virtual size_t size(void) { return linecnt*linesz; };
   virtual void* ptr(void) { return data; };
   virtual ssize_t copy(void *dest, size_t destsz);
+  virtual ssize_t copy(void* dest);
   virtual ssize_t get_iovs_required();
   virtual ssize_t iovec(struct iovec *iov, size_t iovnum);
   virtual size_t get_linesz() { return linesz; }
@@ -164,11 +173,13 @@ class FabSpanPayload : public FabPayload {
   
  public:
   FabSpanPayload(int m, SpanList &sl);
+  FabSpanPayload(int m, SpanList &sl, size_t payload_size);
   virtual ~FabSpanPayload(void);
 
   virtual size_t size(void);
   virtual void* ptr(void);
   virtual ssize_t copy(void *dest, size_t destsz);
+  virtual ssize_t copy(void* dest);
   virtual ssize_t iovec(struct iovec *iov, size_t iovnum);
 };
 

@@ -176,7 +176,9 @@ int FabTester::test_rdma(int runs) {
 
   // Put own string in everyone else's memory
   for (NodeId target=0; target<fabric->get_num_nodes(); ++target) {
-    fabric->put_bytes(target, 50*fabric->get_id(), msg, 50);
+    // Not all fabrics have put_bytes -- gotta case
+    FabFabric* cast_fabric = dynamic_cast<FabFabric*>(fabric);
+    cast_fabric->put_bytes(target, 50*fabric->get_id(), msg, 50);
   }
 
   // Synchronize...
