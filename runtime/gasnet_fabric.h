@@ -19,7 +19,11 @@
 // packing / unpacking arguments into format expected by GASNet, as well
 // creating the required ActiveMessage object.
 
-class GasnetMessageAdapterBase { };
+class GasnetMessageAdapterBase {
+public: 
+  virtual void request(NodeId dest, void* args, const void* payload, size_t payload_len,
+			      int payload_mode) = 0;
+};
 
 static const int GASNET_COLL_FLAGS = GASNET_COLL_IN_MYSYNC | GASNET_COLL_OUT_MYSYNC | GASNET_COLL_LOCAL;
 
@@ -30,10 +34,16 @@ public:
   static void handle_request(typename MSGTYPE::RequestArgs args) {
     // Pack the received data back into a Message and call its handler
     Message m(fabric->get_id(), MSGID, &args, NULL);
-    //MSGTYPE::request(m);
+    m.mtype->request(&m);
+  }
+
+  void request(NodeId dest, void* args, const void* payload, size_t payload_len,
+		      int payload_mode) {
+    typename MSGTYPE::RequestArgs* r_args = (typename MSGTYPE::RequestArgs*) args;
+    ActiveMessage::request(dest, *r_args);
   }
   
-  typedef ActiveMessageShortNoReply<MSGID,
+  typedef ActiveMessageShortNoReply<MSGID,  
 				    typename MSGTYPE::RequestArgs,
 				    handle_request> ActiveMessage;
 };
@@ -45,14 +55,23 @@ public:
   // For medium messages, the RequestArgs must inherit from BaseMedium and have a default constructor
   struct RequestArgsBaseMedium : public MSGTYPE::RequestArgs, public BaseMedium {
     RequestArgsBaseMedium() { }
+    RequestArgsBaseMedium(const typename MSGTYPE::RequestArgs& other) : MSGTYPE::RequestArgs(other) { }
   }; 
 
   static void handle_request(RequestArgsBaseMedium args, const void* data, size_t datalen) {
     // Pack the received data back into a Message and call its handler
     Message m(fabric->get_id(), MSGID, &args,
 	      new FabContiguousPayload(FAB_PAYLOAD_KEEP, (void*) data, datalen));
-    //MSGTYPE::request(m);
+    m.mtype->request(&m);
   }
+
+  void request(NodeId dest, void* args, const void* payload, size_t payload_len,
+	       int payload_mode) {
+    typename MSGTYPE::RequestArgs* r_args = (typename MSGTYPE::RequestArgs*) args;
+    RequestArgsBaseMedium basemedium(*r_args);
+    ActiveMessage::request(dest, basemedium, payload, payload_len, payload_mode);
+  }
+
   
   typedef ActiveMessageMediumNoReply<MSGID,
 				     RequestArgsBaseMedium,
@@ -80,10 +99,17 @@ public:
     if (mt->payload == true) {
       GasnetMessageAdapterMedium<MSGID, MSGTYPE>
 	::ActiveMessage::add_handler_entries(&gasnet_handlers[gasnet_hcount], tag.c_str());
+      if (MSGID == 0 || gasnet_adapters[MSGID] != NULL) 
+	assert(false && "Attempted to add invalid message type");
+      gasnet_adapters[MSGID] = (GasnetMessageAdapterBase*) new GasnetMessageAdapterMedium<MSGID, MSGTYPE>(); 
     } else {
       GasnetMessageAdapterShort<MSGID, MSGTYPE>
 	::ActiveMessage::add_handler_entries(&gasnet_handlers[gasnet_hcount], tag.c_str());
+      if (MSGID == 0 || gasnet_adapters[MSGID] != NULL) 
+	assert(false && "Attempted to add invalid message type");
+      gasnet_adapters[MSGID] = (GasnetMessageAdapterBase*) new GasnetMessageAdapterShort<MSGID, MSGTYPE>();
     }
+    
     ++gasnet_hcount;
     return true;
   }
@@ -125,11 +151,13 @@ protected:
 
   gasnet_handlerentry_t gasnet_handlers[MAX_MESSAGE_TYPES];
   size_t gasnet_hcount; // gasnet handler entry count
+  GasnetMessageAdapterBase* gasnet_adapters[MAX_MESSAGE_TYPES];
 
   bool shutdown_complete = false;
   std::mutex shutdown_mutex;
   std::condition_variable shutdown_cond;
   char* regmem_base = 0;
+  
   
 };
 

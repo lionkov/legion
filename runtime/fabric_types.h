@@ -95,6 +95,9 @@ enum BarrierIds {
 };
 
 typedef uint8_t MessageId;
+#ifdef USE_GASNET
+typedef gasnet_node_t NodeId;
+#else
 typedef uint32_t NodeId;
-
+#endif // USE_GASNET
 #endif 

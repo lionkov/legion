@@ -6,6 +6,10 @@ GasnetFabric::GasnetFabric(int* argc, char*** argv)
     active_msg_worker_threads(1),
     active_msg_handler_threads(1),
     gasnet_hcount(0) {
+
+  for (int i=0; i<MAX_MESSAGE_TYPES; ++i) 
+    gasnet_adapters[i] = NULL;
+  
   // Setup that needs to be done before calling init()
    
   char *orig_pmi_gni_cookie = getenv("PMI_GNI_COOKIE");
@@ -82,6 +86,10 @@ GasnetFabric::GasnetFabric(int* argc, char*** argv)
 }
 
 GasnetFabric::~GasnetFabric() {
+  for(int i=0; i<MAX_MESSAGE_TYPES; ++i) {
+    if (gasnet_adapters[i])
+      delete gasnet_adapters[i];
+  }
 }
 
 void GasnetFabric::register_options(Realm::CommandLineParser& cp) {
@@ -156,7 +164,11 @@ void GasnetFabric::wait_for_rdmas() {
 
 size_t GasnetFabric::get_regmem_size_in_mb() { return reg_mem_size_in_mb; }
 
-int GasnetFabric::send(Message* m) { return 0; }
+int GasnetFabric::send(Message* m) {
+  gasnet_adapters[m->id]->request(m->rcvid, m->get_arg_ptr(), m->payload,
+				  m->payload->size(), m->payload->get_mode());
+  return 0;
+}
 
 Realm::Event* GasnetFabric::gather_events(Realm::Event& event, NodeId root) {
   Realm::Event* all_events = NULL;
