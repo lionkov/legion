@@ -1509,13 +1509,6 @@ protected:
     // two fields hdr->args[0] and hdr->args[1] can be used for
     // storing the message ID and the number of chunks
     int message_id_start;
-    if (gasnet_mynode() == 0) { 
-      std::cout << std::hex
-		<< hdr->args[0] << std::endl
-		<< hdr->args[1] << std::endl
-		<< hdr->args[2] << std::endl
-		<< hdr->args[3] << std::endl;
-    }
     if(hdr->args[0] == BaseMedium::MESSAGE_ID_MAGIC) {
       assert(hdr->args[1] == BaseMedium::MESSAGE_CHUNKS_MAGIC);
       message_id_start = 0;

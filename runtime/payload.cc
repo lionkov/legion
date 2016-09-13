@@ -60,7 +60,6 @@ int FabContiguousPayload::checkmode() {
 // copy fails.
 ssize_t FabContiguousPayload::copy(void *dptr, size_t dsz) {
   int ret;
-
   if (mode == FAB_PAYLOAD_ERROR)
     return -1;
   ret = dsz;

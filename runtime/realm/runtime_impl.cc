@@ -706,7 +706,7 @@ namespace Realm {
 							      new NodeAnnounceMessageType(),
 							      "Node Announce");
 
-      
+      /*
       message_adder.add_message_type<SPAWN_TASK_MSGID,
 				     SpawnTaskMessageType>(fabric,
 							   new SpawnTaskMessageType(),
@@ -856,7 +856,7 @@ namespace Realm {
       message_adder.add_message_type<LegionRuntime::LowLevel::REMOTE_FILL_MSGID,
 				     LegionRuntime::LowLevel::RemoteFillMessageType>
 	(fabric, new LegionRuntime::LowLevel::RemoteFillMessageType(), "Remote Copy");
-      
+      */
       /*      
 #ifdef USE_FABRIC // TODO -- we shouldn't need to do this, just create a LocalNodeFabric if you want to 
 // run single node
@@ -951,13 +951,13 @@ namespace Realm {
         // SJT: actually, go back to an owner node of 0 and memory_idx of all 1's for now
 #ifndef USE_GASNET
 	assert(false && "GASNet global memory not supported by this Fabric (try compiling with USE_GASNET=1)");	
+#endif // USE_GASNET
 	global_memory = new GASNetMemory(ID::make_memory(0, -1U).convert<Memory>(),
 					 gasnet_mem_size_in_mb << 20);
-#endif // USE_GASNET
 	
-	}
-      else
+      } else { 
 	global_memory = 0;
+      } 
 
       Node *n = &nodes[fabric->get_id()];
 
@@ -981,8 +981,9 @@ namespace Realm {
 				    regmem_base,
 				    true);
 	n->memories.push_back(regmem);
-      } else
+      } else { 
 	regmem = 0;
+      }
 
       // create local disk memory
       DiskMemory *diskmem;
@@ -1231,13 +1232,15 @@ namespace Realm {
 	fabric->barrier_wait(REALM_INIT_READY_BARRIER_ID);
 
 	// now announce ourselves to everyone else
-	for(unsigned i = 0; i < fabric->get_num_nodes(); ++i)
-	  if(i != fabric->get_id())
+	for(unsigned i = 0; i < fabric->get_num_nodes(); ++i) {
+	  if(i != fabric->get_id()) {
 	    NodeAnnounceMessageType::send_request(i,
 						  num_procs,
 						  num_memories,
 						  adata, apos*sizeof(adata[0]),
 						  FAB_PAYLOAD_COPY);
+	  }
+	}
 
 	NodeAnnounceMessageType::await_all_announcements();
 

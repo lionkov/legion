@@ -21,9 +21,8 @@
 
 class GasnetMessageAdapterBase {
 public:
-  virtual ~GasnetMessageAdapterBase() { }
   virtual void request(NodeId dest, void* args, const void* payload, size_t payload_len,
-			      int payload_mode) = 0;
+		       int payload_mode) = 0;
 };
 
 static const int GASNET_COLL_FLAGS = GASNET_COLL_IN_MYSYNC | GASNET_COLL_OUT_MYSYNC | GASNET_COLL_LOCAL;
@@ -55,12 +54,14 @@ class GasnetMessageAdapterMedium : public GasnetMessageAdapterBase {
 public:
   
   // For medium messages, the RequestArgs must inherit from BaseMedium and have a default constructor
-  struct RequestArgsBaseMedium : public MSGTYPE::RequestArgs, public BaseMedium {
+  /*
+  struct RequestArgsBaseMedium : public BaseMedium, public MSGTYPE::RequestArgs {
     RequestArgsBaseMedium() { }
-    RequestArgsBaseMedium(const typename MSGTYPE::RequestArgs& other) : MSGTYPE::RequestArgs(other) { }
-  }; 
-
-  static void handle_request(RequestArgsBaseMedium args, const void* data, size_t datalen) {
+    //RequestArgsBaseMedium(const typename MSGTYPE::RequestArgs& other) : MSGTYPE::RequestArgs(other) { }
+  };
+  */
+  
+  static void handle_request(typename MSGTYPE::RequestArgs args, const void* data, size_t datalen) {
     // Pack the received data back into a Message and call its handler
     Message m(fabric->get_id(), MSGID, &args,
 	      new FabContiguousPayload(FAB_PAYLOAD_KEEP, (void*) data, datalen));
@@ -70,14 +71,18 @@ public:
   void request(NodeId dest, void* args, const void* payload, size_t payload_len,
 	       int payload_mode) {
     std::cout << "Sending a medium message... " << std::endl;
-    typename MSGTYPE::RequestArgs* r_args = (typename MSGTYPE::RequestArgs*) args;
-    RequestArgsBaseMedium* basemedium = new RequestArgsBaseMedium(*r_args);
-    std::cout << std::hex << basemedium->MESSAGE_ID_MAGIC << std::endl;
-    ActiveMessage::request(dest, *basemedium, payload, payload_len, payload_mode);
+    //typename MSGTYPE::RequestArgs* r_args = (typename MSGTYPE::RequestArgs*) args;
+    //RequestArgsBaseMedium* basemedium = new RequestArgsBaseMedium(*r_args);
+    //std::cout << std::hex << basemedium->MESSAGE_ID_MAGIC << std::endl;
+    ActiveMessage::request(dest,
+			   //*basemedium,
+			   *(typename MSGTYPE::RequestArgs*) args,
+			   payload, payload_len, payload_mode);
   }
   
   typedef ActiveMessageMediumNoReply<MSGID,
-				     RequestArgsBaseMedium,
+				     typename MSGTYPE::RequestArgs,
+				     //BaseMedium,
 				     handle_request> ActiveMessage;
 };
 

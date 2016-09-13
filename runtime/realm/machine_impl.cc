@@ -149,7 +149,16 @@ namespace Realm {
       while(1) {
 	assert(cur < limit);
 	if(*cur == NODE_ANNOUNCE_DONE) break;
-	switch(*cur++) {
+	for(int i=0; i < 20; ++i)
+	  std::cout << *(cur+i) << std::endl;
+	
+	std::cout << "cur: " << *(cur) << std::endl;
+	std::cout << "Proc: " << NODE_ANNOUNCE_PROC << std::endl;
+	std::cout << "Mem: " << NODE_ANNOUNCE_MEM << std::endl;
+	std::cout << "pma: " << NODE_ANNOUNCE_PMA << std::endl;
+	std::cout << "mma: " << NODE_ANNOUNCE_MMA << std::endl;
+
+	switch(*(cur++)) {
 	case NODE_ANNOUNCE_PROC:
 	  {
 	    ID id((ID::IDType)*cur++);
@@ -158,7 +167,7 @@ namespace Realm {
 	    Processor::Kind kind = (Processor::Kind)(*cur++);
             int num_cores = (int)(*cur++);
             log_annc.debug() << "adding proc " << p << " (kind = " << kind << 
-                                " num_cores = " << num_cores << ")";
+	      " num_cores = " << num_cores << ")";
 	    if(remote) {
 	      RemoteProcessor *proc = new RemoteProcessor(p, kind, num_cores);
 	      get_runtime()->nodes[id.proc.owner_node].processors[id.proc.proc_idx] = proc;
@@ -185,6 +194,7 @@ namespace Realm {
 
 	case NODE_ANNOUNCE_PMA:
 	  {
+	    std::cout << "Hi from pma" << std::endl;
 	    Machine::ProcessorMemoryAffinity pma;
 	    pma.p = ID((ID::IDType)*cur++).convert<Processor>();
 	    pma.m = ID((ID::IDType)*cur++).convert<Memory>();
@@ -212,7 +222,10 @@ namespace Realm {
 	  break;
 
 	default:
-	  assert(0);
+	  {
+	    std::cout << "BARF!!!!" << *cur << std::endl;
+	    assert(0);
+	  }
 	}
       }
     }

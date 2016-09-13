@@ -193,7 +193,6 @@ extern void do_some_polling(void);
 
 /* Necessary base structure for all medium and long active messages */
 struct BaseMedium {
-  BaseMedium() { }
   static const gasnet_handlerarg_t MESSAGE_ID_MAGIC = 0x0bad0bad;
   static const gasnet_handlerarg_t MESSAGE_CHUNKS_MAGIC = 0x0a550a55;
   void set_magic(void) {
@@ -340,7 +339,7 @@ class IncomingShortMessage : public IncomingMessage {
   virtual size_t get_msgsize(void) { return sizeof(MSGTYPE); }
 
   int sender;
-  struct {
+  union {
     MessageRawArgs<MSGTYPE,MSGID,SHORT_HNDL_PTR,dummy_medium_handler<MSGTYPE>,MSG_N> raw;
     MSGTYPE typed;
   } u;
@@ -370,7 +369,7 @@ class IncomingMediumMessage : public IncomingMessage {
   int sender;
   const void *msgdata;
   size_t msglen;
-  struct { 
+  union { 
     MessageRawArgs<MSGTYPE,MSGID,dummy_short_handler<MSGTYPE>,MED_HNDL_PTR,MSG_N> raw;
     MSGTYPE typed;
   } u;
@@ -564,7 +563,7 @@ class ActiveMessageShortNoReply {
 #else
     {
 #endif
-      struct {
+      union {
         MessageRawArgsType raw;
         MSGTYPE typed;
       } u;
@@ -747,7 +746,6 @@ inline void gasnet_exit(int code) { exit(code); }
 
 class BaseMedium {
 public:
-  BaseMedium() { }
   void *srcptr;
 };
 class BaseReply {};

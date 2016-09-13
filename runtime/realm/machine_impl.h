@@ -263,7 +263,7 @@ namespace Realm {
 
   // active messages
 
-  enum {
+  enum : size_t {
     NODE_ANNOUNCE_DONE = 0,
     NODE_ANNOUNCE_PROC, // PROC id kind
     NODE_ANNOUNCE_MEM,  // MEM id size
@@ -273,13 +273,11 @@ namespace Realm {
 
   class NodeAnnounceMessageType: public MessageType {
   public:
-  NodeAnnounceMessageType()
-    : MessageType(NODE_ANNOUNCE_MSGID, sizeof(RequestArgs), true, true) { }
+    NodeAnnounceMessageType()
+      : MessageType(NODE_ANNOUNCE_MSGID, sizeof(RequestArgs), true, true) { }
 
-    struct RequestArgs {
-    RequestArgs(NodeId _node_id, unsigned _num_procs, unsigned _num_memories)
-      : node_id(_node_id), num_procs(_num_procs), num_memories(_num_memories) { }
-      RequestArgs() { }
+    struct RequestArgs : public BaseMedium {
+    public:
       NodeId node_id;
       unsigned num_procs;
       unsigned num_memories;
@@ -300,8 +298,14 @@ namespace Realm {
   NodeAnnounceMessage(NodeId dest, NodeId node_id,
 		      unsigned num_procs,
 		      unsigned num_memories, FabPayload* payload)
-    : Message(dest, NODE_ANNOUNCE_MSGID, &args, payload),
-      args(node_id, num_procs, num_memories) { }
+    : Message(dest, NODE_ANNOUNCE_MSGID, &args, payload)
+      //args(node_id, num_procs, num_memories)
+    {
+      args.node_id = node_id;
+      args.num_procs = num_procs;
+      args.num_memories = num_memories;
+    }
+    
     NodeAnnounceMessageType::RequestArgs args;    
   };
 
