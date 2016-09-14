@@ -124,7 +124,7 @@ void deferred_free(void *ptr)
 }
 /*
 
-Using clases in payload.cc now -- they're basically equivalent with some
+Using clases in payload.cc now -- they're equivalent with some
 added functionality
 
 class PayloadSource {

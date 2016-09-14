@@ -19,8 +19,14 @@
 #include <string>
 #include <vector>
 #include "fabric.h"
+#define USE_GASNET
+#ifdef USE_GASNET
+#include "activemsg.h"
+#include "gasnet_fabric.h"
+#endif
 #include "libfabric/fabric_libfabric.h"
 #include "cmdline.h"
+
 
 // Bogus CoreReservationSet so I don't have to compile in main Legion files
 namespace Realm {
@@ -41,7 +47,7 @@ public:
 
   // Initialize network automatically using the exchange server
   int init(std::vector<std::string> cmdline,
-	   bool manually_set_address);
+	   bool manually_set_address, int argc, char* argv[]);
   
   void testFabTwoDPayload();
   int test_message_loopback();
@@ -68,6 +74,7 @@ public:
 		  true /*in order */ ){ }
   
   struct RequestArgs {
+    RequestArgs() { }
     char string[64];
   };
 
@@ -118,6 +125,7 @@ public:
 		  true /*in order */ ){ }
 
   struct RequestArgs {
+    RequestArgs() { }
     size_t linesz;
     size_t linecnt;
     ptrdiff_t stride;
@@ -150,6 +158,10 @@ public:
 		  true, /* has payload */
 		  true /*in order */ ){ }
 
+  struct RequestArgs {
+    RequestArgs() { }
+  };
+
   void request(Message* m);
 };
 
@@ -170,6 +182,7 @@ public:
 		  true /*in order */ ){ }
 
   struct RequestArgs {
+    RequestArgs() { }
     RequestArgs(size_t _spans, NodeId _sender)
       : spans(_spans), sender(_sender) { }
     
@@ -201,6 +214,7 @@ public:
 		  true /*in order */ ){ }
 
   struct RequestArgs {
+    RequestArgs() { }
     RequestArgs(NodeId _sender,
 		bool* _ack_table)
       : sender(_sender),
@@ -232,6 +246,7 @@ public:
 		  true /*in order */ ){ }
 
   struct RequestArgs {
+    RequestArgs() { }
     RequestArgs(NodeId _sender,
 		bool* _ack_table)
       : sender(_sender),

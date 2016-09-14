@@ -108,19 +108,22 @@ bool GasnetFabric::init(int argc, const char** argv, Realm::CoreReservationSet& 
 		 argc, argv);
   gasnet_coll_init(0,0,0,0,0);
   gasnet_set_waitmode(GASNET_WAIT_BLOCK);
-  start_polling_threads(active_msg_worker_threads);
-  start_handler_threads(active_msg_handler_threads,
-			core_reservations,
-			stack_size_in_mb << 20);
+  
+  return true;
+}
+
+
+char* GasnetFabric::set_up_regmem() {
   // Set up registered memory
   if (reg_mem_size_in_mb > 0) {
     gasnet_seginfo_t *seginfos = new gasnet_seginfo_t[gasnet_nodes()];
     CHECK_GASNET( gasnet_getSegmentInfo(seginfos, gasnet_nodes()) );
     regmem_base = ((char *)(seginfos[gasnet_mynode()].addr)) + (gasnet_mem_size_in_mb << 20);
     delete[] seginfos;
+    return regmem_base;
+  } else {
+    return NULL;
   }
-  
-  return true;
 }
 
 void GasnetFabric::shutdown() {
@@ -164,8 +167,7 @@ void GasnetFabric::wait_for_rdmas() {
 size_t GasnetFabric::get_regmem_size_in_mb() { return reg_mem_size_in_mb; }
 
 int GasnetFabric::send(Message* m) {
-  std::cout << "Sending: " << mdescs[m->id] << std::endl;
-  gasnet_adapters[m->id]->request(m->rcvid, m->get_arg_ptr(), m->payload,
+  gasnet_adapters[m->id]->request(m->rcvid, m->get_arg_ptr(), m->payload->ptr(),
 				  m->payload->size(), m->payload->get_mode());
   return 0;
 }

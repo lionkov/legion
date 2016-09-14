@@ -24,6 +24,7 @@
 #include "utils.h"
 
 #include "fabric.h"
+#include "activemsg.h"
 
 #ifdef USE_FABRIC
 #include "libfabric/fabric_libfabric.h"
@@ -554,7 +555,6 @@ namespace Realm {
       FabricMessageAdder<GasnetFabric> message_adder;
 #endif // USE_GASNET
 
-
       
 #ifdef DEBUG_REALM_STARTUP
       { // once we're convinced there isn't skew here, reduce this to rank 0
@@ -591,8 +591,12 @@ namespace Realm {
       // Static variable for stack size since we need to 
       // remember it when we launch threads in run 
       //unsigned cpu_worker_threads = 1;
+      size_t stack_size_in_mb = 2;
+      //unsigned cpu_worker_threads = 1;
       unsigned dma_worker_threads = 1;
       unsigned active_msg_worker_threads = 1;
+      unsigned active_msg_handler_threads = 1;
+
 #ifdef EVENT_TRACING
       size_t   event_trace_block_size = 1 << 20;
       double   event_trace_exp_arrv_rate = 1e3;
@@ -614,7 +618,10 @@ namespace Realm {
 	.add_option_int("-ll:amsg", active_msg_worker_threads)
 	.add_option_int("-ll:dummy_rsrv_ok", dummy_reservation_ok)
 	.add_option_bool("-ll:show_rsrv", show_reservations)
-	.add_option_int("-ll:ht_sharing", hyperthread_sharing);
+	.add_option_int("-ll:ht_sharing", hyperthread_sharing)
+	.add_option_int("-ll:amsg", active_msg_worker_threads)
+	.add_option_int("-ll:ahandlers", active_msg_handler_threads)
+	.add_option_int("-ll:stacksize", stack_size_in_mb);
 
       std::string event_trace_file, lock_trace_file;
 
@@ -697,7 +704,7 @@ namespace Realm {
       // initialize barrier timestamp
       BarrierImpl::barrier_adjustment_timestamp
 	= (((Barrier::timestamp_t)(fabric->get_id())) << BarrierImpl::BARRIER_TIMESTAMP_NODEID_SHIFT) + 1;
-
+     
       // Register all message types with fabric before calling fabric->init()
       std::cout << "ADDING MESSAGES" << std::endl;
       
@@ -869,7 +876,15 @@ namespace Realm {
       Realm::Clock::set_zero_time();
 #endif // USE_FABRIC
       */
-      fabric->init(*argc, (const char**) *argv, *core_reservations);
+#ifdef USE_GASNET
+      // TODO -- this is ugly fix it
+      dynamic_cast<GasnetFabric*>(fabric)->gasnet_mem_size_in_mb = gasnet_mem_size_in_mb;
+      //dynamic_cast<GasnetFabric*>(fabric)->reg_mem_mem_size_in_mb = regmem_mem_size_in_mb;
+#endif // USE_FABRIC
+      fabric->init(*argc,
+		   (const char**) *argv,
+		   *core_reservations);
+      
       fabric->synchronize_clocks();
       size_t regmem_size_in_mb = fabric->get_regmem_size_in_mb();
       
@@ -919,6 +934,13 @@ namespace Realm {
         signal(SIGBUS,  realm_backtrace);
 	signal(SIGTERM,  realm_backtrace);
       }
+
+#ifdef USE_GASNET // TODO -- move me into init()
+        start_polling_threads(active_msg_worker_threads);
+	start_handler_threads(active_msg_handler_threads,
+			      *core_reservations,
+			      stack_size_in_mb << 20);
+#endif
       
       LegionRuntime::LowLevel::create_builtin_dma_channels(this);
 
@@ -974,6 +996,9 @@ namespace Realm {
 
       LocalCPUMemory *regmem = 0;
       if(regmem_size_in_mb > 0) {
+#ifdef USE_FABRIC
+	dynamic_cast<GasnetFabric*>(fabric)->set_up_regmem();
+#endif
 	char* regmem_base = (char*) fabric->get_regmem_ptr();
 	regmem = new LocalCPUMemory(ID::make_memory(fabric->get_id(),
 						    n->memories.size()).convert<Memory>(),
@@ -1166,13 +1191,13 @@ namespace Realm {
 	  if(*it) {
 	    Processor p = (*it)->me;
 	    Processor::Kind k = (*it)->me.kind();
-        int num_cores = (*it)->num_cores;
+	    int num_cores = (*it)->num_cores;
 
 	    num_procs++;
 	    adata[apos++] = NODE_ANNOUNCE_PROC;
 	    adata[apos++] = p.id;
 	    adata[apos++] = k;
-        adata[apos++] = num_cores;
+	    adata[apos++] = num_cores;
 
 	    std::vector<Machine::ProcessorMemoryAffinity> pmas;
 	    machine->get_proc_mem_affinity(pmas, p);
@@ -1237,7 +1262,7 @@ namespace Realm {
 	    NodeAnnounceMessageType::send_request(i,
 						  num_procs,
 						  num_memories,
-						  adata, apos*sizeof(adata[0]),
+						  (void*) adata, apos*sizeof(adata[0]),
 						  FAB_PAYLOAD_COPY);
 	  }
 	}
@@ -1292,6 +1317,7 @@ namespace Realm {
   }
 #endif
 
+  
     Event RuntimeImpl::collective_spawn(Processor target_proc, Processor::TaskFuncID task_id, 
 					const void *args, size_t arglen,
 					Event wait_on /*= Event::NO_EVENT*/, int priority /*= 0*/)

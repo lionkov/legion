@@ -13,8 +13,8 @@
 #define NUM_FABRICS 3
 
 
-#include "fabric.h"
-#include "libfabric/fabric_libfabric.cc"
+//#include "fabric.h"
+//#include "libfabric/fabric_libfabric.cc"
 #include "fabric_libfabric_tests.h"
 
 int main(int argc, char* argv[]) {
@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
   for (int i = 1; i < argc; ++i)
     cmdline.push_back(argv[i]);
 
-  tester.init(cmdline, false);
+  tester.init(cmdline, false, argc, argv);
   
   tester.run();
   

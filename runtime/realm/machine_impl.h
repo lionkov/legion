@@ -277,7 +277,15 @@ namespace Realm {
       : MessageType(NODE_ANNOUNCE_MSGID, sizeof(RequestArgs), true, true) { }
 
     struct RequestArgs : public BaseMedium {
-    public:
+      //RequestArgs() { }
+      //RequestArgs(NodeId _node_id, uint32_t _num_procs, uint32_t _num_memories)
+      //: node_id(_node_id), num_procs(_num_procs), num_memories(_num_memories) { }
+
+      //RequestArgs(const RequestArgs& other) {
+      //node_id = other.node_id;
+      //	num_procs = other.num_procs;
+      //num_memories = other.num_memories;
+      //      }
       NodeId node_id;
       unsigned num_procs;
       unsigned num_memories;

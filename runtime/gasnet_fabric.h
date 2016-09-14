@@ -38,8 +38,7 @@ public:
   }
 
   void request(NodeId dest, void* args, const void* payload, size_t payload_len,
-		      int payload_mode) {
-    std::cout << "Sending a short message... " << std::endl;
+	       int payload_mode) {
     typename MSGTYPE::RequestArgs* r_args = (typename MSGTYPE::RequestArgs*) args;
     ActiveMessage::request(dest, *r_args);
   }
@@ -54,35 +53,39 @@ class GasnetMessageAdapterMedium : public GasnetMessageAdapterBase {
 public:
   
   // For medium messages, the RequestArgs must inherit from BaseMedium and have a default constructor
+
   /*
   struct RequestArgsBaseMedium : public BaseMedium, public MSGTYPE::RequestArgs {
     RequestArgsBaseMedium() { }
-    //RequestArgsBaseMedium(const typename MSGTYPE::RequestArgs& other) : MSGTYPE::RequestArgs(other) { }
+    RequestArgsBaseMedium(const typename MSGTYPE::RequestArgs& other) : MSGTYPE::RequestArgs(other) {
+      std::cout << "PROCS" << num_procs << std::endl;
+    }
   };
   */
-  
   static void handle_request(typename MSGTYPE::RequestArgs args, const void* data, size_t datalen) {
-    // Pack the received data back into a Message and call its handler
+    // Pack the received data back into a Message and call its handler    
     Message m(fabric->get_id(), MSGID, &args,
-	      new FabContiguousPayload(FAB_PAYLOAD_KEEP, (void*) data, datalen));
+	      new FabContiguousPayload(FAB_PAYLOAD_COPY, (void*) data, datalen));
     m.mtype->request(&m);
   }
 
   void request(NodeId dest, void* args, const void* payload, size_t payload_len,
 	       int payload_mode) {
-    std::cout << "Sending a medium message... " << std::endl;
     //typename MSGTYPE::RequestArgs* r_args = (typename MSGTYPE::RequestArgs*) args;
     //RequestArgsBaseMedium* basemedium = new RequestArgsBaseMedium(*r_args);
     //std::cout << std::hex << basemedium->MESSAGE_ID_MAGIC << std::endl;
+    typename MSGTYPE::RequestArgs* r_args = (typename MSGTYPE::RequestArgs*) args;
     ActiveMessage::request(dest,
 			   //*basemedium,
-			   *(typename MSGTYPE::RequestArgs*) args,
-			   payload, payload_len, payload_mode);
+			   *r_args,
+			   payload,
+			   payload_len,
+			   payload_mode);
   }
   
   typedef ActiveMessageMediumNoReply<MSGID,
 				     typename MSGTYPE::RequestArgs,
-				     //BaseMedium,
+				     //RequestArgsBaseMedium,
 				     handle_request> ActiveMessage;
 };
 
@@ -124,6 +127,8 @@ public:
   
   virtual void register_options(Realm::CommandLineParser& cp);
   virtual bool init(int argc, const char** argv, Realm::CoreReservationSet& core_reservations);
+  void start_polling();
+  char* set_up_regmem();
   virtual void shutdown();
   virtual void wait_for_shutdown();  
   virtual void synchronize_clocks();
@@ -148,11 +153,11 @@ public:
   virtual size_t get_iov_limit();
   virtual size_t get_iov_limit(MessageId id);
   virtual size_t get_max_send();
-
-
-protected:
+  
   size_t gasnet_mem_size_in_mb;
   size_t reg_mem_size_in_mb;
+  
+protected:
   size_t active_msg_worker_threads;
   size_t active_msg_handler_threads;
   size_t stack_size_in_mb;
@@ -165,8 +170,6 @@ protected:
   std::mutex shutdown_mutex;
   std::condition_variable shutdown_cond;
   char* regmem_base = 0;
-  
-  
 };
 
 

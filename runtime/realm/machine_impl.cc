@@ -146,19 +146,13 @@ namespace Realm {
 #ifndef NDEBUG
       const size_t *limit = (const size_t *)(((const char *)args)+arglen);
 #endif
+
       while(1) {
 	assert(cur < limit);
-	if(*cur == NODE_ANNOUNCE_DONE) break;
-	for(int i=0; i < 20; ++i)
-	  std::cout << *(cur+i) << std::endl;
 	
-	std::cout << "cur: " << *(cur) << std::endl;
-	std::cout << "Proc: " << NODE_ANNOUNCE_PROC << std::endl;
-	std::cout << "Mem: " << NODE_ANNOUNCE_MEM << std::endl;
-	std::cout << "pma: " << NODE_ANNOUNCE_PMA << std::endl;
-	std::cout << "mma: " << NODE_ANNOUNCE_MMA << std::endl;
-
-	switch(*(cur++)) {
+	if(*cur == NODE_ANNOUNCE_DONE) break;
+	
+	switch(*cur++) {  
 	case NODE_ANNOUNCE_PROC:
 	  {
 	    ID id((ID::IDType)*cur++);
@@ -194,7 +188,6 @@ namespace Realm {
 
 	case NODE_ANNOUNCE_PMA:
 	  {
-	    std::cout << "Hi from pma" << std::endl;
 	    Machine::ProcessorMemoryAffinity pma;
 	    pma.p = ID((ID::IDType)*cur++).convert<Processor>();
 	    pma.m = ID((ID::IDType)*cur++).convert<Memory>();
@@ -223,7 +216,6 @@ namespace Realm {
 
 	default:
 	  {
-	    std::cout << "BARF!!!!" << *cur << std::endl;
 	    assert(0);
 	  }
 	}
@@ -1262,7 +1254,7 @@ namespace Realm {
     RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
     void* data = m->payload->ptr();
     size_t datalen = m->payload->size();
-
+    	    
     DetailedTimer::ScopedPush sp(TIME_LOW_LEVEL);
     log_annc.info("%d: received announce from %d (%d procs, %d memories)\n",
 		  fabric->get_id(),
@@ -1276,7 +1268,8 @@ namespace Realm {
 
     // do the parsing of this data inside a mutex because it touches common
     // data structures
-    {
+
+   {
       get_machine()->parse_node_announce_data(args->node_id,
 					      args->num_procs,
 					      args->num_memories,
@@ -1296,7 +1289,7 @@ namespace Realm {
     FabContiguousPayload* payload = new FabContiguousPayload(payload_mode,
 							     data,
 							     datalen);
-    
+
     fabric->send(new NodeAnnounceMessage(dest,
 					 fabric->get_id(),
 					 num_procs,

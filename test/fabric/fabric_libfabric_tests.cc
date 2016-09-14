@@ -16,9 +16,7 @@
    Error codes:
 
 */
-
 Fabric* fabric = NULL;
-
 
 void print_strided(void* buf, int linesz, int linecnt, int stride) {
   assert(stride != 0); 
@@ -34,8 +32,13 @@ void print_strided(void* buf, int linesz, int linecnt, int stride) {
 
 // Initialize the fabric. If manually_set_addresses is true, instead of exchanging addresses,
 // you will need to pass in an address vector before using this fabric.
-int FabTester::init(std::vector<std::string> cmdline, bool manually_set_addresses) {
+int FabTester::init(std::vector<std::string> cmdline, bool manually_set_addresses,
+		    int argc, char* argv[]) {
+#ifdef USE_GASNET
+  fabric = new GasnetFabric(&argc, &argv);
+#else 
   fabric = new FabFabric();
+#endif
   Realm::CommandLineParser cp;
   fabric->register_options(cp);
   bool cmdline_ok = cp.parse_command_line(cmdline);
@@ -62,7 +65,11 @@ int FabTester::init(std::vector<std::string> cmdline, bool manually_set_addresse
 
 
 void FabTester::add_message_types() {
+  #ifdef USE_GASNET
+  FabricMessageAdder<GasnetFabric> message_adder;
+  #else
   FabricMessageAdder<FabFabric> message_adder;
+  #endif
   message_adder.add_message_type<1, TestMessageType>(fabric,
 						     new TestMessageType(),
 						     "Test Message");
@@ -114,7 +121,7 @@ int FabTester::run() {
   } else {
     std::cout << "test_message_pingpong -- OK" << std::endl;    
   }
-  
+  /*
   std::cout << std::endl << std::endl << "running: test_gather" << std::endl;
   if (test_gather(100) != 0) {
     errors += 1;
@@ -147,6 +154,7 @@ int FabTester::run() {
   } else {
     std::cout << "test_rdma -- OK" << std::endl;    
   }
+  */
   
   // Wait for all other RTs to complete, then shut down
   std::cout << "Starting shutdown barrier" << std::endl;
