@@ -260,12 +260,14 @@ namespace Realm {
   SpawnTaskMessageType()
     : MessageType(SPAWN_TASK_MSGID, sizeof(RequestArgs), true, true) { }
 
-    struct RequestArgs {
-      RequestArgs() { }
+    struct RequestArgs : public BaseMedium {
+      /*
+	RequestArgs() { }
       RequestArgs(Processor _proc, Event _start_event, Event _finish_event,
 		  size_t _user_arglen, int _priority, Processor::TaskFuncID _func_id)
 	: proc(_proc), start_event(_start_event), finish_event(_finish_event),
-	  user_arglen(_user_arglen), priority(_priority), func_id(_func_id) { }
+	user_arglen(_user_arglen), priority(_priority), func_id(_func_id) { }
+      */
       
       Processor proc;
       Event start_event;
@@ -299,9 +301,17 @@ namespace Realm {
 		   int priority,
 		   Processor::TaskFuncID func_id,
 		   FabPayload* payload)
-    : Message(dest, SPAWN_TASK_MSGID, &args, payload),
-      args(proc, start_event, finish_event, user_arglen, priority, func_id) { }
-
+    : Message(dest, SPAWN_TASK_MSGID, &args, payload)
+      //args(proc, start_event, finish_event, user_arglen, priority, func_id)
+    {
+      args.proc = proc;
+      args.start_event = start_event;
+      args.finish_event = finish_event;
+      args.user_arglen = user_arglen;
+      args.priority = priority;
+      args.func_id = func_id;
+    }
+    
     SpawnTaskMessageType::RequestArgs args;    
   };
 

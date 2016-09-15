@@ -118,11 +118,19 @@ class MessageType {
   bool		payload;	// true if the message can have payload
   bool		inorder;	// true if the message has to be delivered in order
  
- MessageType(MessageId msgid, size_t asz, bool hasPayload, bool inOrder)
+  MessageType(MessageId msgid, size_t asz, bool hasPayload, bool inOrder)
    : id(msgid), argsz(asz), payload(hasPayload), inorder(inOrder) { }
 
   // called when a message of this type is received
   virtual void request(Message *m) = 0;
+};
+
+class PayloadMessageType : public MessageType {
+public:
+  typedef char* has_payload; // For SNIFAE, so templates can distinguish from MessageType
+  PayloadMessageType(MessageId msgid, size_t asz, bool payload, bool inOrder)
+    : MessageType(msgid, asz, payload, inOrder) { }
+  virtual ~PayloadMessageType() { }
 };
 
 class Fabric {

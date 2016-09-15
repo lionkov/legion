@@ -3,10 +3,10 @@
 #ifndef GASNET_FABRIC_H
 #define GASNET_FABRIC_H
 
+#include "activemsg.h"
 #include "fabric_types.h"
 #include "fabric.h"
 #include "payload.h"
-#include "activemsg.h"
 #include <stdint.h>
 #include <mutex>
 #include <condition_variable>
@@ -21,8 +21,10 @@
 
 class GasnetMessageAdapterBase {
 public:
+  // You'll have to check the message / payload type to figure out which request() to call
+  virtual void request(NodeId dest, void* args) = 0; // no payload
   virtual void request(NodeId dest, void* args, const void* payload, size_t payload_len,
-		       int payload_mode) = 0;
+		       int payload_mode) = 0; // ContiguousPayload
 };
 
 static const int GASNET_COLL_FLAGS = GASNET_COLL_IN_MYSYNC | GASNET_COLL_OUT_MYSYNC | GASNET_COLL_LOCAL;
@@ -37,11 +39,13 @@ public:
     m.mtype->request(&m);
   }
 
-  void request(NodeId dest, void* args, const void* payload, size_t payload_len,
-	       int payload_mode) {
+  void request(NodeId dest, void* args) {
     typename MSGTYPE::RequestArgs* r_args = (typename MSGTYPE::RequestArgs*) args;
     ActiveMessage::request(dest, *r_args);
   }
+
+  void request(NodeId dest, void* args, const void* payload, size_t payload_len,
+	       int payload_mode) { assert (false && "Wrong request function for this message type"); }
   
   typedef ActiveMessageShortNoReply<MSGID,  
 				    typename MSGTYPE::RequestArgs,
@@ -82,6 +86,9 @@ public:
 			   payload_len,
 			   payload_mode);
   }
+
+  void request(NodeId dest, void* args) { assert (false && "Wrong request function for this message type"); }
+
   
   typedef ActiveMessageMediumNoReply<MSGID,
 				     typename MSGTYPE::RequestArgs,
@@ -99,30 +106,48 @@ public:
   GasnetFabric(int* argc, char*** argv);
   ~GasnetFabric();
 
+
+  // These functions use SNIFAE to determine whether to generate
+  // a medium or short AM stub
+  /*
+  template <MessageId MSGID, typename MSGTYPE>
+  bool add_message_type_snifae(MSGTYPE* mt, std::string tag, typename MSGTYPE::has_payload placeholder) {
+    bool ret = Fabric::add_message_type((MessageType*) mt, tag);
+    std::cout << "Adding a medium message: " << tag <<  std::endl;
+    GasnetMessageAdapterMedium<MSGID, MSGTYPE>
+      ::ActiveMessage::add_handler_entries(&gasnet_handlers[gasnet_hcount], tag.c_str());
+    if (MSGID == 0 || gasnet_adapters[MSGID] != NULL) 
+      assert(false && "Attempted to add invalid message type");
+    gasnet_adapters[MSGID] = (GasnetMessageAdapterBase*) new GasnetMessageAdapterMedium<MSGID, MSGTYPE>(); 
+    ++gasnet_hcount;
+    return ret;
+  }
+  */
+  template <MessageId MSGID, typename MSGTYPE>
+  bool add_message_type_snifae(MSGTYPE* mt, std::string tag, ... ) {
+    bool ret;
+    ret = Fabric::add_message_type((MessageType*) mt, tag);
+    std::cout << "Adding a short message: " << tag <<  std::endl;
+    GasnetMessageAdapterShort<MSGID, MSGTYPE>
+      ::ActiveMessage::add_handler_entries(&gasnet_handlers[gasnet_hcount], tag.c_str());
+    if (MSGID == 0 || gasnet_adapters[MSGID] != NULL) 
+      assert(false && "Attempted to add invalid message type");
+    gasnet_adapters[MSGID] = (GasnetMessageAdapterBase*) new GasnetMessageAdapterShort<MSGID, MSGTYPE>(); 
+    ++gasnet_hcount;
+    return ret;
+  }
+  
+  
   
   template <MessageId MSGID, typename MSGTYPE> 
   bool add_message_type(MSGTYPE* mt, std::string tag) {
-    bool ret;
-    // Register handler for the message request
-    ret = Fabric::add_message_type((MessageType*) mt, tag);
-  
-    // Register handler for unpacking short/medium message type
-    if (mt->payload == true) {
-      GasnetMessageAdapterMedium<MSGID, MSGTYPE>
-	::ActiveMessage::add_handler_entries(&gasnet_handlers[gasnet_hcount], tag.c_str());
-      if (MSGID == 0 || gasnet_adapters[MSGID] != NULL) 
-	assert(false && "Attempted to add invalid message type");
-      gasnet_adapters[MSGID] = (GasnetMessageAdapterBase*) new GasnetMessageAdapterMedium<MSGID, MSGTYPE>(); 
-    } else {
-      GasnetMessageAdapterShort<MSGID, MSGTYPE>
-	::ActiveMessage::add_handler_entries(&gasnet_handlers[gasnet_hcount], tag.c_str());
-      if (MSGID == 0 || gasnet_adapters[MSGID] != NULL) 
-	assert(false && "Attempted to add invalid message type");
-      gasnet_adapters[MSGID] = (GasnetMessageAdapterBase*) new GasnetMessageAdapterShort<MSGID, MSGTYPE>();
-    }
-    
-    ++gasnet_hcount;
-    return true;
+    // Uses SNIFAE to select whether a medium or short AM is generated.
+    // All messages with payloads should derive from the PayloadMessageType class.
+    // This class contains a typedef of the has_payload type, so we should
+    // route to the correct function if MSGTYPE is a PayloadMessageType.
+    // Third argument is bogus an not used for anything except SNIFAE.
+    char c;
+    return add_message_type_snifae<MSGID, MSGTYPE>(mt, tag, &c);
   }
   
   virtual void register_options(Realm::CommandLineParser& cp);

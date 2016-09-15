@@ -142,10 +142,11 @@ namespace Realm {
     : MessageType(CLEAR_TIMER_MSGID, 0, false, true) { }
     
     struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(void* _placeholder)
-	: placeholder(_placeholder) { }
-      void* placeholder;
+      // TODO -- right now we need at least 2 arguments to
+      // overload to the correct MessageRawArgsType template.
+      // Fix so we don't waste this space
+      int bogus;
+      int bogus2;
     };
     
     virtual void request(Message *m);
@@ -166,9 +167,6 @@ namespace Realm {
     : MessageType(ROLL_UP_TIMER_MSGID, sizeof(RequestArgs), false, true) { }
     
     struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(void* _rollup_ptr)
-	: rollup_ptr(_rollup_ptr) { }
       void *rollup_ptr;
     };
 	
@@ -178,23 +176,19 @@ namespace Realm {
   class TimerDataRequestMessage : public Message {
   public:
   TimerDataRequestMessage(NodeId dest, void* rollup_ptr)
-    : Message(dest, ROLL_UP_TIMER_MSGID, &args, NULL),
-      args(rollup_ptr) {
-    //args.rollup_ptr = rollup_ptr;
-    }
+    : Message(dest, ROLL_UP_TIMER_MSGID, &args, NULL) {
+    args.rollup_ptr = rollup_ptr;
+  }
 
     TimerDataRequestMessageType::RequestArgs args;
   };
 
-  class TimerDataResponseMessageType : public MessageType {
+  class TimerDataResponseMessageType : public PayloadMessageType {
   public:
   TimerDataResponseMessageType()
-    : MessageType(ROLL_UP_TIMER_RPLID, sizeof(RequestArgs), true, true) { }
+    : PayloadMessageType(ROLL_UP_TIMER_RPLID, sizeof(RequestArgs), true, true) { }
     
     struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(void* _rollup_ptr)
-	: rollup_ptr(_rollup_ptr) { }
       void* rollup_ptr;
     };
 
@@ -204,8 +198,9 @@ namespace Realm {
   class TimerDataResponseMessage : public Message {
   public:
   TimerDataResponseMessage(NodeId dest, void* rollup_ptr, FabPayload* payload)
-    : Message(dest, ROLL_UP_TIMER_RPLID, &args, payload),
-      args(rollup_ptr) { }
+    : Message(dest, ROLL_UP_TIMER_RPLID, &args, payload) {
+    args.rollup_ptr = rollup_ptr;
+  }
 
     TimerDataResponseMessageType::RequestArgs args;
   };

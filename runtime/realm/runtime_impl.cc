@@ -23,18 +23,6 @@
 #include "codedesc.h"
 #include "utils.h"
 
-#include "fabric.h"
-#include "activemsg.h"
-
-#ifdef USE_FABRIC
-#include "libfabric/fabric_libfabric.h"
-#endif // USE_FABRIC
-
-#ifdef USE_GASNET
-#include "gasnet_fabric.h"
-#endif // USE_GASNET
-
-
 // For doing backtraces
 #include <execinfo.h> // symbols
 #include <cxxabi.h>   // demangling
@@ -713,7 +701,6 @@ namespace Realm {
 							      new NodeAnnounceMessageType(),
 							      "Node Announce");
 
-      /*
       message_adder.add_message_type<SPAWN_TASK_MSGID,
 				     SpawnTaskMessageType>(fabric,
 							   new SpawnTaskMessageType(),
@@ -737,6 +724,7 @@ namespace Realm {
 				     RegisterTaskMessageType>(fabric,
 							      new RegisterTaskMessageType(),
 							      "Register Task");
+      /*
       message_adder.add_message_type<REGISTER_TASK_COMPLETE_MSGID,
 				     RegisterTaskCompleteMessageType>(fabric,
 								      new RegisterTaskCompleteMessageType(),

@@ -21,6 +21,22 @@
 #include "runtime.h"
 #include "id.h"
 
+#ifdef USE_GASNET
+#include "activemsg.h"
+#endif
+
+#include "fabric.h"
+
+#ifdef USE_FABRIC
+#include "libfabric/fabric_libfabric.h"
+#endif // USE_FABRIC
+
+#ifdef USE_GASNET
+#include "gasnet_fabric.h"
+#endif // USE_GASNET
+
+
+
 //#include "fabric.h"
 #include "operation.h"
 #include "profiling.h"

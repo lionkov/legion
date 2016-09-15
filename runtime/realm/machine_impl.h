@@ -271,10 +271,10 @@ namespace Realm {
     NODE_ANNOUNCE_MMA,  // MMA mem1_id mem2_id bw latency
   };
 
-  class NodeAnnounceMessageType: public MessageType {
+  class NodeAnnounceMessageType: public PayloadMessageType {
   public:
     NodeAnnounceMessageType()
-      : MessageType(NODE_ANNOUNCE_MSGID, sizeof(RequestArgs), true, true) { }
+      : PayloadMessageType(NODE_ANNOUNCE_MSGID, sizeof(RequestArgs), true, true) { }
 
     struct RequestArgs : public BaseMedium {
       //RequestArgs() { }
