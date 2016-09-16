@@ -1473,8 +1473,6 @@ namespace Realm {
 	}
 	  
 	while(datalen > max_xfer_size) {
-	   
-
 	  FabContiguousPayload* payload = new FabContiguousPayload(make_copy ?
 								   FAB_PAYLOAD_COPY : FAB_PAYLOAD_KEEP,
 								   pos,
@@ -1525,8 +1523,13 @@ namespace Realm {
     int count = 1;
     char *pos = (char *)data;
     size_t max_xfer_size = fabric->get_max_send();
+#ifdef USE_FABRIC
     size_t max_lines_per_xfer = std::min(max_xfer_size / line_len,
 					 fabric->get_iov_limit(REMOTE_WRITE_MSGID));
+#else // USE_FABRIC
+    size_t max_lines_per_xfer = max_xfer_size / line_len;
+#endif // USE_FABRIC
+    
     if(!dstptr) {
       assert(max_lines_per_xfer > 0);
       if(lines > max_lines_per_xfer) {

@@ -852,7 +852,7 @@ namespace Realm {
       message_adder.add_message_type<LegionRuntime::LowLevel::REMOTE_FILL_MSGID,
 				     LegionRuntime::LowLevel::RemoteFillMessageType>
 	(fabric, new LegionRuntime::LowLevel::RemoteFillMessageType(), "Remote Copy");
-     
+      
       /*      
 #ifdef USE_FABRIC // TODO -- we shouldn't need to do this, just create a LocalNodeFabric if you want to 
 // run single node

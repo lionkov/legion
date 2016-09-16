@@ -787,7 +787,7 @@ int FabFabric::add_address(char* first_address, int index, void* addr) {
 	return 0;  
 }
 
-size_t FabFabric::get_max_send() {
+size_t FabFabric::get_max_send(Realm::Memory mem) {
   return max_send;
 }
 

@@ -1,4 +1,5 @@
 #include "gasnet_fabric.h"
+#include "mem_impl.h"
 
 GasnetFabric::GasnetFabric(int* argc, char*** argv) 
   : gasnet_mem_size_in_mb(0),
@@ -82,7 +83,7 @@ GasnetFabric::GasnetFabric(int* argc, char*** argv)
         fflush(stdout);
       }
 #endif
-
+      
 }
 
 GasnetFabric::~GasnetFabric() {
@@ -160,16 +161,59 @@ void* GasnetFabric::get_regmem_ptr() {
 }
 
 void GasnetFabric::wait_for_rdmas() {
-  // This functionality isn't part of the GASNet fabric (could be implemented?)
+  // This functionality isn't used by GASNet fabric (could be implemented?)
   assert (false && "GASNet wait_for_rdmas not implemented");
 }
 
 size_t GasnetFabric::get_regmem_size_in_mb() { return reg_mem_size_in_mb; }
 
 int GasnetFabric::send(Message* m) {
-  gasnet_adapters[m->id]->request(m->rcvid, m->get_arg_ptr(), m->payload->ptr(),
-				  m->payload->size(), m->payload->get_mode());
-  return 0;
+  // Check the payload type of the message to figure out which handler we need
+  FabPayload* p = m->payload;
+  if (p == NULL) {
+    log_fabric().debug() << "Sending message of type: " << mdescs[m->id] << ", carrying no payload";
+    gasnet_adapters[m->id]->request(m->rcvid, m->get_arg_ptr());
+    return 0;
+  }
+
+  FabContiguousPayload* c = dynamic_cast<FabContiguousPayload*>(p);
+  if (c) {
+    log_fabric().debug() << "Sending message of type: " << mdescs[m->id] << ", carrying a ContiguousPayload";
+    gasnet_adapters[m->id]->request(m->rcvid,
+				    m->get_arg_ptr(),
+				    c->ptr(),
+				    c->size(),
+				    c->get_mode());
+				    
+    return 0;
+  }
+
+  FabTwoDPayload* d = dynamic_cast<FabTwoDPayload*>(p);
+  if (d) {
+    log_fabric().debug() << "Sending message of type: " << mdescs[m->id] << ", carrying a TwoDPayload";
+    gasnet_adapters[m->id]->request(m->rcvid,
+				    m->get_arg_ptr(),
+				    d->ptr(),
+				    d->get_linesz(),
+				    d->get_stride(),
+				    d->get_linecnt(),
+				    d->get_mode());
+    return 0;
+  }
+
+  FabSpanPayload* s = dynamic_cast<FabSpanPayload*>(p);
+  if (c) {
+    log_fabric().debug() << "Sending message of type: " << mdescs[m->id] << ", carrying a SpanPayload";
+    gasnet_adapters[m->id]->request(m->rcvid,
+				    m->get_arg_ptr(),
+				    *(s->get_spans()),
+				    s->size(),
+				    s->get_mode());
+    return 0;
+  }
+
+  assert(false && "Couldn't identify payload type");
+  return -1; // Error, couldn't figure out payload type
 }
 
 
@@ -214,6 +258,14 @@ uint32_t GasnetFabric::get_num_nodes() {
   return gasnet_nodes();
 }
 
-size_t GasnetFabric::get_iov_limit() { return 0; }
-size_t GasnetFabric::get_iov_limit(MessageId id) { return 0; }
-size_t GasnetFabric::get_max_send() { return 0;}
+size_t GasnetFabric::get_iov_limit() {
+  assert(false);
+  return 0;  
+}
+size_t GasnetFabric::get_iov_limit(MessageId id) {
+  assert(false && "Gasnet Fabrics shouldn't use IOVs");
+  return 0;
+}
+size_t GasnetFabric::get_max_send(Realm::Memory mem) {
+  return get_lmb_size(Realm::ID(mem).memory.owner_node);
+}

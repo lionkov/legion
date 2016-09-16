@@ -14,6 +14,7 @@
 #include "payload.h"
 #include "logging.h"
 #include "event.h"
+#include "memory.h"
 #include <cstdlib>
 #include <sys/uio.h>
 #include <stdint.h>
@@ -252,7 +253,7 @@ class Fabric {
   virtual size_t get_iov_limit(MessageId id) = 0;
 
   // Get the maximum number of bytes that can be sent in a payload
-  virtual size_t get_max_send() = 0;
+  virtual size_t get_max_send(Realm::Memory m) = 0;
 
   Realm::Logger* log;
   Realm::Logger& log_fabric() {

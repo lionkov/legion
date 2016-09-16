@@ -25,6 +25,10 @@ public:
   virtual void request(NodeId dest, void* args) = 0; // no payload
   virtual void request(NodeId dest, void* args, const void* payload, size_t payload_len,
 		       int payload_mode) = 0; // ContiguousPayload
+  virtual void request(NodeId dest, void* args, const void* payload, size_t line_len,
+		       off_t line_stride, size_t line_count, int payload_mode) = 0; // TwoDPayloa
+  virtual void request(NodeId dest, void* args, const SpanList& spans, size_t datalen,
+		       int payload_mode) = 0; // SpanPayload
 };
 
 static const int GASNET_COLL_FLAGS = GASNET_COLL_IN_MYSYNC | GASNET_COLL_OUT_MYSYNC | GASNET_COLL_LOCAL;
@@ -36,6 +40,7 @@ public:
   static void handle_request(typename MSGTYPE::RequestArgs args) {
     // Pack the received data back into a Message and call its handler
     Message m(fabric->get_id(), MSGID, &args, NULL);
+    fabric->log_fabric().debug() << "Received short message of type: " << fabric->mdescs[MSGID];
     m.mtype->request(&m);
   }
 
@@ -45,8 +50,17 @@ public:
   }
 
   void request(NodeId dest, void* args, const void* payload, size_t payload_len,
-	       int payload_mode) { assert (false && "Wrong request function for this message type"); }
-  
+	       int payload_mode) {    
+    assert (false && "Wrong request function for this message type");
+  }
+  void request(NodeId dest, void* args, const void* payload, size_t line_len,
+		       off_t line_stride, size_t line_count, int payload_mode) {
+    assert (false && "Wrong request function for this message type");
+  }
+  void request(NodeId dest, void* args, const SpanList& spans, size_t datalen,
+		       int payload_mode) {
+    assert (false && "Wrong request function for this message type");
+  }
   typedef ActiveMessageShortNoReply<MSGID,  
 				    typename MSGTYPE::RequestArgs,
 				    handle_request> ActiveMessage;
@@ -70,9 +84,12 @@ public:
     // Pack the received data back into a Message and call its handler    
     Message m(fabric->get_id(), MSGID, &args,
 	      new FabContiguousPayload(FAB_PAYLOAD_COPY, (void*) data, datalen));
+    fabric->log_fabric().debug() << "Received medium message of type: " << fabric->mdescs[MSGID];
     m.mtype->request(&m);
   }
 
+  void request(NodeId dest, void* args) { assert (false && "Wrong request function for this message type"); }
+  
   void request(NodeId dest, void* args, const void* payload, size_t payload_len,
 	       int payload_mode) {
     //typename MSGTYPE::RequestArgs* r_args = (typename MSGTYPE::RequestArgs*) args;
@@ -87,12 +104,32 @@ public:
 			   payload_mode);
   }
 
-  void request(NodeId dest, void* args) { assert (false && "Wrong request function for this message type"); }
+  void request(NodeId dest, void* args, const void* payload, size_t line_len,
+		       off_t line_stride, size_t line_count, int payload_mode) {
 
+    typename MSGTYPE::RequestArgs* r_args = (typename MSGTYPE::RequestArgs*) args;
+    ActiveMessage::request(dest,
+			   *r_args,
+			   payload,
+			   line_len,
+			   line_stride,
+			   line_count,
+			   payload_mode);
+
+  }
+  
+  void request(NodeId dest, void* args, const SpanList& spans, size_t datalen,
+		       int payload_mode) {
+    typename MSGTYPE::RequestArgs* r_args = (typename MSGTYPE::RequestArgs*) args;
+    ActiveMessage::request(dest,
+			   *r_args,
+			   spans,
+			   datalen,
+			   payload_mode);
+  }
   
   typedef ActiveMessageMediumNoReply<MSGID,
 				     typename MSGTYPE::RequestArgs,
-				     //RequestArgsBaseMedium,
 				     handle_request> ActiveMessage;
 };
 
@@ -113,7 +150,7 @@ public:
   template <MessageId MSGID, typename MSGTYPE>
   bool add_message_type_snifae(MSGTYPE* mt, std::string tag, typename MSGTYPE::has_payload placeholder) {
     bool ret = Fabric::add_message_type((MessageType*) mt, tag);
-    std::cout << "Adding a medium message: " << tag <<  std::endl;
+    assert ((mt->payload == true) && "This message type must have a payload -- check that it derives from the correct class");
     GasnetMessageAdapterMedium<MSGID, MSGTYPE>
       ::ActiveMessage::add_handler_entries(&gasnet_handlers[gasnet_hcount], tag.c_str());
     if (MSGID == 0 || gasnet_adapters[MSGID] != NULL) 
@@ -126,8 +163,8 @@ public:
   template <MessageId MSGID, typename MSGTYPE>
   bool add_message_type_snifae(MSGTYPE* mt, std::string tag, ... ) {
     bool ret;
+    assert((mt->payload == false) && "This message type does not have a payload -- check if it derives from PayloadMessageType");
     ret = Fabric::add_message_type((MessageType*) mt, tag);
-    std::cout << "Adding a short message: " << tag <<  std::endl;
     GasnetMessageAdapterShort<MSGID, MSGTYPE>
       ::ActiveMessage::add_handler_entries(&gasnet_handlers[gasnet_hcount], tag.c_str());
     if (MSGID == 0 || gasnet_adapters[MSGID] != NULL) 
@@ -177,7 +214,7 @@ public:
   virtual uint32_t get_num_nodes();
   virtual size_t get_iov_limit();
   virtual size_t get_iov_limit(MessageId id);
-  virtual size_t get_max_send();
+  virtual size_t get_max_send(Realm::Memory mem);
   
   size_t gasnet_mem_size_in_mb;
   size_t reg_mem_size_in_mb;

@@ -490,3 +490,7 @@ ssize_t FabSpanPayload::iovec(struct iovec *iov, size_t iovnum) {
 ssize_t FabSpanPayload::get_iovs_required() {
   return data->size();
 }
+
+SpanList* FabSpanPayload::get_spans() {
+  return data;
+}

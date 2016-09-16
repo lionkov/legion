@@ -68,7 +68,7 @@ public:
   static std::string fi_cq_error_str(const int ret, fid_cq* cq);
   static std::string fi_error_str(const int ret, const std::string call,
 				  const std::string file, const int line);
-  size_t get_max_send(); 
+  size_t get_max_send(Realm::Memory mem); 
   size_t get_iov_limit();
   virtual size_t get_iov_limit(MessageId id);
   std::string tostr();

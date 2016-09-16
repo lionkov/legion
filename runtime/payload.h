@@ -181,6 +181,7 @@ class FabSpanPayload : public FabPayload {
   virtual ssize_t copy(void *dest, size_t destsz);
   virtual ssize_t copy(void* dest);
   virtual ssize_t iovec(struct iovec *iov, size_t iovnum);
+  virtual SpanList* get_spans();
 };
 
 #endif // PAYLOAD_H
