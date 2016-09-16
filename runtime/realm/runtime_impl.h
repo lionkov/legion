@@ -310,9 +310,6 @@ namespace Realm {
 	: MessageType(MACHINE_SHUTDOWN_MSGID, sizeof(RequestArgs), false, true) { }
       
       struct RequestArgs {
-	RequestArgs() { }
-	RequestArgs(int _initiating_node, int _dummy)
-	  : initiating_node(_initiating_node), dummy(_dummy) { }
 	int initiating_node;
 	int dummy; // needed to get sizeof() >= 8
       };
@@ -324,9 +321,10 @@ namespace Realm {
     class RuntimeShutdownMessage : public Message {
     public:
     RuntimeShutdownMessage(NodeId dest, int initiating_node, int dummy)
-      : Message(dest, MACHINE_SHUTDOWN_MSGID, &args, NULL),
-	args(initiating_node, dummy) { }
-
+      : Message(dest, MACHINE_SHUTDOWN_MSGID, &args, NULL) {
+    args.initiating_node = initiating_node;
+    args.dummy = dummy;
+   }
       RuntimeShutdownMessageType::RequestArgs args;
     };
   

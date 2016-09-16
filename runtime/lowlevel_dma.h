@@ -32,13 +32,12 @@ namespace LegionRuntime {
     };
     
     // Message types
-    class RemoteCopyMessageType : public MessageType {
+    class RemoteCopyMessageType : public PayloadMessageType {
     public:
       RemoteCopyMessageType()
-	: MessageType(REMOTE_COPY_MSGID, sizeof(RequestArgs), true, true) { }
+	: PayloadMessageType(REMOTE_COPY_MSGID, sizeof(RequestArgs), true, true) { }
 
-      struct RequestArgs {
-	RequestArgs() { } 
+      struct RequestArgs : public BaseMedium {
 	ReductionOpID redop_id;
 	bool red_fold;
 	Event before_copy, after_copy;
@@ -53,13 +52,12 @@ namespace LegionRuntime {
 	: Message(dest, REMOTE_COPY_MSGID, args, payload) { }
     };
     
-    class RemoteFillMessageType : public MessageType {
+    class RemoteFillMessageType : public PayloadMessageType {
     public:
       RemoteFillMessageType()
-	: MessageType(REMOTE_FILL_MSGID, sizeof(RequestArgs), true, true) { }
+	: PayloadMessageType(REMOTE_FILL_MSGID, sizeof(RequestArgs), true, true) { }
 
-      struct RequestArgs {
-	RequestArgs() { }
+      struct RequestArgs : public BaseMedium {
 	RegionInstance inst;
 	unsigned offset, size;
 	Event before_fill, after_fill;

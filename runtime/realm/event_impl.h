@@ -253,9 +253,6 @@ namespace Realm {
     : MessageType(EVENT_SUBSCRIBE_MSGID, sizeof(RequestArgs), false, true) { }
     
     struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(NodeId _node, Event _event, EventImpl::gen_t _previous_subscribe_gen)
-	: node(_node), event(_event), previous_subscribe_gen(_previous_subscribe_gen) { }
       NodeId node;
       Event event;
       EventImpl::gen_t previous_subscribe_gen;
@@ -269,9 +266,11 @@ namespace Realm {
   public:
   EventSubscribeMessage(NodeId dest, NodeId node, Event event,
 			EventImpl::gen_t previous_subscribe_gen)
-    : Message(dest, EVENT_SUBSCRIBE_MSGID, &args, NULL),
-      args(node, event, previous_subscribe_gen) { }
-
+    : Message(dest, EVENT_SUBSCRIBE_MSGID, &args, NULL) {
+    args.node = node;
+    args.event = event;
+    args.previous_subscribe_gen = previous_subscribe_gen;
+   }
     EventSubscribeMessageType::RequestArgs args;
   };
 
@@ -284,9 +283,6 @@ namespace Realm {
     : MessageType(EVENT_TRIGGER_MSGID, sizeof(RequestArgs), false, true) { }
     
     struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(NodeId _node, Event _event, bool _poisoned)
-	: node(_node), event(_event), poisoned(_poisoned) { }
       NodeId node;
       Event event;
       bool poisoned;
@@ -299,20 +295,19 @@ namespace Realm {
   class EventTriggerMessage : public Message {
   public:
   EventTriggerMessage(NodeId dest, NodeId node, Event event, bool poisoned)
-    : Message(dest, EVENT_TRIGGER_MSGID, &args, NULL),
-      args(node, event, poisoned) { }
-    EventTriggerMessageType::RequestArgs args;
+    : Message(dest, EVENT_TRIGGER_MSGID, &args, NULL) {
+    args.node = node;
+    args.event = event;
+    args.poisoned = poisoned;
+   }    EventTriggerMessageType::RequestArgs args;
   };
   
-  class EventUpdateMessageType : public MessageType {
+  class EventUpdateMessageType : public PayloadMessageType {
   public:
   EventUpdateMessageType()
-    : MessageType(EVENT_UPDATE_MSGID, sizeof(RequestArgs), true, true) { }
+    : PayloadMessageType(EVENT_UPDATE_MSGID, sizeof(RequestArgs), true, true) { }
     
-    struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(Event _event)
-	: event(_event) { }
+    struct RequestArgs : public BaseMedium {
       Event event;
     };
 
@@ -320,10 +315,11 @@ namespace Realm {
     BroadcastHelper(Event _event, int num_poisoned,
 		    const EventImpl::gen_t* poisoned_generations,
 		    int payload_mode)
-      : RequestArgs(_event),
-	payload(new FabContiguousPayload(payload_mode,
+      : payload(new FabContiguousPayload(payload_mode,
 					 (void*) poisoned_generations,
-					 sizeof(EventImpl::gen_t) * num_poisoned)) { }
+					 sizeof(EventImpl::gen_t) * num_poisoned)) {
+      event = _event;
+    }
       
       FabContiguousPayload* payload;
       void apply(NodeId target);
@@ -342,20 +338,17 @@ namespace Realm {
   class EventUpdateMessage : public Message {
   public:
   EventUpdateMessage(NodeId dest, Event event, FabPayload* payload)
-    : Message(dest, EVENT_UPDATE_MSGID, &args, payload),
-      args(event) { }
-    EventUpdateMessageType::RequestArgs args;
+    : Message(dest, EVENT_UPDATE_MSGID, &args, payload) {
+    args.event = event;
+   }    EventUpdateMessageType::RequestArgs args;
   };
 
-  class BarrierAdjustMessageType : public MessageType {
+  class BarrierAdjustMessageType : public PayloadMessageType {
   public: 
   BarrierAdjustMessageType()
-    : MessageType(BARRIER_ADJUST_MSGID, sizeof(RequestArgs), true, true) { }
+    : PayloadMessageType(BARRIER_ADJUST_MSGID, sizeof(RequestArgs), true, true) { }
       
-    struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(int _sender, int _delta, Barrier _barrier, Event _wait_on)
-	: sender(_sender), delta(_delta), barrier(_barrier), wait_on(_wait_on) { }
+    struct RequestArgs : public BaseMedium {
       int sender;
       int delta;
       Barrier barrier;
@@ -377,9 +370,12 @@ namespace Realm {
 		       Barrier barrier,
 		       Event wait_on,
 		       FabPayload* payload)
-    : Message(dest, BARRIER_ADJUST_MSGID, &args, payload),
-      args(sender, delta, barrier, wait_on) { }
-    
+    : Message(dest, BARRIER_ADJUST_MSGID, &args, payload) {
+    args.sender = sender;
+    args.delta = delta;
+    args.barrier = barrier;
+    args.wait_on = wait_on;
+   }    
     BarrierAdjustMessageType::RequestArgs args;
   };
 
@@ -389,9 +385,6 @@ namespace Realm {
     : MessageType(BARRIER_SUBSCRIBE_MSGID, sizeof(RequestArgs), false, true) { }
     
     struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(NodeId _subscriber, ID::IDType _barrier_id, EventImpl::gen_t _subscribe_gen, bool _forwarded)
-	: subscriber(_subscriber), barrier_id(_barrier_id), subscribe_gen(_subscribe_gen), forwarded(_forwarded) { }
       NodeId subscriber;
       ID::IDType barrier_id;
       EventImpl::gen_t subscribe_gen;
@@ -408,26 +401,21 @@ namespace Realm {
   public:
   BarrierSubscribeMessage(NodeId dest, NodeId subscriber, ID::IDType barrier_id,
 			  EventImpl::gen_t subscribe_gen, bool forwarded)
-    : Message(dest, BARRIER_SUBSCRIBE_MSGID, &args, NULL),
-      args(subscriber, barrier_id, subscribe_gen, forwarded) { }
-    BarrierSubscribeMessageType::RequestArgs args;
+    : Message(dest, BARRIER_SUBSCRIBE_MSGID, &args, NULL) {
+    args.subscriber = subscriber;
+    args.barrier_id = barrier_id;
+    args.subscribe_gen = subscribe_gen;
+    args.forwarded = forwarded;
+   }    BarrierSubscribeMessageType::RequestArgs args;
   };
 
   
-  class BarrierTriggerMessageType : public MessageType {
+  class BarrierTriggerMessageType : public PayloadMessageType {
   public:
   BarrierTriggerMessageType()
-    : MessageType(BARRIER_TRIGGER_MSGID, sizeof(RequestArgs), true, true) { }
+    : PayloadMessageType(BARRIER_TRIGGER_MSGID, sizeof(RequestArgs), true, true) { }
     
-    struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(NodeId _node, ID::IDType _barrier_id, EventImpl::gen_t _trigger_gen,
-		  EventImpl::gen_t _previous_gen, EventImpl::gen_t _first_generation,
-		ReductionOpID _redop_id, NodeId _migration_target, unsigned _base_arrival_count)
-	: node(_node), barrier_id(_barrier_id), trigger_gen(_trigger_gen),
-	  previous_gen(_previous_gen), first_generation(_first_generation),
-	  redop_id(_redop_id), migration_target(_migration_target),
-	  base_arrival_count(_base_arrival_count) { }
+    struct RequestArgs : public BaseMedium {
       
       NodeId node;
       ID::IDType barrier_id;
@@ -454,10 +442,16 @@ namespace Realm {
 			EventImpl::gen_t previous_gen,  EventImpl::gen_t first_gen,
 			ReductionOpID redop_id, NodeId migration_target,
 			unsigned base_arrival_count, FabPayload* payload)
-    : Message(dest, BARRIER_TRIGGER_MSGID, &args, payload),
-      args(node, barrier_id, trigger_gen, previous_gen, first_gen, redop_id,
-	   migration_target, base_arrival_count) { }
-    
+    : Message(dest, BARRIER_TRIGGER_MSGID, &args, payload) {
+    args.node = node;
+    args.barrier_id = barrier_id;
+    args.trigger_gen = trigger_gen;
+    args.previous_gen = previous_gen;
+    args.first_generation = first_gen;
+    args.redop_id = redop_id;
+    args.migration_target = migration_target;
+    args.base_arrival_count = base_arrival_count;
+   }    
     BarrierTriggerMessageType::RequestArgs args;    
   };
 
@@ -467,9 +461,6 @@ namespace Realm {
     : MessageType(BARRIER_MIGRATE_MSGID, sizeof(RequestArgs), false, true) { }
       
     struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(Barrier _barrier, NodeId _current_owner)
-	: barrier(_barrier), current_owner(_current_owner) { }
       Barrier barrier;
       NodeId current_owner;
     };
@@ -481,9 +472,10 @@ namespace Realm {
   class BarrierMigrationMessage : public Message {
   public:
   BarrierMigrationMessage(NodeId dest, Barrier barrier, NodeId current_owner)
-    : Message(dest, BARRIER_MIGRATE_MSGID, &args, NULL),
-      args(barrier, current_owner) { }
-    BarrierMigrationMessageType::RequestArgs args;
+    : Message(dest, BARRIER_MIGRATE_MSGID, &args, NULL) {
+    args.barrier = barrier;
+    args.current_owner = current_owner;
+   }    BarrierMigrationMessageType::RequestArgs args;
   };
     
 }; // namespace Realm

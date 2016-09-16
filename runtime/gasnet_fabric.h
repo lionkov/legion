@@ -109,7 +109,7 @@ public:
 
   // These functions use SNIFAE to determine whether to generate
   // a medium or short AM stub
-  /*
+  
   template <MessageId MSGID, typename MSGTYPE>
   bool add_message_type_snifae(MSGTYPE* mt, std::string tag, typename MSGTYPE::has_payload placeholder) {
     bool ret = Fabric::add_message_type((MessageType*) mt, tag);
@@ -122,7 +122,7 @@ public:
     ++gasnet_hcount;
     return ret;
   }
-  */
+  
   template <MessageId MSGID, typename MSGTYPE>
   bool add_message_type_snifae(MSGTYPE* mt, std::string tag, ... ) {
     bool ret;

@@ -188,7 +188,7 @@ namespace Realm {
   TimerDataResponseMessageType()
     : PayloadMessageType(ROLL_UP_TIMER_RPLID, sizeof(RequestArgs), true, true) { }
     
-    struct RequestArgs {
+    struct RequestArgs : public BaseMedium {
       void* rollup_ptr;
     };
 

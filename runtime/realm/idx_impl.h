@@ -114,9 +114,6 @@ namespace Realm {
     : MessageType(VALID_MASK_REQ_MSGID, sizeof(RequestArgs), false, true) { }
 
     struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(IndexSpace _is, int _sender)
-	: is(_is), sender(_sender) { }
       IndexSpace is;
       int sender;
     };
@@ -129,24 +126,19 @@ namespace Realm {
   class ValidMaskRequestMessage : public Message {
   public:
   ValidMaskRequestMessage(NodeId dest, IndexSpace is, int sender)
-    : Message(dest, VALID_MASK_REQ_MSGID, &args, NULL),
-      args(is, sender) { }
-    
+    : Message(dest, VALID_MASK_REQ_MSGID, &args, NULL) {
+    args.is = is;
+    args.sender = sender;
+   }    
     ValidMaskRequestMessageType::RequestArgs args;
   };
 
-  class ValidMaskDataMessageType : public MessageType {
+  class ValidMaskDataMessageType : public PayloadMessageType {
   public:
   ValidMaskDataMessageType()
-    : MessageType(VALID_MASK_DATA_MSGID, sizeof(RequestArgs), true, true) { }
+    : PayloadMessageType(VALID_MASK_DATA_MSGID, sizeof(RequestArgs), true, true) { }
 
-    struct RequestArgs  {
-      RequestArgs() { }
-      RequestArgs(IndexSpace _is, unsigned _block_id, coord_t _first_element,
-		  size_t _num_elements, coord_t _first_enabled_elmt, coord_t _last_enabled_elmt)
-	: is(_is), block_id(_block_id), first_element(_first_element),
-	  num_elements(_num_elements), first_enabled_elmt(_first_enabled_elmt),
-	  last_enabled_elmt(_last_enabled_elmt) { }
+    struct RequestArgs : public BaseMedium {
       IndexSpace is;
       unsigned block_id;
       coord_t first_element;
@@ -168,9 +160,14 @@ namespace Realm {
   ValidMaskDataMessage(NodeId dest, IndexSpace is, unsigned block_id, coord_t first_element,
 		       size_t num_elements, coord_t first_enabled_elmt,
 		       coord_t last_enabled_elmt, FabPayload* payload)
-    : Message(dest, VALID_MASK_DATA_MSGID, &args, payload),
-      args(is, block_id, first_element, num_elements, first_enabled_elmt, last_enabled_elmt) { }
-
+    : Message(dest, VALID_MASK_DATA_MSGID, &args, payload) {
+    args.is = is;
+    args.block_id = block_id;
+    args.first_element = first_element;
+    args.num_elements = num_elements;
+    args.first_enabled_elmt = first_enabled_elmt;
+    args.last_enabled_elmt = last_enabled_elmt;
+   }
     ValidMaskDataMessageType::RequestArgs args;
   }; 
    

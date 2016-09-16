@@ -196,9 +196,6 @@ namespace Realm {
     : MessageType(LOCK_REQUEST_MSGID, sizeof(RequestArgs), false, true) { }
 
     struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(NodeId _node, Reservation _lock, unsigned _mode)
-	: node(_node), lock(_lock), mode(_mode) { }
       NodeId node;
       Reservation lock;
       unsigned mode;
@@ -212,9 +209,11 @@ namespace Realm {
   class LockRequestMessage : public Message {
   public:
   LockRequestMessage(NodeId dest, NodeId node, Reservation lock, unsigned mode)
-    : Message(dest, LOCK_REQUEST_MSGID, &args, NULL),
-      args(node, lock, mode) { }
-    
+    : Message(dest, LOCK_REQUEST_MSGID, &args, NULL) {
+    args.node = node;
+    args.lock = lock;
+    args.mode = mode;
+   }    
     LockRequestMessageType::RequestArgs args;
   }; 
 
@@ -224,9 +223,6 @@ namespace Realm {
     : MessageType(LOCK_RELEASE_MSGID, sizeof(RequestArgs), false, true) { }
     
     struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(NodeId _node, Reservation _lock)
-	: node(_node), lock(_lock) { }
       NodeId node;
       Reservation lock;
     };
@@ -238,20 +234,18 @@ namespace Realm {
   class LockReleaseMessage : public Message {
   public:
   LockReleaseMessage(NodeId target, NodeId node, Reservation lock)
-    : Message(target, LOCK_RELEASE_MSGID, &args, NULL),
-      args(node, lock) { }
-    LockReleaseMessageType::RequestArgs args;
+    : Message(target, LOCK_RELEASE_MSGID, &args, NULL) {
+    args.node = node;
+    args.lock = lock;
+   }    LockReleaseMessageType::RequestArgs args;
   };
   
-  class LockGrantMessageType : public MessageType {
+  class LockGrantMessageType : public PayloadMessageType {
   public:
-  LockGrantMessageType()
-    : MessageType(LOCK_GRANT_MSGID, sizeof(RequestArgs), true, true) { }
+    LockGrantMessageType()
+    : PayloadMessageType(LOCK_GRANT_MSGID, sizeof(RequestArgs), true, true) { }
     
-    struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(Reservation _lock, unsigned _mode)
-	: lock(_lock), mode(_mode) { }
+    struct RequestArgs : public BaseMedium {
       Reservation lock;
       unsigned mode;
     };
@@ -266,9 +260,10 @@ namespace Realm {
   public:
   LockGrantMessage(NodeId dest, Reservation lock, unsigned mode,
 		   FabPayload* payload)
-    : Message(dest, LOCK_GRANT_MSGID, &args, payload),
-      args(lock, mode) { }
-    LockGrantMessageType::RequestArgs args;
+    : Message(dest, LOCK_GRANT_MSGID, &args, payload) {
+    args.lock = lock;
+    args.mode = mode;
+   }    LockGrantMessageType::RequestArgs args;
   }; 
  
   class DestroyLockMessageType : public MessageType {
@@ -277,9 +272,6 @@ namespace Realm {
     : MessageType(DESTROY_LOCK_MSGID, sizeof(RequestArgs), false, true) { }
 
     struct RequestArgs {
-      RequestArgs() { }
-    RequestArgs(Reservation _actual, Reservation _dummy)
-      : actual(_actual), dummy(_dummy) { }
       Reservation actual;
       Reservation dummy;
     };
@@ -291,9 +283,10 @@ namespace Realm {
   class DestroyLockMessage : public Message {
   public:
   DestroyLockMessage(NodeId dest, Reservation actual, Reservation dummy)
-    : Message(dest, DESTROY_LOCK_MSGID, &args, NULL),
-      args(actual, dummy) { }
-    DestroyLockMessageType::RequestArgs args;
+    : Message(dest, DESTROY_LOCK_MSGID, &args, NULL) {
+    args.actual = actual;
+    args.dummy = dummy;
+   }    DestroyLockMessageType::RequestArgs args;
   };
 
 }; // namespace Realm

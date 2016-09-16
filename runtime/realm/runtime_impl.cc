@@ -715,7 +715,6 @@ namespace Realm {
 				     TimerDataRequestMessageType>(fabric,
 								  new TimerDataRequestMessageType(),
 								  "Roll-up Request");
-      
       message_adder.add_message_type<ROLL_UP_TIMER_RPLID,
 				     TimerDataResponseMessageType>(fabric,
 								   new TimerDataResponseMessageType(),
@@ -724,7 +723,7 @@ namespace Realm {
 				     RegisterTaskMessageType>(fabric,
 							      new RegisterTaskMessageType(),
 							      "Register Task");
-      /*
+      
       message_adder.add_message_type<REGISTER_TASK_COMPLETE_MSGID,
 				     RegisterTaskCompleteMessageType>(fabric,
 								      new RegisterTaskCompleteMessageType(),
@@ -848,10 +847,12 @@ namespace Realm {
       message_adder.add_message_type<LegionRuntime::LowLevel::REMOTE_COPY_MSGID,
 				     LegionRuntime::LowLevel::RemoteCopyMessageType>
 	(fabric, new LegionRuntime::LowLevel::RemoteCopyMessageType(), "Remote Copy");
+
+      
       message_adder.add_message_type<LegionRuntime::LowLevel::REMOTE_FILL_MSGID,
 				     LegionRuntime::LowLevel::RemoteFillMessageType>
 	(fabric, new LegionRuntime::LowLevel::RemoteFillMessageType(), "Remote Copy");
-      */
+     
       /*      
 #ifdef USE_FABRIC // TODO -- we shouldn't need to do this, just create a LocalNodeFabric if you want to 
 // run single node

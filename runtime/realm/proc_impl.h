@@ -255,20 +255,12 @@ namespace Realm {
   };
 
   // active messages
-  class SpawnTaskMessageType : public MessageType {
+  class SpawnTaskMessageType : public PayloadMessageType {
   public:
   SpawnTaskMessageType()
-    : MessageType(SPAWN_TASK_MSGID, sizeof(RequestArgs), true, true) { }
+    : PayloadMessageType(SPAWN_TASK_MSGID, sizeof(RequestArgs), true, true) { }
 
     struct RequestArgs : public BaseMedium {
-      /*
-	RequestArgs() { }
-      RequestArgs(Processor _proc, Event _start_event, Event _finish_event,
-		  size_t _user_arglen, int _priority, Processor::TaskFuncID _func_id)
-	: proc(_proc), start_event(_start_event), finish_event(_finish_event),
-	user_arglen(_user_arglen), priority(_priority), func_id(_func_id) { }
-      */
-      
       Processor proc;
       Event start_event;
       Event finish_event;
@@ -315,16 +307,12 @@ namespace Realm {
     SpawnTaskMessageType::RequestArgs args;    
   };
 
-  class RegisterTaskMessageType : public MessageType {
+  class RegisterTaskMessageType : public PayloadMessageType {
   public:
   RegisterTaskMessageType()
-    : MessageType(REGISTER_TASK_MSGID, sizeof(RequestArgs), true, true) { }
+    : PayloadMessageType(REGISTER_TASK_MSGID, sizeof(RequestArgs), true, true) { }
 
-    struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(NodeId _sender,
-		  Processor::TaskFuncID _func_id, Processor::Kind _kind, RemoteTaskRegistration* _reg_op)
-	: sender(_sender), func_id(_func_id), kind(_kind), reg_op(_reg_op) { }
+    struct RequestArgs : public BaseMedium {
       NodeId sender;
       Processor::TaskFuncID func_id;
       Processor::Kind kind;
@@ -347,9 +335,12 @@ namespace Realm {
   RegisterTaskMessage(NodeId dest, NodeId sender,
 		      Processor::TaskFuncID func_id, Processor::Kind kind,
 		      RemoteTaskRegistration* reg_op, FabPayload* payload)
-    : Message(dest, REGISTER_TASK_MSGID, &args, payload),
-      args(sender, func_id, kind, reg_op) { }
-    
+    : Message(dest, REGISTER_TASK_MSGID, &args, payload) {
+    args.sender = sender;
+    args.func_id = func_id;
+    args.kind = kind;
+    args.reg_op = reg_op;
+   }    
     RegisterTaskMessageType::RequestArgs args;
   };
 
@@ -359,9 +350,6 @@ namespace Realm {
     : MessageType(REGISTER_TASK_COMPLETE_MSGID, sizeof(RequestArgs), false, true) { }
       
     struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(NodeId _sender, RemoteTaskRegistration* _reg_op, bool _successful)
-	: sender(_sender), reg_op(_reg_op), successful(_successful) { }
       NodeId sender;
       RemoteTaskRegistration *reg_op;
       bool successful;
@@ -379,9 +367,11 @@ namespace Realm {
   RegisterTaskCompleteMessage(NodeId dest, NodeId sender,
 			      RemoteTaskRegistration* reg_op,
 			      bool successful)
-    : Message(dest, REGISTER_TASK_COMPLETE_MSGID, &args, NULL),
-      args(sender, reg_op, successful) { }
-    
+    : Message(dest, REGISTER_TASK_COMPLETE_MSGID, &args, NULL) {
+    args.sender = sender;
+    args.reg_op = reg_op;
+    args.successful = successful;
+   }    
     RegisterTaskCompleteMessageType::RequestArgs args;
   };
 

@@ -430,9 +430,6 @@ namespace Realm {
     : MessageType(REMOTE_MALLOC_MSGID, sizeof(RequestArgs), false, true) { }
       
     struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(int _sender, void* _resp_ptr, Memory _memory, size_t _size)
-	: sender(_sender), resp_ptr(_resp_ptr), memory(_memory), size(_size) { }
       int sender;
       void *resp_ptr;
       Memory memory;
@@ -447,9 +444,12 @@ namespace Realm {
   public: 
   RemoteMemAllocRequestMessage(NodeId target, int sender,
 			       void* resp_ptr, Memory memory, size_t size)
-    : Message(target, REMOTE_MALLOC_MSGID, &args, NULL),
-      args(sender, resp_ptr, memory, size) { }
-    
+    : Message(target, REMOTE_MALLOC_MSGID, &args, NULL) {
+    args.sender = sender;
+    args.resp_ptr = resp_ptr;
+    args.memory = memory;
+    args.size = size;
+   }    
     RemoteMemAllocRequestType::RequestArgs args;
   };
 
@@ -459,9 +459,6 @@ namespace Realm {
     : MessageType(REMOTE_MALLOC_RPLID, sizeof(RequestArgs), false, true) { }
       
     struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(void* _resp_ptr, off_t _offset)
-	: resp_ptr(_resp_ptr), offset(_offset) { }
       void* resp_ptr;
       off_t offset;
     };
@@ -472,21 +469,19 @@ namespace Realm {
   class RemoteMemAllocResponse : public Message {
   public:
   RemoteMemAllocResponse(NodeId dest, void* resp_ptr, off_t offset)
-    : Message(dest, REMOTE_MALLOC_RPLID, &args, NULL),
-      args(resp_ptr, offset) { }
-
+    : Message(dest, REMOTE_MALLOC_RPLID, &args, NULL) {
+    args.resp_ptr = resp_ptr;
+    args.offset = offset;
+   }
     RemoteMemAllocResponseType::RequestArgs args;
   };
 
-  class CreateInstanceRequestType : public MessageType {
+  class CreateInstanceRequestType : public PayloadMessageType {
   public:
   CreateInstanceRequestType()
-    : MessageType(CREATE_INST_MSGID, sizeof(RequestArgs), true, true) { }
+    : PayloadMessageType(CREATE_INST_MSGID, sizeof(RequestArgs), true, true) { }
 
-    struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(Memory _m, IndexSpace _r, RegionInstance _parent_inst, int _sender, void* _resp_ptr)
-	: m(_m), r(_r), parent_inst(_parent_inst), sender(_sender), resp_ptr(_resp_ptr) { }
+    struct RequestArgs : public BaseMedium {
       Memory m;
       IndexSpace r;
       RegionInstance parent_inst;
@@ -531,9 +526,13 @@ namespace Realm {
   public:
   CreateInstanceRequest(NodeId dest, Memory m, IndexSpace r, RegionInstance parent_inst,
 			int sender, void* resp_ptr, FabPayload* payload) 
-    : Message(dest, CREATE_INST_MSGID, &args, payload),
-      args(m, r, parent_inst, sender, resp_ptr) { }
-    
+    : Message(dest, CREATE_INST_MSGID, &args, payload) {
+    args.m = m;
+    args.r = r;
+    args.parent_inst = parent_inst;
+    args.sender = sender;
+    args.resp_ptr = resp_ptr;
+   }    
     CreateInstanceRequestType::RequestArgs args;
   };
 
@@ -543,9 +542,6 @@ namespace Realm {
     : MessageType(CREATE_INST_RPLID, sizeof(RequestArgs), false, true) { }
       
     struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(void* _resp_ptr, RegionInstance _i, off_t _inst_offset, off_t _count_offset)
-	: resp_ptr(_resp_ptr), i(_i), inst_offset(_inst_offset), count_offset(_count_offset) { }
       void *resp_ptr;
       RegionInstance i;
       off_t inst_offset;
@@ -559,9 +555,12 @@ namespace Realm {
   public:
   CreateInstanceResponse(NodeId dest, void* resp_ptr, RegionInstance i,
 			 off_t inst_offset, off_t count_offset)
-    : Message(dest, CREATE_INST_RPLID, &args, NULL),
-      args(resp_ptr, i, inst_offset, count_offset) { }
-
+    : Message(dest, CREATE_INST_RPLID, &args, NULL) {
+    args.resp_ptr = resp_ptr;
+    args.i = i;
+    args.inst_offset = inst_offset;
+    args.count_offset = count_offset;
+   }
     CreateInstanceResponseType::RequestArgs args;
   };
 
@@ -571,9 +570,6 @@ namespace Realm {
     : MessageType(DESTROY_INST_MSGID, sizeof(RequestArgs), false, true) { }
 
     struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(Memory _m, RegionInstance _i)
-	: m(_m), i(_i) { }
       Memory m;
       RegionInstance i;
     };
@@ -588,20 +584,18 @@ namespace Realm {
   class DestroyInstanceMessage : public Message {
   public: 
   DestroyInstanceMessage(NodeId dest, Memory m, RegionInstance i)
-    : Message(dest, DESTROY_INST_MSGID, &args, NULL),
-      args(m, i) { }
-    DestroyInstanceMessageType::RequestArgs args;
+    : Message(dest, DESTROY_INST_MSGID, &args, NULL) {
+    args.m = m;
+    args.i = i;
+   }    DestroyInstanceMessageType::RequestArgs args;
   }; 
 
-  class RemoteWriteMessageType : public MessageType {
+  class RemoteWriteMessageType : public PayloadMessageType {
   public:
   RemoteWriteMessageType()
-    : MessageType(REMOTE_WRITE_MSGID, sizeof(RequestArgs), true, true) { }
+    : PayloadMessageType(REMOTE_WRITE_MSGID, sizeof(RequestArgs), true, true) { }
 
-    struct RequestArgs  {
-      RequestArgs() { }
-      RequestArgs(Memory _mem, off_t _offset, unsigned _sender, unsigned _sequence_id)
-	: mem(_mem), offset(_offset), sender(_sender), sequence_id(_sequence_id) { }
+    struct RequestArgs : public BaseMedium {
       Memory mem;
       off_t offset;
       unsigned sender;
@@ -616,23 +610,21 @@ namespace Realm {
   public:
   RemoteWriteMessage(NodeId dest, Memory mem, off_t offset, unsigned sender,
 		     unsigned sequence_id, FabPayload* payload)
-    : Message(dest, REMOTE_WRITE_MSGID, &args, payload),
-      args(mem, offset, sender, sequence_id) { }
-    
+    : Message(dest, REMOTE_WRITE_MSGID, &args, payload) {
+    args.mem = mem;
+    args.offset = offset;
+    args.sender = sender;
+    args.sequence_id = sequence_id;
+   }    
     RemoteWriteMessageType::RequestArgs args;
   };
     
-  class RemoteSerdezMessageType : public MessageType {
+  class RemoteSerdezMessageType : public PayloadMessageType {
   public: 
   RemoteSerdezMessageType()
-    : MessageType(REMOTE_SERDEZ_MSGID, sizeof(RequestArgs), true, true) { }
+    : PayloadMessageType(REMOTE_SERDEZ_MSGID, sizeof(RequestArgs), true, true) { }
 
-    struct RequestArgs  {
-      RequestArgs() { }
-    RequestArgs(Memory _mem, off_t _offset, size_t _count, CustomSerdezID _serdez_id,
-		unsigned _sender, unsigned _sequence_id)
-      : mem(_mem), offset(_offset), count(_count), serdez_id(_serdez_id),
-	sender(_sender), sequence_id(_sequence_id) { }
+    struct RequestArgs : public BaseMedium {
       Memory mem;
       off_t offset;
       size_t count;
@@ -650,22 +642,23 @@ namespace Realm {
   RemoteSerdezMessage(NodeId dest, Memory mem, off_t offset, size_t count,
 		      CustomSerdezID serdez_id, unsigned sender, unsigned sequence_id,
 		      FabPayload* payload)
-    : Message(dest, REMOTE_SERDEZ_MSGID, &args, payload),
-      args(mem, offset, count, serdez_id, sender, sequence_id) { }
-
+    : Message(dest, REMOTE_SERDEZ_MSGID, &args, payload) {
+    args.mem = mem;
+    args.offset = offset;
+    args.count = count;
+    args.serdez_id = serdez_id;
+    args.sender = sender;
+    args.sequence_id = sequence_id;
+   }
     RemoteSerdezMessageType::RequestArgs args;
   };
 
-  class RemoteReduceMessageType : public MessageType {
+  class RemoteReduceMessageType : public PayloadMessageType {
   public:
   RemoteReduceMessageType()
-    : MessageType(REMOTE_REDUCE_MSGID, sizeof(RequestArgs), true, true) { }
+    : PayloadMessageType(REMOTE_REDUCE_MSGID, sizeof(RequestArgs), true, true) { }
 
-    struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(Memory _mem, off_t _offset, int _stride, ReductionOpID _redop_id,
-		  unsigned _sender, unsigned _sequence_id)
-	: mem(_mem), offset(_offset), stride(_stride), redop_id(_redop_id), sender(_sender), sequence_id(_sequence_id) { }
+    struct RequestArgs : public BaseMedium {
       Memory mem;
       off_t offset;
       int stride;
@@ -684,21 +677,23 @@ namespace Realm {
   RemoteReduceMessage(NodeId dest, Memory mem, off_t offset, int stride,
 		      ReductionOpID redop_id, unsigned sender, unsigned sequence_id,
 		      FabPayload* payload)
-    : Message(dest, REMOTE_REDUCE_MSGID, &args, payload),
-      args(mem, offset, stride, redop_id, sender, sequence_id) { }
-
+    : Message(dest, REMOTE_REDUCE_MSGID, &args, payload) {
+    args.mem = mem;
+    args.offset = offset;
+    args.stride = stride;
+    args.redop_id = redop_id;
+    args.sender = sender;
+    args.sequence_id = sequence_id;
+   }
     RemoteReduceMessageType::RequestArgs args;
   };
 
-  class RemoteReduceListMessageType : public MessageType {
+  class RemoteReduceListMessageType : public PayloadMessageType {
   public:
   RemoteReduceListMessageType()
-    : MessageType(REMOTE_REDLIST_MSGID, sizeof(RequestArgs), true, true) { }
+    : PayloadMessageType(REMOTE_REDLIST_MSGID, sizeof(RequestArgs), true, true) { }
       
-    struct RequestArgs  {
-      RequestArgs() { }
-      RequestArgs(Memory _mem, off_t _offset, ReductionOpID _redopid)
-	: mem(_mem), offset(_offset), redopid(_redopid) { }
+    struct RequestArgs : public BaseMedium {
       Memory mem;
       off_t offset;
       ReductionOpID redopid;
@@ -716,9 +711,11 @@ namespace Realm {
   public:
   RemoteReduceListMessage(NodeId dest, Memory mem, off_t offset,
 			  ReductionOpID redopid, FabPayload* payload)
-    : Message(dest, REMOTE_REDLIST_MSGID, &args, payload),
-      args(mem, offset, redopid) { }
-    
+    : Message(dest, REMOTE_REDLIST_MSGID, &args, payload) {
+    args.mem = mem;
+    args.offset = offset;
+    args.redopid = redopid;
+   }    
     RemoteReduceListMessageType::RequestArgs args;
   };
         
@@ -737,10 +734,6 @@ namespace Realm {
     : MessageType(REMOTE_WRITE_FENCE_MSGID, sizeof(RequestArgs), false, true) { }
 
     struct RequestArgs {
-      RequestArgs() { }
-      RequestArgs(Memory _mem, unsigned _sender, unsigned _sequence_id, unsigned _num_writes,
-		  RemoteWriteFence* _fence)
-	: mem(_mem), sender(_sender), sequence_id(_sequence_id), num_writes(_num_writes), fence(_fence) { }
       Memory mem;
       unsigned sender;
       unsigned sequence_id;
@@ -760,9 +753,13 @@ namespace Realm {
   RemoteWriteFenceMessage(NodeId dest, Memory mem, unsigned sender,
 			  unsigned sequence_id, unsigned num_writes,
 			  RemoteWriteFence* fence)
-    : Message(dest, REMOTE_WRITE_FENCE_MSGID, &args, NULL),
-      args(mem, sender, sequence_id, num_writes, fence) { }
-    
+    : Message(dest, REMOTE_WRITE_FENCE_MSGID, &args, NULL) {
+    args.mem = mem;
+    args.sender = sender;
+    args.sequence_id = sequence_id;
+    args.num_writes = num_writes;
+    args.fence = fence;
+   }    
     RemoteWriteFenceMessageType::RequestArgs args;
   };
 
@@ -773,9 +770,6 @@ namespace Realm {
     : MessageType(REMOTE_WRITE_FENCE_ACK_MSGID, sizeof(RequestArgs), false, true) { }
       
     struct RequestArgs {
-            RequestArgs() { }
-      RequestArgs(RemoteWriteFence* _fence)
-	: fence(_fence) { }
       RemoteWriteFence *fence;
       // TODO: success/failure
     };
@@ -788,9 +782,9 @@ namespace Realm {
   class RemoteWriteFenceAckMessage : public Message {
   public:
   RemoteWriteFenceAckMessage(NodeId dest, RemoteWriteFence* fence)
-    : Message(dest, REMOTE_WRITE_FENCE_ACK_MSGID, &args, NULL),
-      args(fence) { }
-    
+    : Message(dest, REMOTE_WRITE_FENCE_ACK_MSGID, &args, NULL) {
+    args.fence = fence;
+   }    
     RemoteWriteFenceAckMessageType::RequestArgs args;
   };
     
