@@ -22,6 +22,14 @@
 
 #define MAX_MESSAGE_TYPES 256
 
+#ifndef USE_GASNET
+// Gasnet requires that RequestArgs for message types with payloads
+// inherit from the BaseMedium class. If we're not using GASNet,
+// use this bogus struct instead
+struct BaseMedium { };
+#endif // USE_GASNET
+
+
 class Message;
 
 class Mutex {
@@ -194,7 +202,7 @@ class Fabric {
   // will export it to other nodes as a RemoteMemory
   
   // Put bytes into the registered block at given offset
-  //virtual void put_bytes(NodeId target, off_t offset, const void* src, size_t len) = 0;
+  virtual void put_bytes(NodeId target, off_t offset, const void* src, size_t len) = 0;
   
   // Read bytes from the registered block at given offset
   virtual void get_bytes(NodeId target, off_t offset, void* dst, size_t len) = 0;

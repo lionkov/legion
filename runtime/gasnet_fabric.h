@@ -198,6 +198,7 @@ public:
   
   // RDMA operations cannot be used with a single-node fabric!
   virtual void get_bytes(NodeId target, off_t offset, void* dst, size_t len);
+  virtual void put_bytes(NodeId target, off_t offset, const void* src, size_t len);
   virtual void* get_regmem_ptr();
   virtual void wait_for_rdmas();
   virtual size_t get_regmem_size_in_mb();
@@ -233,9 +234,5 @@ protected:
   std::condition_variable shutdown_cond;
   char* regmem_base = 0;
 };
-
-
-
-
 
 #endif // GASNET_FABRIC_H

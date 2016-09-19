@@ -16,7 +16,10 @@
    Error codes:
 
 */
-Fabric* fabric = NULL;
+
+//#ifndef USE_GASNET
+//Fabric* fabric = NULL;
+//#endif // USE_GASNET
 
 void print_strided(void* buf, int linesz, int linecnt, int stride) {
   assert(stride != 0); 
@@ -47,12 +50,37 @@ int FabTester::init(std::vector<std::string> cmdline, bool manually_set_addresse
     std::cout << "ERROR -- failed to parse command line options" << std::endl;
     exit(1);
   }
+
+  Realm::CoreMap* core_map;
+  Realm::CoreReservationSet* core_reservations;
+#ifdef USE_GASNET
+  bool hyperthread_sharing = false;
+  core_map = Realm::CoreMap::discover_core_map(hyperthread_sharing);
+  core_reservations = new Realm::CoreReservationSet(core_map);
+#endif USE_GASNET
+
   
   add_message_types();
   bool ret;
 
-  Realm::CoreReservationSet bogus_cores;
-  ret = fabric->init(0, NULL, bogus_cores);
+  ret = fabric->init(argc, (const char**) argv, *core_reservations);
+
+#ifdef USE_GASNET // TODO -- move me into init()
+  unsigned active_msg_worker_threads = 1;
+  unsigned active_msg_handler_threads = 1;
+  size_t stack_size_in_mb = 2;
+  cp.add_option_int("-ll:amsg", active_msg_worker_threads)
+    .add_option_int("-ll:ahandlers", active_msg_handler_threads)
+    .add_option_int("-ll:stacksize", stack_size_in_mb);
+  start_polling_threads(active_msg_worker_threads);
+  start_handler_threads(active_msg_handler_threads,
+			*core_reservations,
+			stack_size_in_mb << 20); 
+#endif
+#ifdef USE_GASNET
+	dynamic_cast<GasnetFabric*>(fabric)->set_up_regmem();
+#endif
+
   
   if (!ret) {
     std::cout << "ERROR -- Fabric init failed." << std::endl;
@@ -70,27 +98,25 @@ void FabTester::add_message_types() {
   #else
   FabricMessageAdder<FabFabric> message_adder;
   #endif
-  message_adder.add_message_type<1, TestMessageType>(fabric,
-						     new TestMessageType(),
-						     "Test Message");
-  message_adder.add_message_type<2, TestPayloadMessageType>(fabric,
-							    new TestPayloadMessageType(),
-							    "Test Payload Message");
-  message_adder.add_message_type<3, TestTwoDPayloadMessageType>(fabric,
-								new TestTwoDPayloadMessageType(),
-								"Test 2D Payload Message");
-  message_adder.add_message_type<4, TestArglessTwoDPayloadMessageType>(fabric,
-								       new TestArglessTwoDPayloadMessageType(),
-								       "Test Argless 2D Payload Message");
-  message_adder.add_message_type<5, TestSpanPayloadMessageType>(fabric,
-								new TestSpanPayloadMessageType(),
-								"Test Span Payload Message");
-  message_adder.add_message_type<6, PingPongMessageType>(fabric,
-							 new PingPongMessageType(),
-							 "Ping Pong Message");
-  message_adder.add_message_type<7, PingPongAckType>(fabric,
-						     new PingPongAckType(),
-						     "Ping Pong Ack");
+  
+  message_adder.add_message_type<TEST_MSGID, TestMessageType>(fabric,
+							      new TestMessageType(),
+							      "Test Message");
+  message_adder.add_message_type<TEST_PAYLOAD_MSGID, TestPayloadMessageType>(fabric,
+									     new TestPayloadMessageType(),
+									     "Test Payload Message");  
+  message_adder.add_message_type<TEST_TWOD_MSGID, TestTwoDPayloadMessageType>(fabric,
+									      new TestTwoDPayloadMessageType(),
+									      "Test 2D Payload Message");
+  message_adder.add_message_type<TEST_SPAN_MSGID, TestSpanPayloadMessageType>(fabric,
+									      new TestSpanPayloadMessageType(),
+									      "Test Span Payload Message");
+  message_adder.add_message_type<TEST_PINGPONG_MSGID, PingPongMessageType>(fabric,
+									   new PingPongMessageType(),
+									   "Ping Pong Message");
+  message_adder.add_message_type<TEST_PINGPONG_ACK_MSGID, PingPongAckType>(fabric,
+									   new PingPongAckType(),
+									   "Ping Pong Ack");
 }
 
 /*
@@ -121,7 +147,7 @@ int FabTester::run() {
   } else {
     std::cout << "test_message_pingpong -- OK" << std::endl;    
   }
-  /*
+  
   std::cout << std::endl << std::endl << "running: test_gather" << std::endl;
   if (test_gather(100) != 0) {
     errors += 1;
@@ -154,7 +180,6 @@ int FabTester::run() {
   } else {
     std::cout << "test_rdma -- OK" << std::endl;    
   }
-  */
   
   // Wait for all other RTs to complete, then shut down
   std::cout << "Starting shutdown barrier" << std::endl;
@@ -183,10 +208,9 @@ int FabTester::test_rdma(int runs) {
   sprintf(msg, "RDMA from Node %d", fabric->get_id());
 
   // Put own string in everyone else's memory
+  
   for (NodeId target=0; target<fabric->get_num_nodes(); ++target) {
-    // Not all fabrics have put_bytes -- gotta case
-    FabFabric* cast_fabric = dynamic_cast<FabFabric*>(fabric);
-    cast_fabric->put_bytes(target, 50*fabric->get_id(), msg, 50);
+    fabric->put_bytes(target, 50*fabric->get_id(), msg, 50);
   }
 
   // Synchronize...
@@ -486,7 +510,6 @@ void TestMessageType::request(Message* m) {
 void TestPayloadMessageType::request(Message* m) {
   std::cout << "TestPayloadMessageType::request called" << std::endl;
   RequestArgs* args = (RequestArgs*) m->get_arg_ptr();
-  std::cout << "Args: " << args->string << std::endl;
   std::cout << "Payload: " << (char*) m->payload->ptr()
 	    << std::endl << std::endl;
 }
@@ -498,12 +521,6 @@ void TestTwoDPayloadMessageType::request(Message* m) {
   std::cout << "linesize: " << args->linesz << "\n"
 	    << "linecnt: " << args->linecnt << "\n"
 	    << "stride: " << args->stride << std::endl;
-  std::cout << "Payload: " << (char*) m->payload->ptr()
-	    << std::endl << std::endl;
-}
-
-void TestArglessTwoDPayloadMessageType::request(Message* m) {
-  std::cout << "TestArglessTwoDPayloadMessageType::request called" << std::endl;
   std::cout << "Payload: " << (char*) m->payload->ptr()
 	    << std::endl << std::endl;
 }

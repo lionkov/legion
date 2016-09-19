@@ -155,6 +155,11 @@ void GasnetFabric::get_bytes(NodeId target, off_t offset, void* dst, size_t len)
   gasnet_get(dst, target, srcptr, len);
 }
 
+void GasnetFabric::put_bytes(NodeId target, off_t offset, const void* src, size_t len) {
+  void* dstptr = ((char*) regmem_base) + offset;
+  gasnet_put(target, dstptr, (void*) src, len);
+}
+
 void* GasnetFabric::get_regmem_ptr() {
   assert((reg_mem_size_in_mb > 0) && "Error -- can't get regmem ptr, no registered memory was created.");
   return regmem_base;

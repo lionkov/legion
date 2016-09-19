@@ -1464,7 +1464,7 @@ namespace Realm {
       // if we don't have a destination pointer, we need to use the LMB, which
       //  may require chopping this request into pieces
       char *pos = (char *)data;
-      size_t max_xfer_size = fabric->get_max_send();
+      size_t max_xfer_size = fabric->get_max_send(mem);
       int count = 1;
       if(!dstptr) {
 
@@ -1522,7 +1522,7 @@ namespace Realm {
     //  may require chopping this request into pieces
     int count = 1;
     char *pos = (char *)data;
-    size_t max_xfer_size = fabric->get_max_send();
+    size_t max_xfer_size = fabric->get_max_send(mem);
 #ifdef USE_FABRIC
     size_t max_lines_per_xfer = std::min(max_xfer_size / line_len,
 					 fabric->get_iov_limit(REMOTE_WRITE_MSGID));
@@ -1589,7 +1589,7 @@ namespace Realm {
     // if we don't have a destination pointer, we need to use the LMB, which
     //  may require chopping this request into pieces
     if (!dstptr) { 
-      size_t max_xfer_size = fabric->get_max_send();  
+      size_t max_xfer_size = fabric->get_max_send(mem);  
       if(datalen > max_xfer_size) {
 	log_copy.info("breaking large send into pieces");
       
@@ -1694,7 +1694,7 @@ namespace Realm {
     size_t field_size = serdez_op->sizeof_field_type;
     log_copy.debug("sending remote serdez request: mem=" IDFMT ", offset=%zd, size=%zdx%zd, serdez_id=%d",
 		   mem.id, offset, field_size, count, serdez_id);
-    size_t max_xfer_size = fabric->get_max_send();
+    size_t max_xfer_size = fabric->get_max_send(mem);
     // create a intermediate buf with same size as max_xfer_size
     char* buffer_start = (char*) malloc(max_xfer_size);
     const char *pos = (const char *)data;
@@ -1752,7 +1752,7 @@ namespace Realm {
 
     // TODO -- fabric should get destination transfer size
     NodeId dest = ID(mem).memory.owner_node;
-    size_t max_xfer_size = fabric->get_max_send();
+    size_t max_xfer_size = fabric->get_max_send(mem);
     size_t max_elmts_per_xfer = std::min(max_xfer_size / rhs_size,
 					 fabric->get_iov_limit(REMOTE_WRITE_MSGID));
       

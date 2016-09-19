@@ -1,5 +1,7 @@
 #include "fabric_libfabric.h"
 
+//Fabric* fabric = NULL;
+
 FabFabric::FabFabric() : id(0),
 			 num_nodes(1),
 			 max_send(1024*1024),

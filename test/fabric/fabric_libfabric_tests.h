@@ -19,21 +19,12 @@
 #include <string>
 #include <vector>
 #include "fabric.h"
-#define USE_GASNET
 #ifdef USE_GASNET
-#include "activemsg.h"
 #include "gasnet_fabric.h"
 #endif
 #include "libfabric/fabric_libfabric.h"
 #include "cmdline.h"
-
-
-// Bogus CoreReservationSet so I don't have to compile in main Legion files
-namespace Realm {
-  class CoreReservationSet {
-  };
-};
-
+#include "threads.h"
 
 void print_strided(void* buf, int linesz, int linecnt, int stride);
 size_t fill_spans(SpanList& sl);
@@ -68,13 +59,12 @@ protected:
 class TestMessageType : public MessageType {
 public: 
   TestMessageType()
-    : MessageType(1, /* msgId */
+    : MessageType(TEST_MSGID, /* msgId */
 		  sizeof(RequestArgs),
 		  false, /* has payload */
 		  true /*in order */ ){ }
   
   struct RequestArgs {
-    RequestArgs() { }
     char string[64];
   };
 
@@ -84,7 +74,7 @@ public:
 class TestMessage : public Message {
 public:
   TestMessage(NodeId dest, char* s)
-    : Message(dest, 1, &args, NULL) {
+    : Message(dest, TEST_MSGID, &args, NULL) {
     strncpy(args.string, s, 64);
   }
 
@@ -92,15 +82,18 @@ public:
 };
 
 
-class TestPayloadMessageType : public MessageType {
+class TestPayloadMessageType : public PayloadMessageType {
 public: 
   TestPayloadMessageType()
-    : MessageType(2, /* msgId */
-		  sizeof(RequestArgs),
-		  true, /* has payload */
-		  true /*in order */ ){ }
-  struct RequestArgs {
-    char string[64];
+    : PayloadMessageType(TEST_PAYLOAD_MSGID, /* msgId */
+			 sizeof(RequestArgs),
+			 true, /* has payload */
+			 true /*in order */ ) { }
+  
+  struct RequestArgs : public BaseMedium {
+    //char string[64];
+    int bogus;
+    int bogosity;
   };
   
   void request(Message* m);
@@ -109,23 +102,21 @@ public:
 class TestPayloadMessage : public Message {
 public:
   TestPayloadMessage(NodeId dest, char* s, FabPayload* payload)
-    : Message(dest, 2, &args, payload) {
-    strncpy(args.string, s, 64);
+    : Message(dest, TEST_PAYLOAD_MSGID, &args, payload) {
   }
   TestPayloadMessageType::RequestArgs args;
 };
 
 
-class TestTwoDPayloadMessageType : public MessageType {
+class TestTwoDPayloadMessageType : public PayloadMessageType {
 public: 
   TestTwoDPayloadMessageType()
-    : MessageType(3, /* msgId */
-		  sizeof(RequestArgs),
-		  true, /* has payload */
-		  true /*in order */ ){ }
+    : PayloadMessageType(TEST_TWOD_MSGID, /* msgId */
+			 sizeof(RequestArgs),
+			 true, /* has payload */
+			 true /*in order */ ){ }
 
-  struct RequestArgs {
-    RequestArgs() { }
+  struct RequestArgs : public BaseMedium {
     size_t linesz;
     size_t linecnt;
     ptrdiff_t stride;
@@ -141,7 +132,7 @@ public:
 			 size_t linecnt,
 			 ptrdiff_t stride,
 			 FabPayload* payload)
-    : Message(dest, 3, &args, payload) {
+    : Message(dest, TEST_TWOD_MSGID, &args, payload) {
     args.linesz = linesz;
     args.linecnt = linecnt;
     args.stride = stride;    
@@ -150,42 +141,16 @@ public:
   TestTwoDPayloadMessageType::RequestArgs args;
 };
 
-class TestArglessTwoDPayloadMessageType : public MessageType {
-public: 
-  TestArglessTwoDPayloadMessageType()
-    : MessageType(4, /* msgId */
-		  0,
-		  true, /* has payload */
-		  true /*in order */ ){ }
 
-  struct RequestArgs {
-    RequestArgs() { }
-  };
-
-  void request(Message* m);
-};
-
-
-class TestArglessTwoDPayloadMessage : public Message {
-public:
-  TestArglessTwoDPayloadMessage(NodeId dest, FabPayload* payload)
-    : Message(dest, 4, NULL, payload) { }
-};
-
-
-class TestSpanPayloadMessageType : public MessageType {
+class TestSpanPayloadMessageType : public PayloadMessageType {
 public: 
   TestSpanPayloadMessageType()
-    : MessageType(5, /* msgId */
-		  sizeof(RequestArgs),
-		  true, /* has payload */
-		  true /*in order */ ){ }
+    : PayloadMessageType(TEST_SPAN_MSGID, /* msgId */
+			 sizeof(RequestArgs),
+			 true, /* has payload */
+			 true /*in order */ ){ }
 
-  struct RequestArgs {
-    RequestArgs() { }
-    RequestArgs(size_t _spans, NodeId _sender)
-      : spans(_spans), sender(_sender) { }
-    
+  struct RequestArgs : public BaseMedium{
     size_t spans;
     NodeId sender;
   };
@@ -199,26 +164,23 @@ public:
 			 size_t spans,
 			 NodeId sender,
 			 FabPayload* payload)
-    : Message(dest, 5, &args, payload), args(spans, sender){ }
-
+    : Message(dest, TEST_SPAN_MSGID, &args, payload) {
+    args.spans = spans;
+    args.sender = sender;
+  }
   TestSpanPayloadMessageType::RequestArgs args;
 };
 
 
-class PingPongMessageType : public MessageType {
+class PingPongMessageType : public PayloadMessageType {
 public: 
   PingPongMessageType()
-    : MessageType(6, /* msgId */
-		  sizeof(RequestArgs),
-		  true, /* has payload */
-		  true /*in order */ ){ }
+    : PayloadMessageType(TEST_PINGPONG_MSGID, /* msgId */
+			 sizeof(RequestArgs),
+			 true, /* has payload */
+			 true /*in order */ ){ }
 
-  struct RequestArgs {
-    RequestArgs() { }
-    RequestArgs(NodeId _sender,
-		bool* _ack_table)
-      : sender(_sender),
-	ack_table(_ack_table) { }
+  struct RequestArgs : public BaseMedium {
     NodeId sender;
     bool* ack_table;
   };
@@ -229,28 +191,25 @@ public:
 class PingPongMessage : public Message {
 public:
   PingPongMessage(NodeId dest, NodeId sender, bool* ack_table, FabPayload* payload)
-    : Message(dest, 6, &args, payload),
-      args(sender, ack_table) { }
+    : Message(dest, TEST_PINGPONG_MSGID, &args, payload) {
+    args.sender = sender;
+    args.ack_table = ack_table;
+  }
 
   PingPongMessageType::RequestArgs args;
 };
 
 
 
-class PingPongAckType : public MessageType {
+class PingPongAckType : public PayloadMessageType {
 public: 
   PingPongAckType()
-    : MessageType(7, /* msgId */
-		  sizeof(RequestArgs),
-		  true, /* has payload */
-		  true /*in order */ ){ }
+    : PayloadMessageType(TEST_PINGPONG_ACK_MSGID, /* msgId */
+			 sizeof(RequestArgs),
+			 true, /* has payload */
+			 true /*in order */ ){ }
 
-  struct RequestArgs {
-    RequestArgs() { }
-    RequestArgs(NodeId _sender,
-		bool* _ack_table)
-      : sender(_sender),
-	ack_table(_ack_table) { }
+  struct RequestArgs : public BaseMedium {
     NodeId sender;
     bool* ack_table;
   };
@@ -261,8 +220,10 @@ public:
 class PingPongAck : public Message {
 public:
   PingPongAck(NodeId dest, NodeId sender, bool* ack_table, FabPayload* payload)
-    : Message(dest, 7, &args, payload),
-      args(sender, ack_table) { }
+    : Message(dest, TEST_PINGPONG_ACK_MSGID, &args, payload) {
+    args.sender = sender;
+    args.ack_table = ack_table;
+  }
 
   PingPongAckType::RequestArgs args;
 };

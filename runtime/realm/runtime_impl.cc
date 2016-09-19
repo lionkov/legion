@@ -603,7 +603,6 @@ namespace Realm {
       cp.add_option_int("-ll:gsize", gasnet_mem_size_in_mb)
 	.add_option_int("-ll:dsize", disk_mem_size_in_mb)
 	.add_option_int("-ll:dma", dma_worker_threads)
-	.add_option_int("-ll:amsg", active_msg_worker_threads)
 	.add_option_int("-ll:dummy_rsrv_ok", dummy_reservation_ok)
 	.add_option_bool("-ll:show_rsrv", show_reservations)
 	.add_option_int("-ll:ht_sharing", hyperthread_sharing)
@@ -961,11 +960,11 @@ namespace Realm {
 	// use an 'owner_node' of all 1's for this
         // SJT: actually, go back to an owner node of 0 and memory_idx of all 1's for now
 #ifndef USE_GASNET
-	assert(false && "GASNet global memory not supported by this Fabric (try compiling with USE_GASNET=1)");	
-#endif // USE_GASNET
+	assert(false && "GASNet global memory not supported by this Fabric (try compiling with USE_GASNET=1)");
+#else
 	global_memory = new GASNetMemory(ID::make_memory(0, -1U).convert<Memory>(),
-					 gasnet_mem_size_in_mb << 20);
-	
+					 gasnet_mem_size_in_mb << 20);	
+#endif // USE_GASNET
       } else { 
 	global_memory = 0;
       } 
@@ -985,7 +984,7 @@ namespace Realm {
 
       LocalCPUMemory *regmem = 0;
       if(regmem_size_in_mb > 0) {
-#ifdef USE_FABRIC
+#ifdef USE_GASNET
 	dynamic_cast<GasnetFabric*>(fabric)->set_up_regmem();
 #endif
 	char* regmem_base = (char*) fabric->get_regmem_ptr();

@@ -10,9 +10,6 @@
 #include <string>
 #include <vector>
 
-#define NUM_FABRICS 3
-
-
 //#include "fabric.h"
 //#include "libfabric/fabric_libfabric.cc"
 #include "fabric_libfabric_tests.h"
