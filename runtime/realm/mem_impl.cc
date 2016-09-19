@@ -1523,7 +1523,7 @@ namespace Realm {
     int count = 1;
     char *pos = (char *)data;
     size_t max_xfer_size = fabric->get_max_send(mem);
-#ifdef USE_FABRIC
+#ifdef USE_FABRIC // TODO -- client shouldn't need to worry about IOVs
     size_t max_lines_per_xfer = std::min(max_xfer_size / line_len,
 					 fabric->get_iov_limit(REMOTE_WRITE_MSGID));
 #else // USE_FABRIC
@@ -1753,9 +1753,13 @@ namespace Realm {
     // TODO -- fabric should get destination transfer size
     NodeId dest = ID(mem).memory.owner_node;
     size_t max_xfer_size = fabric->get_max_send(mem);
+#ifdef USE_FABRIC // TODO -- client shouldn't need to worry about IOVs
     size_t max_elmts_per_xfer = std::min(max_xfer_size / rhs_size,
 					 fabric->get_iov_limit(REMOTE_WRITE_MSGID));
-      
+#else // USE_FABRIX
+    size_t max_elmts_per_xfer = max_xfer_size / rhs_size;
+#endif // USE_FABRIC
+    
     assert(max_elmts_per_xfer > 0);
       
     if(count > max_elmts_per_xfer) {
