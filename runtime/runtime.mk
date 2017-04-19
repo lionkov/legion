@@ -341,6 +341,12 @@ endif
 # Libfabric
 ifeq ($(strip $(USE_FABRIC)),1)
 CC_FLAGS += -DUSE_FABRIC
+USE_PMI = 1
+endif
+
+ifeq ($(strip $(USE_PMI)), 1)
+CC_FLAGS += -DUSE_PMI -I/usr/include/slurm
+LEGION_LD_FLAGS += -lpmi
 endif
 
 CC_FLAGS += -std=c++11
@@ -355,7 +361,7 @@ LOW_RUNTIME_SRC += $(LG_RT_DIR)/single_node_fabric.cc
 ifeq ($(strip $(USE_GASNET)),1)	
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/gasnet_fabric.cc
 endif
-LEGION_LD_FLAGS += -L /usr/lib/x86_64-linux-gnu/ -lzmq
+LEGION_LD_FLAGS += -L /usr/lib/x86_64-linux-gnu/
 
 GPU_RUNTIME_SRC +=
 else

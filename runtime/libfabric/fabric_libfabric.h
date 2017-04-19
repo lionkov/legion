@@ -15,7 +15,9 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netdb.h>
-#include <zmq.h>
+#ifdef USE_PMI
+#include <pmi.h>
+#endif
 #include <cstring>
 #include <cerrno>
 #include <string>
@@ -139,7 +141,9 @@ protected:
   int post_tagged(MessageType* mt);
   int post_untagged();  
   bool init_fail(fi_info* hints, fi_info* qfi, const std::string message) const;
+#ifdef USE_PMI
   int setup_pmi();
+#endif
   void start_progress_threads(const int count, const size_t stack_size);
   void free_progress_threads();
   void progress(bool wait);
@@ -152,9 +156,9 @@ protected:
   static int add_address(char* first_address, int index, void* addr);
   void* exchange_addresses();
   void exchange_rdma_info();
+  int encode_addr(char *buf, int buflen, char *addr, int addrlen);
+  int decode_addr(char *buf, void *addr, int addrlen);
 
-  // Uses PMI for address exchange
-  // PMIAddressExchange pmi_exchange;
   friend class FabMessage;
     
 };

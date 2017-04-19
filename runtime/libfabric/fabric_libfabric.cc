@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "fabric_libfabric.h"
 
 //Fabric* fabric = NULL;
@@ -32,6 +33,7 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
   cp.add_option_int("-ll:rsize", regmem_size_in_mb);
 }
 
+#ifdef USE_PMI
 /* 
    FabFabric::setup_pmi()
 
@@ -44,11 +46,12 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
    Currently PMI isn't working, so just hard code these values.
 */
 
-/*
-  int FabFabric::setup_pmi() {
+int FabFabric::setup_pmi()
+{
   
   // Initialize PMI and discover other nodes
   int ret, spawned;
+  int sz, rank;
   
   ret = PMI_Init(&spawned);
 
@@ -59,22 +62,24 @@ void FabFabric::register_options(Realm::CommandLineParser &cp)
   }
   
  // Discover number of nodes, record in num_nodes
-  ret = PMI_Get_size((int*) &num_nodes);
+  ret = PMI_Get_size(&sz);
   if (ret != PMI_SUCCESS) {
-  std::cerr << "ERROR -- PMI_Get_size failed with error code " << ret << std::endl;
-  return -1;
+	std::cerr << "ERROR -- PMI_Get_size failed with error code " << ret << std::endl;
+	return -1;
   }
+  num_nodes = sz;
 
   // Discover ID of this node, record in id
-  ret = PMI_Get_rank((int*) &id);
+  ret = PMI_Get_rank(&rank);
   if (ret != PMI_SUCCESS) {
-  std::cerr << "ERROR -- PMI_Get_rank failed with error code " << ret << std::endl;
-  return -1;
+	std::cerr << "ERROR -- PMI_Get_rank failed with error code " << ret << std::endl;
+	return -1;
   }
+  id = rank;
 
-  return 1;
-  }
-*/
+  return 0;
+}
+#endif
 
 /*
   FabFabric::init():
@@ -98,13 +103,17 @@ bool FabFabric::init(int argc, const char** argv, Realm::CoreReservationSet& cor
 
   int ret;
 
+#ifdef USE_PMI
   // QUERY PMI
-  /*
     ret = setup_pmi();
     if (ret != 0) {
-    std::cerr << "ERROR -- could not query PMI to determine network properties" << std::endl;
-    return false;
-    }*/
+	std::cerr << "ERROR -- could not query PMI to determine network properties" << std::endl;
+	return false;
+    }
+#else
+    num_nodes = 1;
+    id = 0;
+#endif
 
   // Add internal message types
   FabricMessageAdder<FabFabric> message_adder;
@@ -383,7 +392,7 @@ int FabFabric::send(Message* m)
 {
   int ret, e, n;
   MessageType *mt;
-  size_t sz = 0;
+//  size_t sz = 0;
   
   mt = m->mtype;
   if (mt == NULL)
@@ -823,6 +832,48 @@ size_t FabFabric::get_iov_limit(MessageId id) {
 }
 
 
+int FabFabric::encode_addr(char *buf, int buflen, char *addr, int addrlen)
+{
+	int i, n;
+
+	if (buflen < addrlen * 2 + 1) {
+		return -1;
+	}
+
+	for(i = 0, n = 0; i < addrlen; i++) {
+		n += snprintf(buf+n, buflen-n, "%02x", (unsigned char) addr[i]);
+	}
+
+	return n;
+}
+
+int FabFabric::decode_addr(char *buf, void *addr, int addrlen)
+{
+	int i, n;
+	int buflen;
+	char s[3], *e;
+	unsigned char *a;
+
+	buflen = strlen(buf);
+	if (buflen%2 != 0 || (addrlen*2 < buflen)) {
+		return -1;
+	}
+
+	s[2] = '\0';
+	a = (unsigned char *) addr;
+	for(i = 0; i < buflen/2; i++) {
+		s[0] = buf[i*2];
+		s[1] = buf[i*2+1];
+		n = strtol(s, &e, 16);
+		if (*e != '\0')
+			return -1;
+
+		a[i] = n;
+	}
+
+	return i;
+}
+
 // Send this node's address to address exchange server;
 // wait until all other nodes have also reported. Must
 // know the total number of nodes before hand. Will find
@@ -832,76 +883,84 @@ size_t FabFabric::get_iov_limit(MessageId id) {
 // returns a pointer to the addrs array on success, or NULL
 // on failure.
 void* FabFabric::exchange_addresses() {
-  
-  int ret;
-  char* addrs = (char*) malloc(num_nodes*addrlen);
-  //single node mode, no need to exchange
-  if(num_nodes == 1) {
-    memcpy(addrs, addr, addrlen);
-    return addrs;
-  }
+	int ret, n, saddrlen;
+	char *addrs;
+	char kvsname[128];
+	char key[128];
+	char *saddr;
 
-  // Otherwise, use PMI interface
-  /*
-  ret = pmi_exchange.exchange(id, num_nodes, addr, addrs, addrlen);
-  if (ret != 0) {
-    std::cout << "ERROR -- address exchange failed" << std::endl;
-    return NULL;
-  }
-  exit(1);
-  */
-  void* context = zmq_ctx_new();
-  void* sender = zmq_socket(context, ZMQ_PUSH);
-  void* receiver = zmq_socket(context, ZMQ_PULL);
+	addrs = (char *) malloc(num_nodes * addrlen);
+	//single node mode, no need to exchange
+	// on another thought, let's exchange for now
+#ifndef USE_PMI
+	if (num_nodes == 1) {
+		memcpy(addrs, addr, addrlen);
+		return addrs;
+	}
 
-  size_t len = 256;
-  char buf[256];
-  std::cout << "My address: " << fi_av_straddr(av, addr, buf, &len) << std::endl;
+#else
+	saddrlen = addrlen * 2 + 1;
+	saddr = (char *) malloc(saddrlen);
+	saddrlen = encode_addr(saddr, saddrlen, addr, addrlen);
+	if (saddrlen < 0) {
+		fprintf(stderr, "can't encode address\n");
+		return NULL;
+	}
+	saddrlen++;	// include the trailing zero?
 
+	// Otherwise, use PMI interface
+	ret = PMI_KVS_Get_my_name(kvsname, sizeof(kvsname));
+	if (ret != PMI_SUCCESS) {
+		fprintf(stderr, "PMI_Get_my_name failed: %d\n", ret);
+		return NULL;
+	}
 
-  // Connect fan-in sender socket
-  std::stringstream sstream;
-  sstream << "tcp://" << exchange_server_host
-	  << ":" << exchange_server_send_port;
-  ret = zmq_connect(sender, sstream.str().c_str());
-  assert(ret == 0);
+	ret = PMI_KVS_Get_value_length_max(&n);
+	if (ret != PMI_SUCCESS) {
+		fprintf(stderr, "PMI_KVS_Get_value_length_max failed: %d\n", ret);
+		return NULL;
+	}
 
-  // Connect fan-out receiver socket
-  sstream.str("");
-  sstream.clear();
-  sstream << "tcp://" << exchange_server_host
-	  << ":" << exchange_server_recv_port;
-  ret = zmq_connect(receiver, sstream.str().c_str());
-  assert(ret == 0);
-  
-  // Send our Fabric address info to the server
-  ret = zmq_send(sender, addr, addrlen, 0);
-  assert(ret == addrlen);
-  
-  // Wait for the server to reply with out ID and a list of all
-  // addresses.
-  zmq_recv(receiver, addrs, addrlen*num_nodes, 0);
-  
-  // Search the received list of addresses to determine this node's ID.
-  // Is there a better way to do this? Since messages could be sent in any
-  // order, there's no way for ZMQ to associate an incoming reported address with
-  // an outgoing send
-  char* p = (char*) addrs;
-  for(int i = 0; i < num_nodes; ++i) {
-    if (memcmp(addr, p, addrlen) == 0) {
-      id = i;
-      break;
-    }
-    p += addrlen;
-  }
+	if (n < saddrlen) {
+		fprintf(stderr, "value maximum length too short: want %d has %d\n", saddrlen, n);
+		return NULL;
+	}
 
-  std::cout << "Exchanged, id assigned: " << id << std::endl;
-  
-  zmq_close(sender);
-  zmq_close(receiver);
-  zmq_ctx_destroy(context);
-  
-  return addrs;
+	snprintf(key, sizeof(key), "fabaddr%d", id);
+	ret = PMI_KVS_Put(kvsname, key, saddr);
+	if (ret != PMI_SUCCESS) {
+		fprintf(stderr, "PMI_KVS_Put failed: %d\n", ret);
+		return NULL;
+	}
+
+	ret = PMI_KVS_Commit(kvsname);
+	if (ret != PMI_SUCCESS) {
+		fprintf(stderr, "PMI_KVS_Commit failed: %d\n", ret);
+		return NULL;
+	}
+
+	ret = PMI_Barrier();
+	if (ret != PMI_SUCCESS) {
+		fprintf(stderr, "PMI_Barrier failed: %d\n", ret);
+		return NULL;
+	}
+
+	for(n = 0; n < num_nodes; n++) {
+		snprintf(key, sizeof(key), "fabaddr%d", n);
+		ret = PMI_KVS_Get(kvsname, key, saddr, saddrlen);
+		if (ret != PMI_SUCCESS) {
+			fprintf(stderr, "PMI_KVS_Get failed: %d\n", ret);
+			return NULL;
+		}
+
+		if (decode_addr(saddr, &addrs[n * addrlen], addrlen) < 0) {
+			fprintf(stderr, "can't decode address\n");
+			return NULL;
+		}
+	}
+#endif
+
+	return addrs;
 }
 
 // Dump the parameters of this Fabric to a string
